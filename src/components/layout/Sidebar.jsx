@@ -1,36 +1,58 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth'
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  FileText, 
-  Receipt, 
-  MessageSquare, 
-  Bell, 
-  BookOpen, 
-  Calculator, 
+import { useSidebarModules } from '../../modules/users/hooks/useSidebarModules'
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  FileText,
+  Receipt,
+  MessageSquare,
+  Bell,
+  BookOpen,
+  Calculator,
   Settings,
   LogOut,
   X,
-  ChevronDown
+  HelpCircle,
+  CreditCard,
+  UserCircle
 } from 'lucide-react'
 
-const menuItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
-  { name: 'Gestión de Usuarios', icon: Users, path: '/usuarios' },
-  { name: 'Clientes', icon: Briefcase, path: '/clientes' },
-  { name: 'Facturación', icon: FileText, path: '/facturacion' },
-  { name: 'Gastos', icon: Receipt, path: '/gastos' },
-  { name: 'Mensajes', icon: MessageSquare, path: '/mensajes' },
-  { name: 'Notificaciones', icon: Bell, path: '/notificaciones' },
-  { name: 'Biblioteca', icon: BookOpen, path: '/biblioteca' },
-  { name: 'Herramientas', icon: Calculator, path: '/herramientas' },
-  { name: 'Configuración', icon: Settings, path: '/configuracion' },
+// Mapeo de nombres de iconos a componentes de Lucide
+const iconMap = {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  FileText,
+  Receipt,
+  MessageSquare,
+  Bell,
+  BookOpen,
+  Calculator,
+  Settings,
+  HelpCircle,
+  CreditCard,
+  UserCircle
+}
+
+// Items estáticos como fallback (fuente de verdad para sincronizar)
+const staticMenuItems = [
+  { name: 'Dashboard', icon: 'LayoutDashboard', path: '/', slug: 'dashboard' },
+  { name: 'Gestión de Usuarios', icon: 'Users', path: '/usuarios', slug: 'usuarios' },
+  { name: 'Clientes', icon: 'Briefcase', path: '/clientes', slug: 'clientes' },
+  { name: 'Facturación', icon: 'FileText', path: '/facturacion', slug: 'facturacion' },
+  { name: 'Gastos', icon: 'Receipt', path: '/gastos', slug: 'gastos' },
+  { name: 'Mensajes', icon: 'MessageSquare', path: '/mensajes', slug: 'mensajes' },
+  { name: 'Notificaciones', icon: 'Bell', path: '/notificaciones', slug: 'notificaciones' },
+  { name: 'Biblioteca', icon: 'BookOpen', path: '/biblioteca', slug: 'biblioteca' },
+  { name: 'Herramientas', icon: 'Calculator', path: '/herramientas', slug: 'herramientas' },
+  { name: 'Configuración', icon: 'Settings', path: '/configuracion', slug: 'configuracion' },
 ]
 
 export function Sidebar({ isOpen, onClose }) {
   const { user, signOut } = useAuth()
+  const { modules, loading: loadingModules } = useSidebarModules()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
@@ -45,18 +67,33 @@ export function Sidebar({ isOpen, onClose }) {
     return 'U'
   }
 
+  // Obtener el icono del componente
+  const getIcon = (iconName) => {
+    return iconMap[iconName] || HelpCircle
+  }
+
+  // Construir items del menú desde los módulos del usuario
+  const menuItems = modules.length > 0
+    ? modules.map(module => ({
+        name: module.name,
+        icon: module.icon,
+        path: module.route,
+        slug: module.slug
+      }))
+    : staticMenuItems // Fallback mientras carga
+
   return (
     <>
       {/* Overlay para mobile */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`
           fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-200 z-50
           flex flex-col
@@ -71,9 +108,9 @@ export function Sidebar({ isOpen, onClose }) {
             <div className="w-9 h-9 bg-violet-600 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" strokeWidth={1.5} />
             </div>
-            <span className="font-bold text-gray-900">MonotributistApp</span>
+            <span className="font-bold text-gray-900">Mimonotributo</span>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
@@ -83,35 +120,46 @@ export function Sidebar({ isOpen, onClose }) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <ul className="space-y-1">
-            {menuItems.map((item) => (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  onClick={onClose}
-                  className={({ isActive }) => `
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg
-                    transition-all duration-200 group
-                    ${isActive 
-                      ? 'bg-violet-50 text-violet-700' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }
-                  `}
-                >
-                  {({ isActive }) => (
-                    <>
-                      <item.icon 
-                        size={20} 
-                        strokeWidth={1.5}
-                        className={isActive ? 'text-violet-600' : 'text-gray-400 group-hover:text-gray-600'}
-                      />
-                      <span className="font-medium text-sm">{item.name}</span>
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          {loadingModules ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {menuItems.map((item) => {
+                const IconComponent = getIcon(item.icon)
+                return (
+                  <li key={item.path}>
+                    <NavLink
+                      to={item.path}
+                      onClick={onClose}
+                      className={({ isActive }) => `
+                        flex items-center gap-3 px-3 py-2.5 rounded-lg
+                        transition-all duration-200 group
+                        ${isActive
+                          ? 'bg-violet-50 text-violet-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        }
+                      `}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <IconComponent
+                            size={20}
+                            strokeWidth={1.5}
+                            className={isActive ? 'text-violet-600' : 'text-gray-400 group-hover:text-gray-600'}
+                          />
+                          <span className="font-medium text-sm">{item.name}</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </nav>
 
         {/* User Section */}
@@ -124,7 +172,9 @@ export function Sidebar({ isOpen, onClose }) {
               <p className="text-sm font-medium text-gray-900 truncate">
                 {user?.email || 'Usuario'}
               </p>
-              <p className="text-xs text-gray-500">Administrador</p>
+              <p className="text-xs text-gray-500">
+                {user?.user_metadata?.role || 'Usuario'}
+              </p>
             </div>
           </div>
           <button
@@ -139,3 +189,6 @@ export function Sidebar({ isOpen, onClose }) {
     </>
   )
 }
+
+// Exportar items estáticos para sincronización
+export { staticMenuItems }

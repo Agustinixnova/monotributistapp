@@ -1,7 +1,8 @@
 import { Menu, Bell } from 'lucide-react'
 import { useAuth } from '../../auth/hooks/useAuth'
+import { RenewalBadgeCompact } from '../../modules/subscriptions/components/RenewalBadge'
 
-export function Header({ onMenuClick, title = 'Dashboard' }) {
+export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
   const { user } = useAuth()
 
   const getUserInitial = () => {
@@ -27,6 +28,9 @@ export function Header({ onMenuClick, title = 'Dashboard' }) {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          {/* Badge de renovación */}
+          <RenewalBadgeCompact onClick={onRenewalClick} />
+
           {/* Notifications */}
           <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
             <Bell size={20} className="text-gray-600" />

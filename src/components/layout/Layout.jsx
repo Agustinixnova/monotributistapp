@@ -1,12 +1,24 @@
 import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { RenewalBanner } from '../../modules/subscriptions/components/RenewalBanner'
+import { RenewalModal } from '../../modules/subscriptions/components/RenewalModal'
+import { useRenewalAlert } from '../../modules/subscriptions/hooks/useRenewalAlert'
 
 export function Layout({ children, title = 'Dashboard' }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const {
+    isRenewalModalOpen,
+    openRenewalModal,
+    closeRenewalModal,
+    shouldShowBanner
+  } = useRenewalAlert()
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Banner de renovación (fijo arriba) */}
+      <RenewalBanner />
+
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -14,11 +26,12 @@ export function Layout({ children, title = 'Dashboard' }) {
       />
 
       {/* Main content area */}
-      <div className="lg:pl-64 min-h-screen flex flex-col">
+      <div className={`lg:pl-64 min-h-screen flex flex-col ${shouldShowBanner ? 'pt-14 lg:pt-16' : ''}`}>
         {/* Header */}
         <Header
           onMenuClick={() => setSidebarOpen(true)}
           title={title}
+          onRenewalClick={openRenewalModal}
         />
 
         {/* Page content */}
@@ -26,6 +39,12 @@ export function Layout({ children, title = 'Dashboard' }) {
           {children}
         </main>
       </div>
+
+      {/* Modal de renovación */}
+      <RenewalModal
+        isOpen={isRenewalModalOpen}
+        onClose={closeRenewalModal}
+      />
     </div>
   )
 }

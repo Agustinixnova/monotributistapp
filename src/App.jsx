@@ -4,6 +4,10 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { ConfiguracionPage } from './pages/ConfiguracionPage'
+import { UsersPage, RolesPage } from './modules/users/pages'
+import { AdminSubscriptionsPage } from './modules/admin/subscriptions'
+import { MiCuentaPage } from './modules/cuenta'
 
 function App() {
   return (
@@ -26,7 +30,23 @@ function App() {
             path="/usuarios"
             element={
               <ProtectedRoute>
-                <PlaceholderPage />
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/usuarios/roles"
+            element={
+              <ProtectedRoute>
+                <RolesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/configuracion/suscripciones"
+            element={
+              <ProtectedRoute>
+                <AdminSubscriptionsPage />
               </ProtectedRoute>
             }
           />
@@ -90,7 +110,15 @@ function App() {
             path="/configuracion"
             element={
               <ProtectedRoute>
-                <PlaceholderPage />
+                <ConfiguracionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mi-cuenta"
+            element={
+              <ProtectedRoute>
+                <MiCuentaPage />
               </ProtectedRoute>
             }
           />

@@ -61,7 +61,7 @@ export function Login() {
               <FileText className="w-6 h-6 text-white" strokeWidth={1.5} />
             </div>
             <span className="text-white text-xl font-bold tracking-tight">
-              MonotributistApp
+              Mimonotributo
             </span>
           </div>
         </div>
@@ -93,7 +93,7 @@ export function Login() {
         {/* Footer */}
         <div className="relative z-10">
           <p className="text-violet-200/60 text-sm">
-            © 2025 MonotributistApp. Todos los derechos reservados.
+            © 2025 Mimonotributo. Todos los derechos reservados.
           </p>
         </div>
       </div>
@@ -107,7 +107,7 @@ export function Login() {
               <FileText className="w-5 h-5 text-white" strokeWidth={1.5} />
             </div>
             <span className="text-gray-900 text-lg font-bold tracking-tight">
-              MonotributistApp
+              Mimonotributo
             </span>
           </div>
         </div>
@@ -133,7 +133,7 @@ export function Login() {
         {/* Mobile Footer */}
         <div className="lg:hidden p-6 pt-0">
           <p className="text-gray-400 text-xs text-center">
-            © 2025 MonotributistApp
+            © 2025 Mimonotributo
           </p>
         </div>
       </div>
