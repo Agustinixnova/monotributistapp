@@ -159,7 +159,7 @@ export function Sidebar({ isOpen, onClose }) {
             <div className="w-9 h-9 bg-violet-600 rounded-lg flex items-center justify-center">
               <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
             </div>
-            <span className="font-bold text-gray-900 font-heading">Mimonotributo</span>
+            <span className="font-bold font-heading"><span className="text-violet-600">Mi</span><span className="text-gray-900">monotributo</span></span>
           </div>
           <button
             onClick={onClose}

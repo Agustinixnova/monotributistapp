@@ -56,7 +56,7 @@ export function SubscriptionGate({ children, loadingComponent }) {
               <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
                 <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
-              <span className="text-xl font-bold text-white font-heading">Mimonotributo</span>
+              <span className="text-xl font-bold font-heading"><span className="text-violet-300">Mi</span><span className="text-white">monotributo</span></span>
             </div>
           </div>
         </div>

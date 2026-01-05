@@ -60,8 +60,8 @@ export function Login() {
             <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
               <ChartNoAxesCombined className="w-6 h-6 text-white" strokeWidth={2} />
             </div>
-            <span className="text-white text-xl font-bold tracking-tight font-heading">
-              Mimonotributo
+            <span className="text-xl font-bold tracking-tight font-heading">
+              <span className="text-violet-300">Mi</span><span className="text-white">monotributo</span>
             </span>
           </div>
         </div>
@@ -106,8 +106,8 @@ export function Login() {
             <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center">
               <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
             </div>
-            <span className="text-gray-900 text-lg font-bold tracking-tight font-heading">
-              Mimonotributo
+            <span className="text-lg font-bold tracking-tight font-heading">
+              <span className="text-violet-600">Mi</span><span className="text-gray-900">monotributo</span>
             </span>
           </div>
         </div>
