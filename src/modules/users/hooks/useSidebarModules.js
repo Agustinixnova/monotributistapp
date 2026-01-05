@@ -2,9 +2,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../auth/hooks/useAuth'
 
+// Roles con acceso total (ven todos los módulos)
+const FULL_ACCESS_ROLES = ['admin', 'desarrollo', 'contadora_principal', 'comunicadora']
+
 /**
  * Hook para obtener los módulos del sidebar del usuario actual
- * Combina módulos por defecto del rol + accesos adicionales
+ * - Usuarios con roles de acceso total ven TODOS los módulos
+ * - Otros usuarios: módulos por defecto del rol + accesos adicionales
  */
 export function useSidebarModules() {
   const { user } = useAuth()
@@ -26,13 +30,28 @@ export function useSidebarModules() {
       // 1. Obtener el perfil del usuario con su rol
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role_id')
+        .select('role_id, roles(name)')
         .eq('id', user.id)
         .single()
 
       if (profileError) throw profileError
 
-      // 2. Obtener módulos por defecto del rol
+      const roleName = profile.roles?.name
+
+      // 2. Si tiene rol de acceso total, obtener TODOS los módulos activos
+      if (FULL_ACCESS_ROLES.includes(roleName)) {
+        const { data: allModules, error: allModulesError } = await supabase
+          .from('modules')
+          .select('*')
+          .eq('is_active', true)
+          .order('order', { ascending: true })
+
+        if (allModulesError) throw allModulesError
+        setModules(allModules || [])
+        return
+      }
+
+      // 3. Para otros roles: obtener módulos por defecto del rol
       const { data: roleModules, error: roleModulesError } = await supabase
         .from('role_default_modules')
         .select('module_id')
@@ -40,7 +59,7 @@ export function useSidebarModules() {
 
       if (roleModulesError) throw roleModulesError
 
-      // 3. Obtener accesos adicionales del usuario
+      // 4. Obtener accesos adicionales del usuario
       const { data: userModules, error: userModulesError } = await supabase
         .from('user_module_access')
         .select('module_id')
@@ -48,7 +67,7 @@ export function useSidebarModules() {
 
       if (userModulesError) throw userModulesError
 
-      // 4. Combinar IDs de módulos (sin duplicados)
+      // 5. Combinar IDs de módulos (sin duplicados)
       const roleModuleIds = roleModules?.map(rm => rm.module_id) || []
       const userModuleIds = userModules?.map(um => um.module_id) || []
       const allModuleIds = [...new Set([...roleModuleIds, ...userModuleIds])]
@@ -59,7 +78,7 @@ export function useSidebarModules() {
         return
       }
 
-      // 5. Obtener detalles de los módulos
+      // 6. Obtener detalles de los módulos
       const { data: modulesData, error: modulesError } = await supabase
         .from('modules')
         .select('*')

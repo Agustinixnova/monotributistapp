@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Login } from './pages/Login'
@@ -8,6 +8,7 @@ import { ConfiguracionPage } from './pages/ConfiguracionPage'
 import { UsersPage, RolesPage } from './modules/users/pages'
 import { AdminSubscriptionsPage } from './modules/admin/subscriptions'
 import { MiCuentaPage } from './modules/cuenta'
+import { IdeasPage, ReportesPage } from './pages/desarrollo'
 
 function App() {
   return (
@@ -119,6 +120,35 @@ function App() {
             element={
               <ProtectedRoute>
                 <MiCuentaPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Rutas Desarrollo (solo socios) */}
+          <Route
+            path="/desarrollo"
+            element={<Navigate to="/desarrollo/ideas" replace />}
+          />
+          <Route
+            path="/desarrollo/ideas"
+            element={
+              <ProtectedRoute>
+                <IdeasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/desarrollo/reportes"
+            element={
+              <ProtectedRoute>
+                <ReportesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/desarrollo/reportes/:id"
+            element={
+              <ProtectedRoute>
+                <ReportesPage />
               </ProtectedRoute>
             }
           />

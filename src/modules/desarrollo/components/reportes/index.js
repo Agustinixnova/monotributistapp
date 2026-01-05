@@ -1,0 +1,5 @@
+export { FiltrosReporte } from './FiltrosReporte'
+export { TarjetaReporte } from './TarjetaReporte'
+export { FormReporte } from './FormReporte'
+export { ListaReportes } from './ListaReportes'
+export { ChatReporte } from './ChatReporte'
