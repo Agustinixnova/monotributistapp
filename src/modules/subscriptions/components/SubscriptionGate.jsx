@@ -1,4 +1,4 @@
-import { Crown, Lock, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Crown, Lock, AlertTriangle, RefreshCw, ChartNoAxesCombined } from 'lucide-react'
 import { useSubscriptionAccess } from '../hooks/useSubscriptionAccess'
 import { PlanSelector } from './PlanSelector'
 
@@ -54,9 +54,9 @@ export function SubscriptionGate({ children, loadingComponent }) {
           <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
-                <Crown className="w-5 h-5 text-white" strokeWidth={1.5} />
+                <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
-              <span className="text-xl font-bold text-white">Mimonotributo</span>
+              <span className="text-xl font-bold text-white font-heading">Mimonotributo</span>
             </div>
           </div>
         </div>

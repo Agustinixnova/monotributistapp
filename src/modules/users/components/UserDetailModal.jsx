@@ -1,5 +1,6 @@
 import { X, User, Mail, Phone, MessageCircle, CreditCard, Building2, MapPin, Calendar, UserCheck, UserX } from 'lucide-react'
 import { formatFullName, formatCUIT, formatPhone, formatDateTime } from '../utils/formatters'
+import { getRoleBadgeColor } from '../../../utils/roleColors'
 
 /**
  * Modal para ver detalles completos de un usuario
@@ -187,18 +188,6 @@ function DataItem({ icon: Icon, label, value }) {
       </div>
     </div>
   )
-}
-
-function getRoleBadgeColor(roleName) {
-  const colors = {
-    admin: 'bg-purple-100 text-purple-700',
-    contadora_principal: 'bg-blue-100 text-blue-700',
-    contador_secundario: 'bg-cyan-100 text-cyan-700',
-    monotributista: 'bg-green-100 text-green-700',
-    responsable_inscripto: 'bg-amber-100 text-amber-700',
-    operador_gastos: 'bg-gray-100 text-gray-700'
-  }
-  return colors[roleName] || 'bg-gray-100 text-gray-700'
 }
 
 function capitalizeFirst(str) {

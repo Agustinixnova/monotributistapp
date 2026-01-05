@@ -1,5 +1,6 @@
 import { User, Phone, Mail, Building2, MoreVertical, UserCheck, UserX } from 'lucide-react'
 import { formatFullName, formatCUIT, formatPhone } from '../utils/formatters'
+import { getRoleBadgeColor } from '../../../utils/roleColors'
 
 /**
  * Card de usuario para vista mobile
@@ -108,18 +109,6 @@ export function UserCard({ user, onEdit, onToggleActive, onViewDetails }) {
       </div>
     </div>
   )
-}
-
-function getRoleBadgeColor(roleName) {
-  const colors = {
-    admin: 'bg-purple-100 text-purple-700',
-    contadora_principal: 'bg-blue-100 text-blue-700',
-    contador_secundario: 'bg-cyan-100 text-cyan-700',
-    monotributista: 'bg-green-100 text-green-700',
-    responsable_inscripto: 'bg-amber-100 text-amber-700',
-    operador_gastos: 'bg-gray-100 text-gray-700'
-  }
-  return colors[roleName] || 'bg-gray-100 text-gray-700'
 }
 
 export default UserCard

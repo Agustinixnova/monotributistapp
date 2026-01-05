@@ -56,32 +56,93 @@ serve(async (req) => {
       )
     }
 
-    // 1. Crear usuario en auth usando Admin API
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        nombre,
-        apellido
-      }
-    })
+    let userId: string
 
-    if (authError) {
-      console.error('Error creando usuario en auth:', authError)
-      return new Response(
-        JSON.stringify({ success: false, error: `Error creando usuario: ${authError.message}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+    // 1. Verificar si el usuario ya existe en auth.users
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const existingAuthUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+
+    if (existingAuthUser) {
+      console.log('Usuario encontrado en auth.users:', existingAuthUser.id)
+
+      // Verificar si tiene perfil en profiles
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('id, is_active')
+        .eq('id', existingAuthUser.id)
+        .single()
+
+      if (existingProfile) {
+        // El usuario existe completamente
+        if (existingProfile.is_active) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Ya existe un usuario activo con este email' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          )
+        } else {
+          // Usuario existe pero está inactivo - preguntar si reactivar
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Este email pertenece a un usuario inactivo. Podés reactivarlo desde la lista de usuarios.',
+              code: 'USER_INACTIVE'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          )
+        }
+      }
+
+      // Usuario existe en auth pero NO tiene perfil (fue eliminado parcialmente)
+      // Reutilizamos el usuario de auth
+      console.log('Usuario existe en auth pero sin perfil, recreando perfil...')
+      userId = existingAuthUser.id
+
+      // Actualizar la contraseña por si cambió
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+        user_metadata: {
+          nombre,
+          apellido
+        }
+      })
+
+      if (updateError) {
+        console.error('Error actualizando usuario en auth:', updateError)
+        return new Response(
+          JSON.stringify({ success: false, error: `Error actualizando usuario: ${updateError.message}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
+
+    } else {
+      // Usuario no existe, crear nuevo en auth
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          nombre,
+          apellido
+        }
+      })
+
+      if (authError) {
+        console.error('Error creando usuario en auth:', authError)
+        return new Response(
+          JSON.stringify({ success: false, error: `Error creando usuario: ${authError.message}` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        )
+      }
+
+      userId = authData.user.id
+      console.log('Usuario creado en auth:', userId)
     }
 
-    const userId = authData.user.id
-    console.log('Usuario creado en auth:', userId)
-
-    // 2. Crear perfil
+    // 2. Crear perfil (usando upsert por si acaso)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         id: userId,
         email,
         nombre,
@@ -93,12 +154,16 @@ serve(async (req) => {
         assigned_to: assignedTo || null,
         is_active: true,
         created_by: createdBy
+      }, {
+        onConflict: 'id'
       })
 
     if (profileError) {
       console.error('Error creando perfil:', profileError)
-      // Rollback: eliminar usuario de auth
-      await supabaseAdmin.auth.admin.deleteUser(userId)
+      // Solo hacer rollback si creamos un usuario nuevo
+      if (!existingAuthUser) {
+        await supabaseAdmin.auth.admin.deleteUser(userId)
+      }
       return new Response(
         JSON.stringify({ success: false, error: `Error creando perfil: ${profileError.message}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -113,9 +178,10 @@ serve(async (req) => {
     if (fiscalData && fiscalData.cuit) {
       console.log('Creando datos fiscales para CUIT:', fiscalData.cuit)
 
+      // Usar upsert para datos fiscales también
       const { error: fiscalError } = await supabaseAdmin
         .from('client_fiscal_data')
-        .insert({
+        .upsert({
           user_id: userId,
           cuit: fiscalData.cuit,
           razon_social: fiscalData.razonSocial || null,
@@ -128,6 +194,8 @@ serve(async (req) => {
           provincia: fiscalData.provincia || null,
           regimen_iibb: fiscalData.regimenIibb || null,
           facturador_electronico: fiscalData.facturadorElectronico || null
+        }, {
+          onConflict: 'user_id'
         })
 
       if (fiscalError) {
@@ -140,7 +208,13 @@ serve(async (req) => {
       console.log('No se recibieron datos fiscales o CUIT vacío')
     }
 
-    // 4. Asignar módulos por defecto según el rol
+    // 4. Limpiar módulos anteriores si existían
+    await supabaseAdmin
+      .from('user_module_access')
+      .delete()
+      .eq('user_id', userId)
+
+    // 5. Asignar módulos por defecto según el rol
     const { data: defaultModules } = await supabaseAdmin
       .from('role_default_modules')
       .select('module_id')
@@ -161,7 +235,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         userId,
-        message: 'Usuario creado exitosamente'
+        message: existingAuthUser ? 'Usuario recuperado y perfil recreado exitosamente' : 'Usuario creado exitosamente'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

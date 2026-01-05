@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { formatDate, formatPrice } from '../../../utils/formatters'
 
 /**
  * Servicio para gestión de cuenta del usuario
@@ -157,32 +158,9 @@ export const cuentaService = {
     return data.signedUrl
   },
 
-  /**
-   * Formatea fecha en formato argentino
-   */
-  formatDate(date) {
-    if (!date) return ''
-    const dateObj = typeof date === 'string' ? new Date(date) : date
-    return new Intl.DateTimeFormat('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      timeZone: 'America/Argentina/Buenos_Aires'
-    }).format(dateObj)
-  },
-
-  /**
-   * Formatea precio en pesos argentinos
-   */
-  formatPrice(amount) {
-    if (!amount && amount !== 0) return '-'
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount)
-  }
+  // Reutilizar formatters globales
+  formatDate,
+  formatPrice
 }
 
 export default cuentaService

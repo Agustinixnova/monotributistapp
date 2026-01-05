@@ -19,6 +19,37 @@
 | **Control de versiones** | GitHub |
 | **Iconos** | Lucide React (NO emojis) |
 | **IDE** | Cursor + Claude CLI |
+| **Tipografía títulos** | Montserrat (Google Fonts) |
+| **Tipografía texto** | Open Sans (Google Fonts) |
+
+zona horaria: UTC-3  ( SIEMPRE USAR ESE TIMEZONE!!)
+
+---
+
+## 🔤 Tipografía (IMPORTANTE)
+
+| Uso | Fuente | Clase Tailwind |
+|-----|--------|----------------|
+| **Títulos** (h1-h6) | Montserrat | `font-heading` (automático en h1-h6) |
+| **Texto general** | Open Sans | `font-sans` (default) |
+| **Logo "Mimonotributo"** | Montserrat | `font-heading font-bold` |
+
+### Reglas de tipografía:
+1. Los tags `h1`, `h2`, `h3`, `h4`, `h5`, `h6` usan Montserrat automáticamente
+2. Todo el resto del texto usa Open Sans por defecto
+3. Para aplicar Montserrat a elementos que no son títulos, usar `font-heading`
+4. El logo siempre debe tener `font-heading font-bold`
+
+```jsx
+// Título (automático)
+<h1 className="text-2xl font-bold">Título con Montserrat</h1>
+
+// Texto normal (automático)
+<p>Este texto usa Open Sans</p>
+
+// Forzar Montserrat en elemento no-título
+<span className="font-heading font-semibold">Texto con Montserrat</span>
+```
 
 ---
 
@@ -122,6 +153,59 @@ Al crear o modificar un módulo:
   - `lg:` 1024px
   - `xl:` 1280px
 
+### Reglas para Capacitor/Native (IMPORTANTE)
+
+Este proyecto se convertirá a app nativa con Capacitor. Seguir estas reglas:
+
+1. **Safe Areas:** Siempre usar `pt-safe-top`, `pb-safe-bottom` en layouts principales
+   - Header: agregar `pt-safe-top`
+   - Bottom navs/footers: agregar `pb-safe-bottom`
+   - Sidebars: considerar `pl-safe-left` y `pr-safe-right`
+
+2. **URLs:** NUNCA hardcodear URLs, siempre usar variables de entorno
+   ```javascript
+   // MAL
+   const url = 'https://api.ejemplo.com'
+
+   // BIEN
+   const url = import.meta.env.VITE_API_URL
+   ```
+
+3. **Storage:** Abstraer acceso a localStorage/sessionStorage
+   - Supabase ya lo maneja internamente, no usar directamente
+   - Si se necesita storage custom, crear un servicio abstracto
+
+4. **Touch Targets:** Mínimo 44x44px para elementos interactivos
+   ```jsx
+   // Usar clases min-h-touch min-w-touch
+   <button className="min-h-touch min-w-touch p-2">...</button>
+   ```
+
+5. **Hover States:** NUNCA usar hover como única forma de interacción
+   ```jsx
+   // MAL - Solo hover
+   <div className="opacity-0 hover:opacity-100">Info</div>
+
+   // BIEN - Visible siempre o con alternativa touch
+   <div className="opacity-100 md:opacity-0 md:hover:opacity-100">Info</div>
+   ```
+
+6. **window.open():** Usar con cuidado, en Capacitor usar Browser plugin
+   ```javascript
+   // Será reemplazado por:
+   // import { Browser } from '@capacitor/browser'
+   // await Browser.open({ url })
+   ```
+
+7. **Scrolling:** Evitar scroll horizontal, usar `overflow-x-hidden` cuando sea necesario
+
+8. **Clases disponibles para safe areas:**
+   - `.safe-area-top`, `.safe-area-bottom`, `.safe-area-left`, `.safe-area-right`
+   - `.safe-area-x`, `.safe-area-y`, `.safe-area-all`
+   - Tailwind: `pt-safe-top`, `pb-safe-bottom`, etc.
+
+Ver `MOBILE_READINESS.md` para checklist completo y assets necesarios.
+
 ---
 
 ## 👥 Sistema de Roles
@@ -129,12 +213,13 @@ Al crear o modificar un módulo:
 | Rol | Descripción |
 |-----|-------------|
 | `admin` | Acceso total, configuración del sistema |
-| `contadora_principal` | Gestión de todos los clientes, asignaciones |
+| `contadora_principal` | acceso total como si fuera admin |
 | `contador_secundario` | Solo clientes asignados |
 | `monotributista` | Cliente - dashboard personal |
 | `responsable_inscripto` | Cliente RI - módulos específicos |
 | `operador_gastos` | Solo módulo de gastos |
-
+| `desarrollo` | acceso total como si fuera admin |
+| `comunicadora` | acceso total como si fuera admin |
 ---
 
 ## 🗄️ Tablas Principales de Base de Datos
@@ -199,9 +284,7 @@ supabase functions serve
 2. Si hay cambios en tablas → actualizar `SQL_tables/`
 3. Si hay edge functions → documentar en `EdgeFunctions/`
 4. Actualizar README del módulo afectado
-5. Commit con mensaje descriptivo
-6. Push a GitHub
-7. Deploy automático en Vercel
+
 
 ---
 

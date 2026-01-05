@@ -1,0 +1,91 @@
+# Cursor Rules - MonoGestión
+
+## Contexto del Proyecto
+App de gestión de monotributistas para Argentina. Stack: Vite + React + TypeScript + Tailwind v3 + Supabase + Vercel.
+
+## Reglas de Estructura
+
+### Módulos
+Cada módulo SIEMPRE debe tener esta estructura:
+```
+modules/[nombre]/
+├── components/   # Componentes React
+├── hooks/        # Custom hooks
+├── services/     # Llamadas a Supabase
+├── utils/        # Funciones auxiliares
+└── README.md     # OBLIGATORIO - Documentación
+```
+
+### Al modificar un módulo
+1. Actualizar el README.md del módulo con los cambios
+2. Incluir fecha y descripción del cambio
+
+## Reglas de Base de Datos
+
+### SQL Tables
+- Ubicación: `SQL_tables/[nombre_tabla].sql`
+- Al crear tabla: agregar archivo SQL completo
+- Al modificar: actualizar archivo existente
+- SIEMPRE actualizar `SQL_tables/README.md`
+
+### Edge Functions
+- Documentar en: `EdgeFunctions/[nombre].md`
+- Incluir: propósito, params, response, ejemplo
+
+## Reglas de Código
+
+### Iconos
+- USAR: Lucide React (`import { Icon } from 'lucide-react'`)
+- NO USAR: Emojis
+
+### Diseño
+- Mobile-first SIEMPRE
+- Tailwind CSS v3 (clases utilitarias)
+- Responsive: sm, md, lg, xl breakpoints
+- Optimizado para notebooks 14"
+
+### TypeScript
+- Tipos en `/src/types/`
+- Interfaces para props de componentes
+- Types para datos de Supabase
+
+### Naming
+- Componentes: PascalCase
+- Hooks: useNombreHook
+- Services: nombreService
+- Utils: nombreUtil
+
+## Supabase
+
+### Client
+```typescript
+import { supabase } from '@/services/supabase'
+```
+
+### Queries en services/
+```typescript
+// modules/[modulo]/services/[nombre]Service.ts
+export const getItems = async () => {
+  const { data, error } = await supabase
+    .from('tabla')
+    .select('*')
+  if (error) throw error
+  return data
+}
+```
+
+## Prompts para Claude CLI
+
+Cuando uses Claude CLI, incluye contexto:
+- Módulo en el que trabajas
+- Si creas tablas SQL mencionar estructura
+- Si hay edge functions relacionadas
+
+## Checklist Pre-Commit
+
+- [ ] README del módulo actualizado
+- [ ] SQL_tables actualizado si hubo cambios en BD
+- [ ] EdgeFunctions documentado si aplica
+- [ ] Sin console.log en producción
+- [ ] Tipos TypeScript definidos
+- [ ] Mobile responsive verificado

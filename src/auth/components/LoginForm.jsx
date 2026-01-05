@@ -179,13 +179,6 @@ export function LoginForm({ onSuccess }) {
         )}
       </button>
 
-      {/* Footer */}
-      <p className="text-center text-sm text-gray-500 pt-2">
-        ¿No tienes cuenta?{' '}
-        <a href="#" className="text-violet-600 hover:text-violet-700 font-medium hover:underline">
-          Contacta al administrador
-        </a>
-      </p>
     </form>
   )
 }

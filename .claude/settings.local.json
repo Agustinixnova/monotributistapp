@@ -18,7 +18,18 @@
       "Bash(findstr:*)",
       "Bash(npx vite --port 3000)",
       "Bash(npm uninstall:*)",
-      "Bash(npx tailwindcss:*)"
+      "Bash(npx tailwindcss:*)",
+      "Bash(npx supabase --version)",
+      "Bash(npx supabase login)",
+      "Bash(npx supabase:*)",
+      "Bash(mkdir:*)",
+      "Bash(ren app_settings.sql 20250104100001_app_settings.sql)",
+      "Bash(ren subscription_plans.sql 20250104100002_subscription_plans.sql)",
+      "Bash(ren:*)",
+      "Bash(timeout 10 npm run dev)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(del \"C:\\\\Users\\\\Agus\\\\Monotributistapp\\\\SQL_tables\\\\08_seed_data.sql\")"
     ]
   }
 }

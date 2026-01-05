@@ -23,7 +23,8 @@ import {
   Bug,
   ChevronDown,
   ChevronRight,
-  Ticket
+  Ticket,
+  ChartNoAxesCombined
 } from 'lucide-react'
 
 // Mapeo de nombres de iconos a componentes de Lucide
@@ -156,9 +157,9 @@ export function Sidebar({ isOpen, onClose }) {
         <div className="h-16 px-4 flex items-center justify-between border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-violet-600 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" strokeWidth={1.5} />
+              <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
             </div>
-            <span className="font-bold text-gray-900">Mimonotributo</span>
+            <span className="font-bold text-gray-900 font-heading">Mimonotributo</span>
           </div>
           <button
             onClick={onClose}

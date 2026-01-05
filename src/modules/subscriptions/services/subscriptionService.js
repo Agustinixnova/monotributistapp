@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { formatDate, formatPrice } from '../../../utils/formatters'
 
 /**
  * Servicio de suscripciones
@@ -167,38 +168,6 @@ function calculateDaysRemaining(endsAt) {
 function shouldShowRenewalAlert(endsAt, alertDays) {
   const daysRemaining = calculateDaysRemaining(endsAt)
   return daysRemaining > 0 && daysRemaining <= alertDays
-}
-
-/**
- * Formatea un monto a pesos argentinos
- * @param {number} amount - Monto en centavos/pesos sin decimales
- */
-function formatPrice(amount) {
-  if (amount === null || amount === undefined) return ''
-
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount)
-}
-
-/**
- * Formatea una fecha en formato dd/mm/yyyy
- * @param {string|Date} date - Fecha a formatear
- */
-function formatDate(date) {
-  if (!date) return ''
-
-  const dateObj = typeof date === 'string' ? new Date(date) : date
-
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'America/Argentina/Buenos_Aires'
-  }).format(dateObj)
 }
 
 export const subscriptionService = {

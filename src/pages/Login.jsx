@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { LoginForm } from '../auth/components/LoginForm'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useEffect } from 'react'
-import { FileText, CheckCircle2 } from 'lucide-react'
+import { ChartNoAxesCombined, CheckCircle2 } from 'lucide-react'
 
 export function Login() {
   const navigate = useNavigate()
@@ -58,9 +58,9 @@ export function Login() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-white" strokeWidth={1.5} />
+              <ChartNoAxesCombined className="w-6 h-6 text-white" strokeWidth={2} />
             </div>
-            <span className="text-white text-xl font-bold tracking-tight">
+            <span className="text-white text-xl font-bold tracking-tight font-heading">
               Mimonotributo
             </span>
           </div>
@@ -93,7 +93,7 @@ export function Login() {
         {/* Footer */}
         <div className="relative z-10">
           <p className="text-violet-200/60 text-sm">
-            © 2025 Mimonotributo. Todos los derechos reservados.
+            © 2026 Mimonotributo. Todos los derechos reservados.
           </p>
         </div>
       </div>
@@ -104,9 +104,9 @@ export function Login() {
         <div className="lg:hidden p-6 pb-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" strokeWidth={1.5} />
+              <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
             </div>
-            <span className="text-gray-900 text-lg font-bold tracking-tight">
+            <span className="text-gray-900 text-lg font-bold tracking-tight font-heading">
               Mimonotributo
             </span>
           </div>
@@ -133,7 +133,7 @@ export function Login() {
         {/* Mobile Footer */}
         <div className="lg:hidden p-6 pt-0">
           <p className="text-gray-400 text-xs text-center">
-            © 2025 Mimonotributo
+            © 2026 Mimonotributo
           </p>
         </div>
       </div>

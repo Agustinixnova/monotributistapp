@@ -1,5 +1,6 @@
 import { supabase } from '../../../../lib/supabase'
 import { invoiceStorageService } from './invoiceStorageService'
+import { formatDate, formatPrice } from '../../../../utils/formatters'
 
 /**
  * Servicio de administración de suscripciones
@@ -532,37 +533,6 @@ async function updateSubscriptionSettings(settings) {
     if (error) throw error
     return data
   }
-}
-
-// ============================================
-// HELPERS
-// ============================================
-
-/**
- * Formatea un monto a pesos argentinos
- */
-function formatPrice(amount) {
-  if (!amount && amount !== 0) return '-'
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount)
-}
-
-/**
- * Formatea una fecha en formato argentino (UTC-3)
- */
-function formatDate(date) {
-  if (!date) return ''
-  const dateObj = typeof date === 'string' ? new Date(date) : date
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'America/Argentina/Buenos_Aires'
-  }).format(dateObj)
 }
 
 export const adminSubscriptionService = {

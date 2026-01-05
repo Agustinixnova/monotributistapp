@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Shield, Plus, Edit, Trash2, AlertCircle, Users, Lock } from 'lucide-react'
 import { useRoles } from '../hooks/useRoles'
 import RoleFormModal from './RoleFormModal'
+import { getRoleColor } from '../../../utils/roleColors'
 
 /**
  * Pestaña de gestión de roles
@@ -50,19 +51,6 @@ export function RolesTab() {
   const handleCloseModal = () => {
     setShowModal(false)
     setEditingRole(null)
-  }
-
-  // Colores por rol
-  const getRoleColor = (roleName) => {
-    const colors = {
-      admin: 'bg-purple-100 text-purple-700 border-purple-200',
-      contadora_principal: 'bg-blue-100 text-blue-700 border-blue-200',
-      contador_secundario: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-      monotributista: 'bg-green-100 text-green-700 border-green-200',
-      responsable_inscripto: 'bg-amber-100 text-amber-700 border-amber-200',
-      operador_gastos: 'bg-gray-100 text-gray-700 border-gray-200'
-    }
-    return colors[roleName] || 'bg-gray-100 text-gray-700 border-gray-200'
   }
 
   if (loading) {

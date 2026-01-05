@@ -1,4 +1,5 @@
 import { Shield, Edit, Trash2, Lock, Users } from 'lucide-react'
+import { getRoleIconColor } from '../../../utils/roleColors'
 
 /**
  * Lista de roles
@@ -31,7 +32,7 @@ export function RoleList({ roles, loading, onEdit, onDelete }) {
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getRoleColor(role.name)}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getRoleIconColor(role.name)}`}>
                 <Shield className="w-5 h-5" />
               </div>
               <div>
@@ -101,18 +102,6 @@ export function RoleList({ roles, loading, onEdit, onDelete }) {
       ))}
     </div>
   )
-}
-
-function getRoleColor(roleName) {
-  const colors = {
-    admin: 'bg-purple-100 text-purple-600',
-    contadora_principal: 'bg-blue-100 text-blue-600',
-    contador_secundario: 'bg-cyan-100 text-cyan-600',
-    monotributista: 'bg-green-100 text-green-600',
-    responsable_inscripto: 'bg-amber-100 text-amber-600',
-    operador_gastos: 'bg-gray-100 text-gray-600'
-  }
-  return colors[roleName] || 'bg-gray-100 text-gray-600'
 }
 
 export default RoleList
