@@ -56,7 +56,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       descripcionActividadAfip: user?.fiscal_data?.descripcion_actividad_afip || '',
       puntoVentaAfip: user?.fiscal_data?.punto_venta_afip || '',
       notasInternasFiscales: user?.fiscal_data?.notas_internas_fiscales || '',
-      esAltaCliente: user ? true : false // Si es edicion, asumimos que ya tiene historial
+      esAltaCliente: true // Por defecto asumimos que es un alta (nuevo cliente)
     },
     historicalBilling: {
       modoHistorico: 'total',
@@ -455,7 +455,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
         )}
 
         {/* Paso 4: Facturacion Historica */}
-        {currentStep === 4 && requiresHistoricalBilling() && (
+        {currentStep === 4 && (
           <div>
             <h2 className="text-lg font-semibold mb-4">Facturacion Historica</h2>
             <HistoricalBillingForm
