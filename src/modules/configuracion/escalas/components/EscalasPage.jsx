@@ -33,9 +33,9 @@ export function EscalasPage() {
     getCategoriasPorPeriodo
   } = useCategorias()
 
-  // Verificar permisos (admin, contadora_principal y comunicadora pueden editar)
+  // Verificar permisos (roles con acceso de edicion)
   const userRole = user?.user_metadata?.role || user?.role
-  const canEdit = ['admin', 'contadora_principal', 'comunicadora'].includes(userRole)
+  const canEdit = ['admin', 'contadora_principal', 'comunicadora', 'desarrollo'].includes(userRole)
 
   const handleNuevaEscala = () => {
     // TODO: Implementar modal para cargar nueva escala completa

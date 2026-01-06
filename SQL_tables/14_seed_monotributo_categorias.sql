@@ -87,7 +87,7 @@ CREATE POLICY "Admins can update monotributo_categorias" ON public.monotributo_c
             SELECT 1 FROM public.profiles p
             JOIN public.roles r ON p.role_id = r.id
             WHERE p.id = auth.uid()
-            AND r.name IN ('admin', 'contadora_principal', 'comunicadora')
+            AND r.name IN ('admin', 'contadora_principal', 'comunicadora', 'desarrollo')
         )
     );
 
@@ -98,7 +98,7 @@ CREATE POLICY "Admins can insert monotributo_categorias" ON public.monotributo_c
             SELECT 1 FROM public.profiles p
             JOIN public.roles r ON p.role_id = r.id
             WHERE p.id = auth.uid()
-            AND r.name IN ('admin', 'contadora_principal', 'comunicadora')
+            AND r.name IN ('admin', 'contadora_principal', 'comunicadora', 'desarrollo')
         )
     );
 
