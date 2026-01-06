@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, AlertCircle, Bell, Percent, Calendar, CheckCircle } from 'lucide-react'
+import { Save, AlertCircle, Bell, Percent, Calendar, CheckCircle, FileText } from 'lucide-react'
 import { useAlertasConfig } from '../hooks/useAlertasConfig'
 
 /**
@@ -183,6 +183,33 @@ export function ConfigAlertas({ canEdit }) {
             className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
           />
           <span className="text-gray-600">dias antes</span>
+        </div>
+      </div>
+
+      {/* Alerta facturacion pendiente */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-orange-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">Facturacion pendiente</h3>
+            <p className="text-sm text-gray-500">
+              Dias antes de fin de mes para alertar si un cliente autonomo no cargo su facturacion
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="1"
+            max="15"
+            value={formData.dias_alerta_facturacion_pendiente || 5}
+            onChange={(e) => handleChange('dias_alerta_facturacion_pendiente', e.target.value)}
+            disabled={!canEdit}
+            className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
+          />
+          <span className="text-gray-600">dias antes de fin de mes</span>
         </div>
       </div>
 

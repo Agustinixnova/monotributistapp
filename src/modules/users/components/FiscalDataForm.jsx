@@ -189,6 +189,48 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
         </div>
       </div>
 
+      {/* Gestión de Facturación (solo para monotributistas) */}
+      {isMonotributista && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            ¿Quién gestiona la facturación?
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => handleChange('gestionFacturacion', 'autonomo')}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                data.gestionFacturacion === 'autonomo'
+                  ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-200'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <div className="font-medium text-gray-900">El cliente factura solo</div>
+              <div className="text-sm text-gray-500 mt-1">
+                Carga su total facturado mensual en la app
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleChange('gestionFacturacion', 'contadora')}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                data.gestionFacturacion === 'contadora' || !data.gestionFacturacion
+                  ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-200'
+                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <div className="font-medium text-gray-900">La contadora le factura</div>
+              <div className="text-sm text-gray-500 mt-1">
+                Vos cargás la facturación por él
+              </div>
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Podés cambiar esto después desde la edición del cliente
+          </p>
+        </div>
+      )}
+
       {/* Domicilio Fiscal */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">

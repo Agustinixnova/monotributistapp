@@ -46,6 +46,7 @@ export async function updateFiscalData(userId, fiscalData) {
     tipoContribuyente,
     categoriaMonotributo,
     tipoActividad,
+    gestionFacturacion,
     actividades,
     fechaInscripcionMonotributo,
     fechaInscripcionArca,
@@ -67,6 +68,7 @@ export async function updateFiscalData(userId, fiscalData) {
   if (tipoContribuyente !== undefined) updateData.tipo_contribuyente = tipoContribuyente
   if (categoriaMonotributo !== undefined) updateData.categoria_monotributo = categoriaMonotributo
   if (tipoActividad !== undefined) updateData.tipo_actividad = tipoActividad
+  if (gestionFacturacion !== undefined) updateData.gestion_facturacion = gestionFacturacion || 'contadora'
   if (actividades !== undefined) updateData.actividades = actividades
   if (fechaInscripcionMonotributo !== undefined) updateData.fecha_inscripcion_monotributo = fechaInscripcionMonotributo
   if (fechaInscripcionArca !== undefined) updateData.fecha_inscripcion_arca = fechaInscripcionArca

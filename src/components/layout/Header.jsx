@@ -1,9 +1,15 @@
+import { useState, useRef, useEffect } from 'react'
 import { Menu, Bell } from 'lucide-react'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { RenewalBadgeCompact } from '../../modules/subscriptions/components/RenewalBadge'
+import { NotificacionesDropdown, BadgeNotificaciones } from '../../modules/notificaciones/components'
+import { useNotificacionesCount } from '../../modules/notificaciones/hooks'
 
 export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
   const { user } = useAuth()
+  const [showNotificaciones, setShowNotificaciones] = useState(false)
+  const { count } = useNotificacionesCount()
+  const dropdownRef = useRef(null)
 
   const getUserInitial = () => {
     if (user?.email) {
@@ -11,6 +17,18 @@ export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
     }
     return 'U'
   }
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowNotificaciones(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 sticky top-0 z-30">
@@ -31,11 +49,20 @@ export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
           {/* Badge de renovación */}
           <RenewalBadgeCompact onClick={onRenewalClick} />
 
-          {/* Notifications */}
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-            <Bell size={20} className="text-gray-600" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          {/* Notificaciones */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowNotificaciones(!showNotificaciones)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative"
+            >
+              <Bell size={20} className="text-gray-600" />
+              <BadgeNotificaciones count={count} />
+            </button>
+
+            {showNotificaciones && (
+              <NotificacionesDropdown onClose={() => setShowNotificaciones(false)} />
+            )}
+          </div>
 
           {/* User avatar */}
           <button className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors">

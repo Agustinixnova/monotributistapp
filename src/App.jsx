@@ -10,6 +10,8 @@ import { AdminSubscriptionsPage } from './modules/admin/subscriptions'
 import { MiCuentaPage } from './modules/cuenta'
 import { IdeasPage, ReportesPage } from './pages/desarrollo'
 import { EscalasPage } from './modules/configuracion/escalas/components/EscalasPage'
+import { FacturacionPage, ClienteFacturacionDetalle } from './modules/facturacion/components'
+import { NotificacionesPage } from './modules/notificaciones/components'
 
 function App() {
   return (
@@ -72,7 +74,15 @@ function App() {
             path="/facturacion"
             element={
               <ProtectedRoute>
-                <PlaceholderPage />
+                <FacturacionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/facturacion/:clientId"
+            element={
+              <ProtectedRoute>
+                <ClienteFacturacionDetalle />
               </ProtectedRoute>
             }
           />
@@ -96,7 +106,7 @@ function App() {
             path="/notificaciones"
             element={
               <ProtectedRoute>
-                <PlaceholderPage />
+                <NotificacionesPage />
               </ProtectedRoute>
             }
           />
