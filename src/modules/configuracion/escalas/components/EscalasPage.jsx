@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Scale, Bell, History } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '../../../../components/layout/Layout'
 import { useAuth } from '../../../../auth/hooks/useAuth'
 import { useCategorias } from '../hooks/useCategorias'
+import { supabase } from '../../../../lib/supabase'
 import TablaCategorias from './TablaCategorias'
 import ConfigAlertas from './ConfigAlertas'
 import HistorialEscalas from './HistorialEscalas'
@@ -21,6 +22,7 @@ export function EscalasPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('categorias')
+  const [userRole, setUserRole] = useState(null)
 
   const {
     categorias,
@@ -33,8 +35,25 @@ export function EscalasPage() {
     getCategoriasPorPeriodo
   } = useCategorias()
 
+  // Obtener rol del usuario desde profiles
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (!user?.id) return
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('role:roles(name)')
+        .eq('id', user.id)
+        .single()
+
+      if (data?.role?.name) {
+        setUserRole(data.role.name)
+      }
+    }
+    fetchUserRole()
+  }, [user?.id])
+
   // Verificar permisos (roles con acceso de edicion)
-  const userRole = user?.user_metadata?.role || user?.role
   const canEdit = ['admin', 'contadora_principal', 'comunicadora', 'desarrollo'].includes(userRole)
 
   const handleNuevaEscala = () => {
