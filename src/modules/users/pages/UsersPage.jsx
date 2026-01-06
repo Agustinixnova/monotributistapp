@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { UserPlus, AlertCircle, Users, Shield } from 'lucide-react'
 import { useUsers } from '../hooks/useUsers'
 import { getAvailableCounters } from '../services/userService'
-import { UserList, UserFilters, UserForm, AssignCounterModal, UserDetailModal, AssignClientsModal, UserInvoiceModal, RolesTab } from '../components'
+import { UserList, UserFilters, UserForm, AssignCounterModal, UserDetailModal, AssignClientsModal, UserInvoiceModal, RolesTab, ResetPasswordModal } from '../components'
 import { Layout } from '../../../components/layout'
 
 /**
@@ -33,6 +33,8 @@ export function UsersPage() {
   const [showAssignClientsModal, setShowAssignClientsModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [selectedUserForInvoice, setSelectedUserForInvoice] = useState(null)
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false)
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState(null)
 
   // Cargar contadores para filtros
   useEffect(() => {
@@ -89,6 +91,11 @@ export function UsersPage() {
   const handleUploadInvoice = (user) => {
     setSelectedUserForInvoice(user)
     setShowInvoiceModal(true)
+  }
+
+  const handleResetPassword = (user) => {
+    setSelectedUserForPassword(user)
+    setShowResetPasswordModal(true)
   }
 
   const handleAssignCounter = async (counterId) => {
@@ -216,6 +223,7 @@ export function UsersPage() {
               onToggleActive={handleToggleActive}
               onViewDetails={handleViewDetails}
               onUploadInvoice={handleUploadInvoice}
+              onResetPassword={handleResetPassword}
             />
           </div>
         </>
@@ -270,6 +278,21 @@ export function UsersPage() {
             setShowInvoiceModal(false)
             setSelectedUserForInvoice(null)
             refetch()
+          }}
+        />
+      )}
+
+      {/* Modal de resetear contraseña */}
+      {showResetPasswordModal && selectedUserForPassword && (
+        <ResetPasswordModal
+          user={selectedUserForPassword}
+          onClose={() => {
+            setShowResetPasswordModal(false)
+            setSelectedUserForPassword(null)
+          }}
+          onSuccess={() => {
+            setShowResetPasswordModal(false)
+            setSelectedUserForPassword(null)
           }}
         />
       )}

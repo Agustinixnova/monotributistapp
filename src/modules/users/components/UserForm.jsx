@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Check, User, Briefcase, FileText, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, User, Briefcase, FileText, Settings, History } from 'lucide-react'
 import { validateUserForm, validateFiscalDataForm, validatePhone } from '../utils/validators'
 import { useRoles } from '../hooks/useRoles'
 import { getAvailableCounters } from '../services/userService'
 import RoleSelector from './RoleSelector'
 import FiscalDataForm from './FiscalDataForm'
 import ModuleAccessManager from './ModuleAccessManager'
+import HistoricalBillingForm from './HistoricalBillingForm'
 
 const STEPS = [
   { id: 1, title: 'Datos Personales', icon: User },
   { id: 2, title: 'Rol y Asignación', icon: Briefcase },
   { id: 3, title: 'Datos Fiscales', icon: FileText },
-  { id: 4, title: 'Módulos Extra', icon: Settings }
+  { id: 4, title: 'Fact. Historica', icon: History },
+  { id: 5, title: 'Módulos Extra', icon: Settings }
 ]
 
 /**
@@ -31,6 +33,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
     telefono: user?.telefono || '',
     whatsapp: user?.whatsapp || '',
     dni: user?.dni || '',
+    notasInternas: user?.notas_internas || '',
     roleId: user?.role_id || '',
     assignedTo: user?.assigned_to || '',
     fiscalData: {
@@ -39,12 +42,27 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       tipoContribuyente: user?.fiscal_data?.tipo_contribuyente || '',
       categoriaMonotributo: user?.fiscal_data?.categoria_monotributo || '',
       tipoActividad: user?.fiscal_data?.tipo_actividad || '',
+      gestionFacturacion: user?.fiscal_data?.gestion_facturacion || 'contadora',
       domicilioFiscal: user?.fiscal_data?.domicilio_fiscal || '',
       codigoPostal: user?.fiscal_data?.codigo_postal || '',
       localidad: user?.fiscal_data?.localidad || '',
       provincia: user?.fiscal_data?.provincia || '',
       regimenIibb: user?.fiscal_data?.regimen_iibb || '',
-      facturadorElectronico: user?.fiscal_data?.facturador_electronico || ''
+      numeroIibb: user?.fiscal_data?.numero_iibb || '',
+      facturadorElectronico: user?.fiscal_data?.facturador_electronico || '',
+      fechaAltaMonotributo: user?.fiscal_data?.fecha_alta_monotributo || '',
+      fechaUltimaRecategorizacion: user?.fiscal_data?.fecha_ultima_recategorizacion || '',
+      codigoActividadAfip: user?.fiscal_data?.codigo_actividad_afip || '',
+      descripcionActividadAfip: user?.fiscal_data?.descripcion_actividad_afip || '',
+      puntoVentaAfip: user?.fiscal_data?.punto_venta_afip || '',
+      notasInternasFiscales: user?.fiscal_data?.notas_internas_fiscales || '',
+      esAltaCliente: user ? true : false // Si es edicion, asumimos que ya tiene historial
+    },
+    historicalBilling: {
+      modoHistorico: 'total',
+      totalAcumulado12Meses: null,
+      facturacionMensual: null,
+      omitirHistorico: false
     },
     extraModules: user?.module_access?.map(ma => ma.module_id) || []
   })
@@ -98,6 +116,19 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
     setFormData(prev => ({ ...prev, fiscalData }))
   }
 
+  const handleHistoricalBillingChange = (historicalBilling) => {
+    setFormData(prev => ({ ...prev, historicalBilling }))
+  }
+
+  // Verificar si necesita cargar facturacion historica
+  const requiresHistoricalBilling = () => {
+    // Solo para nuevos usuarios monotributistas que NO son alta
+    if (user) return false // No mostrar en edicion
+    const role = roles.find(r => r.id === formData.roleId)
+    const isMonotributista = role?.name === 'monotributista'
+    return isMonotributista && !formData.fiscalData.esAltaCliente
+  }
+
   const validateStep = (step) => {
     switch (step) {
       case 1: {
@@ -134,32 +165,49 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
   const nextStep = () => {
     if (validateStep(currentStep)) {
       setErrors({})
+      let nextStepNum = currentStep + 1
+
       // Saltar paso 3 si no requiere datos fiscales
       if (currentStep === 2 && !requiresFiscalData()) {
-        setCurrentStep(4)
-      } else {
-        setCurrentStep(prev => Math.min(prev + 1, 4))
+        nextStepNum = 5
       }
+      // Saltar paso 4 si no requiere facturacion historica
+      else if (currentStep === 3 && !requiresHistoricalBilling()) {
+        nextStepNum = 5
+      }
+
+      setCurrentStep(Math.min(nextStepNum, 5))
     }
   }
 
   const prevStep = () => {
     setErrors({})
-    // Volver correctamente si se saltó el paso 3
-    if (currentStep === 4 && !requiresFiscalData()) {
-      setCurrentStep(2)
-    } else {
-      setCurrentStep(prev => Math.max(prev - 1, 1))
+    let prevStepNum = currentStep - 1
+
+    // Volver correctamente si se saltó el paso 4
+    if (currentStep === 5 && !requiresHistoricalBilling()) {
+      prevStepNum = requiresFiscalData() ? 3 : 2
     }
+    // Volver correctamente si se saltó el paso 3
+    else if (currentStep === 5 && !requiresFiscalData()) {
+      prevStepNum = 2
+    }
+
+    setCurrentStep(Math.max(prevStepNum, 1))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Validar todos los pasos
-    for (let i = 1; i <= 4; i++) {
-      if (!validateStep(i)) {
-        setCurrentStep(i)
+    // Validar todos los pasos relevantes
+    const stepsToValidate = [1, 2]
+    if (requiresFiscalData()) stepsToValidate.push(3)
+    if (requiresHistoricalBilling()) stepsToValidate.push(4)
+    stepsToValidate.push(5)
+
+    for (const step of stepsToValidate) {
+      if (!validateStep(step)) {
+        setCurrentStep(step)
         return
       }
     }
@@ -179,6 +227,8 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
           {STEPS.map((step, index) => {
             // Ocultar paso 3 si no requiere datos fiscales
             if (step.id === 3 && !requiresFiscalData()) return null
+            // Ocultar paso 4 si no requiere facturacion historica
+            if (step.id === 4 && !requiresHistoricalBilling()) return null
 
             const isActive = currentStep === step.id
             const isCompleted = currentStep > step.id
@@ -206,7 +256,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
                     {step.title}
                   </span>
                 </div>
-                {index < STEPS.length - 1 && step.id !== 3 && (
+                {index < STEPS.length - 1 && step.id !== 3 && step.id !== 4 && (
                   <div className={`h-1 flex-1 mx-2 ${
                     currentStep > step.id ? 'bg-green-500' : 'bg-gray-200'
                   }`} />
@@ -338,6 +388,23 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
               />
               {errors.dni && <p className="text-sm text-red-600 mt-1">{errors.dni}</p>}
             </div>
+
+            {/* Notas internas */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notas internas
+              </label>
+              <textarea
+                value={formData.notasInternas}
+                onChange={(e) => handleChange('notasInternas', e.target.value)}
+                placeholder="Observaciones internas sobre el cliente..."
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Solo visible para la contadora
+              </p>
+            </div>
           </div>
         )}
 
@@ -387,8 +454,19 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
           </div>
         )}
 
-        {/* Paso 4: Módulos Extra */}
-        {currentStep === 4 && (
+        {/* Paso 4: Facturacion Historica */}
+        {currentStep === 4 && requiresHistoricalBilling() && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Facturacion Historica</h2>
+            <HistoricalBillingForm
+              data={formData.historicalBilling}
+              onChange={handleHistoricalBillingChange}
+            />
+          </div>
+        )}
+
+        {/* Paso 5: Módulos Extra */}
+        {currentStep === 5 && (
           <div>
             <h2 className="text-lg font-semibold mb-4">Módulos Adicionales</h2>
             <p className="text-sm text-gray-500 mb-4">
@@ -421,7 +499,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
           {currentStep === 1 ? 'Cancelar' : 'Anterior'}
         </button>
 
-        {currentStep < 4 ? (
+        {currentStep < 5 ? (
           <button
             type="button"
             onClick={nextStep}

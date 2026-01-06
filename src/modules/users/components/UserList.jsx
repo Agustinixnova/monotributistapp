@@ -1,4 +1,4 @@
-import { User, Mail, Phone, Building2, UserCheck, UserX, Edit, Eye, CreditCard, FileText } from 'lucide-react'
+import { User, Mail, Phone, Building2, UserCheck, UserX, Edit, Eye, CreditCard, FileText, Key } from 'lucide-react'
 import { formatFullName, formatCUIT, formatPhone, formatDateTime, formatDate } from '../utils/formatters'
 import { getRoleBadgeColor } from '../../../utils/roleColors'
 import UserCard from './UserCard'
@@ -6,7 +6,7 @@ import UserCard from './UserCard'
 /**
  * Lista de usuarios - Tabla en desktop, Cards en mobile
  */
-export function UserList({ users, loading, onEdit, onToggleActive, onViewDetails, onUploadInvoice }) {
+export function UserList({ users, loading, onEdit, onToggleActive, onViewDetails, onUploadInvoice, onResetPassword }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -35,6 +35,7 @@ export function UserList({ users, loading, onEdit, onToggleActive, onViewDetails
             onEdit={onEdit}
             onToggleActive={onToggleActive}
             onViewDetails={onViewDetails}
+            onResetPassword={onResetPassword}
           />
         ))}
       </div>
@@ -242,6 +243,15 @@ export function UserList({ users, loading, onEdit, onToggleActive, onViewDetails
                     >
                       <Edit className="w-4 h-4" />
                     </button>
+                    {onResetPassword && (
+                      <button
+                        onClick={() => onResetPassword(user)}
+                        className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                        title="Resetear contraseña"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                    )}
                     {onUploadInvoice && (
                       <button
                         onClick={() => onUploadInvoice(user)}

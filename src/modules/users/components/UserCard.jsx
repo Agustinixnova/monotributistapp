@@ -1,11 +1,11 @@
-import { User, Phone, Mail, Building2, MoreVertical, UserCheck, UserX } from 'lucide-react'
+import { User, Phone, Mail, Building2, MoreVertical, UserCheck, UserX, Key } from 'lucide-react'
 import { formatFullName, formatCUIT, formatPhone } from '../utils/formatters'
 import { getRoleBadgeColor } from '../../../utils/roleColors'
 
 /**
  * Card de usuario para vista mobile
  */
-export function UserCard({ user, onEdit, onToggleActive, onViewDetails }) {
+export function UserCard({ user, onEdit, onToggleActive, onViewDetails, onResetPassword }) {
   const isActive = user.is_active
 
   return (
@@ -85,6 +85,13 @@ export function UserCard({ user, onEdit, onToggleActive, onViewDetails }) {
           className="flex-1 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
         >
           Editar
+        </button>
+        <button
+          onClick={() => onResetPassword?.(user)}
+          className="flex items-center justify-center gap-1 px-3 py-2 text-sm bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors"
+          title="Resetear contraseña"
+        >
+          <Key className="w-4 h-4" />
         </button>
         <button
           onClick={() => onToggleActive?.(user.id, !isActive)}

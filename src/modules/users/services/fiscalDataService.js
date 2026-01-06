@@ -59,7 +59,14 @@ export async function updateFiscalData(userId, fiscalData) {
     numeroIibb,
     tieneEmpleados,
     cantidadEmpleados,
-    facturadorElectronico
+    facturadorElectronico,
+    // Nuevos campos
+    fechaAltaMonotributo,
+    fechaUltimaRecategorizacion,
+    codigoActividadAfip,
+    descripcionActividadAfip,
+    puntoVentaAfip,
+    notasInternasFiscales
   } = fiscalData
 
   const updateData = {}
@@ -82,6 +89,13 @@ export async function updateFiscalData(userId, fiscalData) {
   if (tieneEmpleados !== undefined) updateData.tiene_empleados = tieneEmpleados
   if (cantidadEmpleados !== undefined) updateData.cantidad_empleados = cantidadEmpleados
   if (facturadorElectronico !== undefined) updateData.facturador_electronico = facturadorElectronico
+  // Nuevos campos
+  if (fechaAltaMonotributo !== undefined) updateData.fecha_alta_monotributo = fechaAltaMonotributo || null
+  if (fechaUltimaRecategorizacion !== undefined) updateData.fecha_ultima_recategorizacion = fechaUltimaRecategorizacion || null
+  if (codigoActividadAfip !== undefined) updateData.codigo_actividad_afip = codigoActividadAfip || null
+  if (descripcionActividadAfip !== undefined) updateData.descripcion_actividad_afip = descripcionActividadAfip || null
+  if (puntoVentaAfip !== undefined) updateData.punto_venta_afip = puntoVentaAfip || null
+  if (notasInternasFiscales !== undefined) updateData.notas_internas_fiscales = notasInternasFiscales || null
 
   const { data, error } = await supabase
     .from('client_fiscal_data')

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Upload, FileText, Trash2 } from 'lucide-react'
+import { X, Upload, FileText, Trash2, AlertCircle } from 'lucide-react'
 import { uploadMultipleFacturas } from '../services/storageFacturasService'
 import { getNombreMes } from '../utils/calculosFacturacion'
 
@@ -12,9 +12,13 @@ export function FormFacturacionMensual({
   userId,
   existente = null // Para edición
 }) {
-  const [tipoCarga, setTipoCarga] = useState(existente?.tipo_carga || 'total')
-  const [montoDeclarado, setMontoDeclarado] = useState(existente?.monto_declarado || '')
-  const [cantidadFacturas, setCantidadFacturas] = useState(existente?.cantidad_facturas || '')
+  const [monto, setMonto] = useState(existente?.monto || '')
+  const [esNotaCredito, setEsNotaCredito] = useState((existente?.monto || 0) < 0)
+  const [fechaCarga, setFechaCarga] = useState(
+    existente?.fecha_carga || new Date().toISOString().split('T')[0]
+  )
+  const [nota, setNota] = useState(existente?.nota || '')
+  const [cantidadComprobantes, setCantidadComprobantes] = useState(existente?.cantidad_comprobantes || '')
   const [archivos, setArchivos] = useState([])
   const [archivosExistentes, setArchivosExistentes] = useState(existente?.archivos_adjuntos || [])
   const [uploading, setUploading] = useState(false)
@@ -59,7 +63,8 @@ export function FormFacturacionMensual({
     e.preventDefault()
     setError(null)
 
-    if (!montoDeclarado || parseFloat(montoDeclarado) < 0) {
+    const montoNumerico = parseFloat(monto)
+    if (isNaN(montoNumerico) || montoNumerico === 0) {
       setError('Ingresa un monto valido')
       return
     }
@@ -77,12 +82,16 @@ export function FormFacturacionMensual({
         setUploading(false)
       }
 
+      // El monto es negativo si es nota de crédito
+      const montoFinal = esNotaCredito ? -Math.abs(montoNumerico) : Math.abs(montoNumerico)
+
       await onSave({
         anio,
         mes,
-        montoDeclarado: parseFloat(montoDeclarado),
-        cantidadFacturas: cantidadFacturas ? parseInt(cantidadFacturas) : null,
-        tipoCarga,
+        monto: montoFinal,
+        fechaCarga,
+        nota: nota || null,
+        cantidadComprobantes: cantidadComprobantes ? parseInt(cantidadComprobantes) : 0,
         archivosAdjuntos: archivosSubidos
       })
 
@@ -100,7 +109,7 @@ export function FormFacturacionMensual({
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            Cargar facturacion - {getNombreMes(mes)} {anio}
+            {existente ? 'Editar carga' : 'Nueva carga'} - {getNombreMes(mes)} {anio}
           </h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X className="w-5 h-5 text-gray-500" />
@@ -108,72 +117,104 @@ export function FormFacturacionMensual({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* Tipo de carga */}
+          {/* Tipo: Factura o Nota de Crédito */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tipo de carga
+              Tipo de comprobante
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setTipoCarga('total')}
+                onClick={() => setEsNotaCredito(false)}
                 className={`p-3 rounded-lg border-2 text-left ${
-                  tipoCarga === 'total'
+                  !esNotaCredito
                     ? 'border-violet-500 bg-violet-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="font-medium">Total del mes</div>
-                <div className="text-xs text-gray-500">Rapido y simple</div>
+                <div className="font-medium">Facturación</div>
+                <div className="text-xs text-gray-500">Suma al total</div>
               </button>
               <button
                 type="button"
-                onClick={() => setTipoCarga('detallado')}
+                onClick={() => setEsNotaCredito(true)}
                 className={`p-3 rounded-lg border-2 text-left ${
-                  tipoCarga === 'detallado'
-                    ? 'border-violet-500 bg-violet-50'
+                  esNotaCredito
+                    ? 'border-red-500 bg-red-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
-                disabled // Habilitarlo cuando se implemente
               >
-                <div className="font-medium text-gray-400">Por factura</div>
-                <div className="text-xs text-gray-400">Proximamente</div>
+                <div className="font-medium">Nota de crédito</div>
+                <div className="text-xs text-gray-500">Resta del total</div>
               </button>
             </div>
+          </div>
+
+          {/* Fecha de los comprobantes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de los comprobantes
+            </label>
+            <input
+              type="date"
+              value={fechaCarga}
+              onChange={(e) => setFechaCarga(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+            />
           </div>
 
           {/* Monto */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Total facturado en el mes *
+              Monto {esNotaCredito && <span className="text-red-500">(se restará)</span>} *
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+              <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${esNotaCredito ? 'text-red-500' : 'text-gray-500'}`}>
+                {esNotaCredito ? '-$' : '$'}
+              </span>
               <input
                 type="number"
-                value={montoDeclarado}
-                onChange={(e) => setMontoDeclarado(e.target.value)}
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
                 placeholder="0"
                 min="0"
                 step="0.01"
-                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+                className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 ${
+                  esNotaCredito
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-violet-500'
+                }`}
                 required
               />
             </div>
           </div>
 
-          {/* Cantidad de facturas */}
+          {/* Cantidad de comprobantes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cantidad de comprobantes (opcional)
             </label>
             <input
               type="number"
-              value={cantidadFacturas}
-              onChange={(e) => setCantidadFacturas(e.target.value)}
-              placeholder="Ej: 15"
+              value={cantidadComprobantes}
+              onChange={(e) => setCantidadComprobantes(e.target.value)}
+              placeholder="Ej: 5"
               min="0"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+
+          {/* Nota / Descripción */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nota o descripción (opcional)
+            </label>
+            <textarea
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              placeholder="Ej: Facturación primera quincena, NC por devolución..."
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 resize-none"
             />
           </div>
 
@@ -202,7 +243,7 @@ export function FormFacturacionMensual({
                 </label>
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                PDF, JPG, PNG (max 10MB c/u, hasta 50 archivos)
+                PDF, JPG, PNG (max 10MB c/u)
               </p>
             </div>
 
@@ -215,7 +256,7 @@ export function FormFacturacionMensual({
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600 truncate max-w-[200px]">
-                        {archivo.fileName || 'Archivo'}
+                        {archivo.nombre || archivo.fileName || 'Archivo'}
                       </span>
                     </div>
                     <button
@@ -260,7 +301,8 @@ export function FormFacturacionMensual({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
           )}
@@ -277,7 +319,11 @@ export function FormFacturacionMensual({
             <button
               type="submit"
               disabled={saving || uploading}
-              className="flex-1 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
+              className={`flex-1 px-4 py-2 text-white rounded-lg disabled:opacity-50 ${
+                esNotaCredito
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-violet-600 hover:bg-violet-700'
+              }`}
             >
               {uploading ? 'Subiendo archivos...' : saving ? 'Guardando...' : 'Guardar'}
             </button>

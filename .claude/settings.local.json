@@ -29,7 +29,13 @@
       "Bash(timeout 10 npm run dev)",
       "Bash(wc:*)",
       "Bash(grep:*)",
-      "Bash(del \"C:\\\\Users\\\\Agus\\\\Monotributistapp\\\\SQL_tables\\\\08_seed_data.sql\")"
+      "Bash(del \"C:\\\\Users\\\\Agus\\\\Monotributistapp\\\\SQL_tables\\\\08_seed_data.sql\")",
+      "Bash(find:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(npx vite:*)",
+      "Bash(node:*)",
+      "Bash(git reset HEAD -- \"src/utils/ACTIVIDADES_ECONOMICAS_F883 - Acceso directo.lnk\" nul)"
     ]
   }
 }

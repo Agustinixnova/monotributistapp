@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { getAcumulado12Meses, getUltimoMesCargado } from '../services/facturacionService'
+import { getAcumulado12Meses, getResumenesCliente } from '../services/resumenService'
 
 export function useResumenClientes() {
   const [clientes, setClientes] = useState([])
@@ -56,9 +56,10 @@ export function useResumenClientes() {
         clientesData.map(async (cliente) => {
           try {
             const acumulado = await getAcumulado12Meses(cliente.id)
-            const ultimoMes = await getUltimoMesCargado(cliente.id)
+            const resumenes = await getResumenesCliente(cliente.id, 1) // Solo el último
+            const ultimoMes = resumenes.length > 0 ? resumenes[0] : null
             const tope = topesPorCategoria[cliente.categoria_monotributo] || 0
-            const porcentaje = tope > 0 ? (acumulado.total / tope) * 100 : 0
+            const porcentaje = tope > 0 ? (acumulado.neto / tope) * 100 : 0
 
             let estadoAlerta = 'ok'
             if (porcentaje >= umbralExclusion) estadoAlerta = 'exclusion'
@@ -74,7 +75,7 @@ export function useResumenClientes() {
 
             return {
               ...cliente,
-              acumulado12Meses: acumulado.total,
+              acumulado12Meses: acumulado.neto,
               tope,
               porcentaje,
               estadoAlerta,

@@ -220,6 +220,35 @@ Ver `MOBILE_READINESS.md` para checklist completo y assets necesarios.
 | `operador_gastos` | Solo módulo de gastos |
 | `desarrollo` | acceso total como si fuera admin |
 | `comunicadora` | acceso total como si fuera admin |
+
+### Funciones RLS para verificar roles (IMPORTANTE)
+
+Al crear políticas RLS en nuevas tablas, **SIEMPRE usar estas funciones** en lugar de hardcodear roles:
+
+| Función | Roles que incluye | Uso |
+|---------|-------------------|-----|
+| `is_full_access()` | admin, contadora_principal, desarrollo, comunicadora | Acceso total al sistema |
+| `is_contador()` | admin, contadora_principal, contador_secundario, desarrollo, comunicadora | Acceso de contadores |
+| `is_admin()` | Igual que is_full_access() | Alias de is_full_access() |
+| `get_user_role()` | Retorna el nombre del rol | Para lógica específica |
+
+```sql
+-- CORRECTO: Usar funciones centralizadas
+CREATE POLICY "ejemplo_update" ON public.mi_tabla
+    FOR UPDATE USING (public.is_full_access());
+
+CREATE POLICY "ejemplo_select" ON public.mi_tabla
+    FOR SELECT USING (public.is_contador());
+
+-- INCORRECTO: NO hardcodear roles
+CREATE POLICY "ejemplo_malo" ON public.mi_tabla
+    FOR UPDATE USING (
+        public.get_user_role() IN ('admin', 'contadora_principal')  -- NO HACER ESTO
+    );
+```
+
+**Regla:** Si necesitás agregar un nuevo rol con acceso total, solo hay que modificar `is_full_access()` en lugar de buscar en todas las políticas.
+
 ---
 
 ## 🗄️ Tablas Principales de Base de Datos

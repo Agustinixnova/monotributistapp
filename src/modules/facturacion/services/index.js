@@ -1,2 +1,4 @@
 export * from './facturacionService'
 export * from './storageFacturasService'
+export * from './cargasService'
+export * from './resumenService'

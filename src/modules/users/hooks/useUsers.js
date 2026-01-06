@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getUsers, getUserById, createUser, updateUser, toggleUserActive } from '../services/userService'
+import { getFiscalDataByUserId } from '../services/fiscalDataService'
+import { createHistoricalBilling } from '../../facturacion/services/cargasService'
 
 /**
  * Hook para gestión de usuarios
@@ -33,6 +35,25 @@ export function useUsers(initialFilters = {}) {
       setLoading(true)
       setError(null)
       const result = await createUser(userData)
+
+      // Si hay datos historicos de facturacion, crearlos
+      if (userData.historicalBilling && !userData.historicalBilling.omitirHistorico) {
+        try {
+          // Obtener el ID del client_fiscal_data recien creado
+          const fiscalData = await getFiscalDataByUserId(result.userId)
+          if (fiscalData) {
+            await createHistoricalBilling(
+              fiscalData.id,
+              userData.historicalBilling,
+              result.userId // El usuario recien creado como "cargado por" (o podria ser el admin actual)
+            )
+          }
+        } catch (histErr) {
+          console.error('Error creando facturacion historica:', histErr)
+          // No lanzar error para no bloquear la creacion del usuario
+        }
+      }
+
       await fetchUsers()
       return result
     } catch (err) {

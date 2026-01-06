@@ -1,55 +1,108 @@
 import { supabase } from '../../../lib/supabase'
 
 /**
- * Servicio de facturación mensual
+ * Servicio de facturacion mensual
+ * NUEVO MODELO: Usa client_facturacion_cargas y client_facturacion_mensual_resumen
  */
 
-// Obtener facturación mensual de un cliente
-export async function getFacturacionCliente(clientId, limit = 12) {
+// Obtener todas las cargas de un cliente (ordenadas por fecha)
+export async function getFacturacionCliente(clientId, limit = 50) {
   const { data, error } = await supabase
-    .from('client_facturacion_mensual')
+    .from('client_facturacion_cargas')
     .select(`
       *,
-      cargado_por_profile:profiles!cargado_por(nombre, apellido),
-      revisado_por_profile:profiles!revisado_por(nombre, apellido)
+      cargado_por_profile:profiles!cargado_por(nombre, apellido)
     `)
     .eq('client_id', clientId)
     .order('anio', { ascending: false })
     .order('mes', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) throw error
   return data
 }
 
-// Obtener facturación de un mes específico
+// Obtener cargas de un mes especifico (multiples registros)
 export async function getFacturacionMes(clientId, anio, mes) {
   const { data, error } = await supabase
-    .from('client_facturacion_mensual')
+    .from('client_facturacion_cargas')
     .select(`
       *,
-      facturas_detalle:client_facturas_detalle(*)
+      cargado_por_profile:profiles!cargado_por(nombre, apellido)
     `)
     .eq('client_id', clientId)
     .eq('anio', anio)
     .eq('mes', mes)
-    .single()
+    .order('fecha_emision', { ascending: true })
+    .order('created_at', { ascending: true })
 
-  if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-  return data
+  if (error) throw error
+  return data || []
 }
 
-// Crear facturación mensual
+// Obtener totales agrupados por mes (desde la tabla resumen)
+export async function getTotalesPorMes(clientId, meses = 12) {
+  // Obtener resumenes desde la tabla de resumenes
+  const { data: resumenes, error: errorResumenes } = await supabase
+    .from('client_facturacion_mensual_resumen')
+    .select('anio, mes, total_neto, total_facturas, total_notas_credito, total_notas_debito, cantidad_comprobantes')
+    .eq('client_id', clientId)
+    .order('anio', { ascending: false })
+    .order('mes', { ascending: false })
+
+  if (errorResumenes) throw errorResumenes
+
+  // Inicializar ultimos N meses con 0
+  const totalesPorMes = {}
+  const hoy = new Date()
+
+  for (let i = 0; i < meses; i++) {
+    const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1)
+    const key = `${fecha.getFullYear()}-${fecha.getMonth() + 1}`
+    totalesPorMes[key] = {
+      anio: fecha.getFullYear(),
+      mes: fecha.getMonth() + 1,
+      total: 0,
+      cantidadCargas: 0,
+      cantidadComprobantes: 0
+    }
+  }
+
+  // Llenar con datos de resumenes
+  for (const resumen of resumenes || []) {
+    const key = `${resumen.anio}-${resumen.mes}`
+    if (totalesPorMes[key]) {
+      totalesPorMes[key].total = parseFloat(resumen.total_neto || 0)
+      totalesPorMes[key].cantidadCargas = 1 // Al menos hay cargas si hay resumen
+      totalesPorMes[key].cantidadComprobantes = resumen.cantidad_comprobantes || 0
+    }
+  }
+
+  // Convertir a array ordenado
+  return Object.values(totalesPorMes).sort((a, b) => {
+    if (a.anio !== b.anio) return b.anio - a.anio
+    return b.mes - a.mes
+  })
+}
+
+// Crear una nueva carga de facturacion (compatible con el modelo anterior)
 export async function createFacturacionMensual(data) {
   const { data: result, error } = await supabase
-    .from('client_facturacion_mensual')
+    .from('client_facturacion_cargas')
     .insert({
       client_id: data.clientId,
       anio: data.anio,
       mes: data.mes,
-      monto_declarado: data.montoDeclarado,
-      cantidad_facturas: data.cantidadFacturas || 0,
-      tipo_carga: data.tipoCarga || 'total',
+      fecha_emision: data.fechaCarga || new Date().toISOString().split('T')[0],
+      tipo_comprobante: data.tipoComprobante || 'FC',
+      letra_comprobante: data.letraComprobante || 'C',
+      monto: Math.abs(data.monto),
+      cantidad_comprobantes: data.cantidadComprobantes || 1,
+      receptor_tipo: data.receptorTipo || 'consumidor_final',
+      receptor_razon_social: data.receptorRazonSocial || null,
+      receptor_cuit: data.receptorCuit || null,
+      nota: data.nota || null,
       archivos_adjuntos: data.archivosAdjuntos || [],
       cargado_por: data.cargadoPor
     })
@@ -60,32 +113,20 @@ export async function createFacturacionMensual(data) {
   return result
 }
 
-// Actualizar facturación mensual
+// Actualizar una carga de facturacion
 export async function updateFacturacionMensual(id, data) {
   const updateData = {}
 
-  if (data.montoDeclarado !== undefined) updateData.monto_declarado = data.montoDeclarado
-  if (data.montoAjustado !== undefined) updateData.monto_ajustado = data.montoAjustado
-  if (data.cantidadFacturas !== undefined) updateData.cantidad_facturas = data.cantidadFacturas
+  if (data.monto !== undefined) updateData.monto = Math.abs(data.monto)
+  if (data.fechaCarga !== undefined) updateData.fecha_emision = data.fechaCarga
+  if (data.cantidadComprobantes !== undefined) updateData.cantidad_comprobantes = data.cantidadComprobantes
+  if (data.nota !== undefined) updateData.nota = data.nota
   if (data.archivosAdjuntos !== undefined) updateData.archivos_adjuntos = data.archivosAdjuntos
-  if (data.estadoRevision !== undefined) {
-    updateData.estado_revision = data.estadoRevision
-    if (data.estadoRevision === 'revisado' || data.estadoRevision === 'observado') {
-      updateData.revisado_por = data.revisadoPor
-      updateData.revisado_at = new Date().toISOString()
-    }
-  }
-  if (data.notaRevision !== undefined) updateData.nota_revision = data.notaRevision
-  if (data.estado !== undefined) {
-    updateData.estado = data.estado
-    if (data.estado === 'cerrado') {
-      updateData.cerrado_por = data.cerradoPor
-      updateData.cerrado_at = new Date().toISOString()
-    }
-  }
+  if (data.tipoComprobante !== undefined) updateData.tipo_comprobante = data.tipoComprobante
+  if (data.letraComprobante !== undefined) updateData.letra_comprobante = data.letraComprobante
 
   const { data: result, error } = await supabase
-    .from('client_facturacion_mensual')
+    .from('client_facturacion_cargas')
     .update(updateData)
     .eq('id', id)
     .select()
@@ -95,10 +136,10 @@ export async function updateFacturacionMensual(id, data) {
   return result
 }
 
-// Eliminar facturación mensual
+// Eliminar una carga de facturacion
 export async function deleteFacturacionMensual(id) {
   const { error } = await supabase
-    .from('client_facturacion_mensual')
+    .from('client_facturacion_cargas')
     .delete()
     .eq('id', id)
 
@@ -106,31 +147,29 @@ export async function deleteFacturacionMensual(id) {
   return true
 }
 
-// Obtener acumulado de 12 meses
+// Obtener acumulado de 12 meses (desde tabla resumen)
 export async function getAcumulado12Meses(clientId) {
-  // Calcular fecha de hace 12 meses
   const hoy = new Date()
   const hace12Meses = new Date(hoy.getFullYear(), hoy.getMonth() - 11, 1)
   const anioInicio = hace12Meses.getFullYear()
   const mesInicio = hace12Meses.getMonth() + 1
 
   const { data, error } = await supabase
-    .from('client_facturacion_mensual')
-    .select('monto_declarado, monto_ajustado, anio, mes')
+    .from('client_facturacion_mensual_resumen')
+    .select('total_neto, total_facturas, total_notas_credito, total_notas_debito, cantidad_comprobantes, anio, mes')
     .eq('client_id', clientId)
     .or(`anio.gt.${anioInicio},and(anio.eq.${anioInicio},mes.gte.${mesInicio})`)
 
   if (error) throw error
 
-  // Sumar usando monto_ajustado si existe, sino monto_declarado
+  // Sumar todos los totales netos
   const total = (data || []).reduce((sum, item) => {
-    const monto = item.monto_ajustado ?? item.monto_declarado ?? 0
-    return sum + parseFloat(monto)
+    return sum + parseFloat(item.total_neto || 0)
   }, 0)
 
   return {
     total,
-    meses: data || [],
+    cargas: data || [],
     periodoDesde: `${mesInicio}/${anioInicio}`,
     periodoHasta: `${hoy.getMonth() + 1}/${hoy.getFullYear()}`
   }
@@ -154,16 +193,16 @@ export async function getResumenTodosClientes() {
 
   if (errorClientes) throw errorClientes
 
-  // Para cada cliente, obtener su acumulado y último mes
+  // Para cada cliente, obtener su acumulado y última carga
   const clientesConResumen = await Promise.all(
     clientes.map(async (cliente) => {
       const acumulado = await getAcumulado12Meses(cliente.id)
-      const ultimoMes = await getUltimoMesCargado(cliente.id)
+      const ultimaCarga = await getUltimaCarga(cliente.id)
 
       return {
         ...cliente,
         acumulado12Meses: acumulado.total,
-        ultimoMesCargado: ultimoMes
+        ultimaCarga
       }
     })
   )
@@ -171,14 +210,13 @@ export async function getResumenTodosClientes() {
   return clientesConResumen
 }
 
-// Obtener último mes cargado
-export async function getUltimoMesCargado(clientId) {
+// Obtener última carga (sin importar el mes)
+export async function getUltimaCarga(clientId) {
   const { data, error } = await supabase
-    .from('client_facturacion_mensual')
+    .from('client_facturacion_cargas')
     .select('*')
     .eq('client_id', clientId)
-    .order('anio', { ascending: false })
-    .order('mes', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .single()
 
@@ -187,7 +225,7 @@ export async function getUltimoMesCargado(clientId) {
 }
 
 // =============================================
-// Facturas Detalle
+// Facturas Detalle (se mantiene para carga detallada)
 // =============================================
 
 export async function createFacturaDetalle(data) {

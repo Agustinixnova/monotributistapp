@@ -4,7 +4,10 @@ Este directorio contiene la documentacion de las Edge Functions de Supabase.
 
 ## Funciones Disponibles
 
-*Actualmente no hay edge functions implementadas.*
+| Funcion | Descripcion | Documentacion |
+|---------|-------------|---------------|
+| `create-user` | Crea un usuario con perfil y datos fiscales | [create-user.md](./create-user.md) |
+| `reset-password` | Resetea la contraseña de un usuario | [reset-password.md](./reset-password.md) |
 
 ## Estructura de Documentacion
 
@@ -70,4 +73,4 @@ npx supabase functions deploy nombre_funcion
 
 ## Ultima Actualizacion
 
-2025-01-04 - Creacion inicial (sin funciones implementadas)
+2026-01-06 - Agregada funcion reset-password

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { updateFiscalData, createFiscalData, getFiscalDataByUserId } from './fiscalDataService'
 
 /**
  * Servicio para gestión de usuarios
@@ -219,7 +220,7 @@ export async function createUser(userData) {
  * @param {Object} userData - Datos a actualizar
  */
 export async function updateUser(id, userData) {
-  const { nombre, apellido, telefono, whatsapp, dni, roleId, assignedTo, notasInternas } = userData
+  const { nombre, apellido, telefono, whatsapp, dni, roleId, assignedTo, notasInternas, fiscalData } = userData
 
   const updateData = {}
   if (nombre !== undefined) updateData.nombre = nombre
@@ -239,6 +240,46 @@ export async function updateUser(id, userData) {
     .single()
 
   if (error) throw error
+
+  // Actualizar datos fiscales si existen
+  if (fiscalData && Object.keys(fiscalData).length > 0) {
+    try {
+      // Verificar si ya tiene datos fiscales
+      const existingFiscalData = await getFiscalDataByUserId(id)
+
+      if (existingFiscalData) {
+        // Actualizar datos fiscales existentes
+        await updateFiscalData(id, fiscalData)
+      } else if (fiscalData.cuit) {
+        // Crear datos fiscales si tiene CUIT
+        await createFiscalData({
+          user_id: id,
+          cuit: fiscalData.cuit,
+          razon_social: fiscalData.razonSocial || null,
+          tipo_contribuyente: fiscalData.tipoContribuyente || null,
+          categoria_monotributo: fiscalData.categoriaMonotributo || null,
+          tipo_actividad: fiscalData.tipoActividad || null,
+          gestion_facturacion: fiscalData.gestionFacturacion || 'contadora',
+          domicilio_fiscal: fiscalData.domicilioFiscal || null,
+          codigo_postal: fiscalData.codigoPostal || null,
+          localidad: fiscalData.localidad || null,
+          provincia: fiscalData.provincia || null,
+          regimen_iibb: fiscalData.regimenIibb || null,
+          numero_iibb: fiscalData.numeroIibb || null,
+          fecha_alta_monotributo: fiscalData.fechaAltaMonotributo || null,
+          fecha_ultima_recategorizacion: fiscalData.fechaUltimaRecategorizacion || null,
+          codigo_actividad_afip: fiscalData.codigoActividadAfip || null,
+          descripcion_actividad_afip: fiscalData.descripcionActividadAfip || null,
+          punto_venta_afip: fiscalData.puntoVentaAfip || null,
+          notas_internas_fiscales: fiscalData.notasInternasFiscales || null
+        })
+      }
+    } catch (fiscalError) {
+      console.error('Error actualizando datos fiscales:', fiscalError)
+      // No lanzar error para no bloquear la actualización del perfil
+    }
+  }
+
   return data
 }
 
@@ -277,4 +318,44 @@ export async function getAvailableCounters() {
 
   if (error) throw error
   return data
+}
+
+/**
+ * Resetea la contraseña de un usuario
+ * @param {string} userId - UUID del usuario
+ * @param {string} newPassword - Nueva contraseña (mínimo 6 caracteres)
+ */
+export async function resetUserPassword(userId, newPassword) {
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    throw new Error('No hay sesión activa. Por favor, volvé a iniciar sesión.')
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-password`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ userId, newPassword })
+    }
+  )
+
+  let data
+  try {
+    const text = await response.text()
+    data = JSON.parse(text)
+  } catch (e) {
+    throw new Error('Error de conexión con el servidor')
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Error al resetear contraseña')
+  }
+
+  return { success: true, message: data.message }
 }

@@ -1,3 +1,5 @@
 export { useFacturacionMensual } from './useFacturacionMensual'
 export { useResumenClientes } from './useResumenClientes'
 export { useClienteFiscal } from './useClienteFiscal'
+export { useCargas } from './useCargas'
+export { useFacturacionCliente } from './useFacturacionCliente'
