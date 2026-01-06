@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Scale, Bell, History } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { Layout } from '../../../../components/layout/Layout'
 import { useAuth } from '../../../../auth/hooks/useAuth'
 import { useCategorias } from '../hooks/useCategorias'
 import TablaCategorias from './TablaCategorias'
@@ -42,29 +43,25 @@ export function EscalasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/configuracion')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 font-heading">Escalas Monotributo</h1>
-              <p className="text-sm text-gray-500">Categorias, valores y configuracion de alertas</p>
-            </div>
+    <Layout>
+      <div className="p-4 md:p-6">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => navigate('/configuracion')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 font-heading">Escalas Monotributo</h1>
+            <p className="text-sm text-gray-500">Categorias, valores y configuracion de alertas</p>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto">
+        {/* Tabs */}
+        <div className="bg-white border border-gray-200 rounded-t-xl">
+          <div className="flex gap-1 overflow-x-auto px-2">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
@@ -86,40 +83,40 @@ export function EscalasPage() {
             })}
           </div>
         </div>
+
+        {/* Content */}
+        <div className="bg-white border border-t-0 border-gray-200 rounded-b-xl p-4 md:p-6">
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              {error}
+            </div>
+          )}
+
+          {activeTab === 'categorias' && (
+            <TablaCategorias
+              categorias={categorias}
+              fechaVigencia={fechaVigencia}
+              loading={loading}
+              onUpdate={updateCategoria}
+              onNuevaEscala={handleNuevaEscala}
+              canEdit={canEdit}
+            />
+          )}
+
+          {activeTab === 'alertas' && (
+            <ConfigAlertas canEdit={canEdit} />
+          )}
+
+          {activeTab === 'historial' && (
+            <HistorialEscalas
+              historial={historial}
+              loading={loading}
+              onVerDetalle={getCategoriasPorPeriodo}
+            />
+          )}
+        </div>
       </div>
-
-      {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        )}
-
-        {activeTab === 'categorias' && (
-          <TablaCategorias
-            categorias={categorias}
-            fechaVigencia={fechaVigencia}
-            loading={loading}
-            onUpdate={updateCategoria}
-            onNuevaEscala={handleNuevaEscala}
-            canEdit={canEdit}
-          />
-        )}
-
-        {activeTab === 'alertas' && (
-          <ConfigAlertas canEdit={canEdit} />
-        )}
-
-        {activeTab === 'historial' && (
-          <HistorialEscalas
-            historial={historial}
-            loading={loading}
-            onVerDetalle={getCategoriasPorPeriodo}
-          />
-        )}
-      </div>
-    </div>
+    </Layout>
   )
 }
 
