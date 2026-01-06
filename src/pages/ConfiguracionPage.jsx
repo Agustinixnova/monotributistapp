@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout'
-import { Settings, CreditCard, User, Bell, Shield, Palette } from 'lucide-react'
+import { Settings, CreditCard, User, Bell, Shield, Palette, Scale } from 'lucide-react'
 
 const configItems = [
   {
@@ -9,6 +9,13 @@ const configItems = [
     icon: CreditCard,
     path: '/configuracion/suscripciones',
     color: 'bg-blue-100 text-blue-600'
+  },
+  {
+    name: 'Escalas Monotributo',
+    description: 'Categorias, valores y configuración de alertas',
+    icon: Scale,
+    path: '/configuracion/escalas',
+    color: 'bg-emerald-100 text-emerald-600'
   },
   {
     name: 'Mi Perfil',

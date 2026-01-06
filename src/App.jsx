@@ -9,6 +9,7 @@ import { UsersPage, RolesPage } from './modules/users/pages'
 import { AdminSubscriptionsPage } from './modules/admin/subscriptions'
 import { MiCuentaPage } from './modules/cuenta'
 import { IdeasPage, ReportesPage } from './pages/desarrollo'
+import { EscalasPage } from './modules/configuracion/escalas/components/EscalasPage'
 
 function App() {
   return (
@@ -48,6 +49,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminSubscriptionsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/configuracion/escalas"
+            element={
+              <ProtectedRoute>
+                <EscalasPage />
               </ProtectedRoute>
             }
           />
