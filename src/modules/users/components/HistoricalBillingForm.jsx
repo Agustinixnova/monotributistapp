@@ -127,23 +127,54 @@ export function HistoricalBillingForm({ data, onChange }) {
 
       {/* Formulario segun modo */}
       {modo === 'total' && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Total facturado en los ultimos 12 meses
-          </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Total facturado en los ultimos 12 meses
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+              <input
+                type="text"
+                value={data.totalAcumulado12Meses || ''}
+                onChange={(e) => handleTotalChange(e.target.value)}
+                placeholder="0.00"
+                className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 text-lg font-mono"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Este monto se usara para calcular el acumulado del cliente
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de corte
+            </label>
             <input
-              type="text"
-              value={data.totalAcumulado12Meses || ''}
-              onChange={(e) => handleTotalChange(e.target.value)}
-              placeholder="0.00"
-              className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 text-lg font-mono"
+              type="date"
+              value={data.fechaCorte || ''}
+              onChange={(e) => onChange({ ...data, fechaCorte: e.target.value })}
+              max={new Date().toISOString().split('T')[0]}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Fecha hasta la cual aplica este monto historico
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nota interna (opcional)
+            </label>
+            <textarea
+              value={data.notaHistorico || ''}
+              onChange={(e) => onChange({ ...data, notaHistorico: e.target.value })}
+              placeholder="Ej: Datos provistos por el cliente, pendiente verificar..."
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 resize-none"
             />
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Este monto se distribuira proporcionalmente en los ultimos 12 meses
-          </p>
         </div>
       )}
 

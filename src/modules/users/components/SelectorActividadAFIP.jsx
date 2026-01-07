@@ -110,7 +110,7 @@ export function SelectorActividadAFIP({
       <div className="flex gap-2">
         <div className="flex-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Codigo actividad AFIP
+            Codigo actividad ARCA
           </label>
           <div className="relative">
             <input
@@ -170,7 +170,7 @@ export function SelectorActividadAFIP({
       {/* Mensaje de error */}
       {!isValid && codigoInput && (
         <p className="text-sm text-red-600">
-          Codigo no encontrado en el nomenclador AFIP
+          Codigo no encontrado en el nomenclador ARCA
         </p>
       )}
 
@@ -184,7 +184,7 @@ export function SelectorActividadAFIP({
             <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-900">
-                  Buscar actividad AFIP
+                  Buscar actividad ARCA
                 </h3>
                 <button
                   onClick={() => setShowModal(false)}

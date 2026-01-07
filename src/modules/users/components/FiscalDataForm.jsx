@@ -1,27 +1,75 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, Info } from 'lucide-react'
+import {
+  ChevronDown, ChevronUp, Info, Building2, CreditCard,
+  Shield, Users, MapPin, FileText, AlertTriangle
+} from 'lucide-react'
 import { validateCUIT } from '../utils/validators'
 import { formatCUIT } from '../utils/formatters'
 import { SelectorActividadAFIP } from './SelectorActividadAFIP'
 
 const PROVINCIAS = [
-  'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba',
-  'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
-  'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan',
+  'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Cordoba',
+  'Corrientes', 'Entre Rios', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
+  'Mendoza', 'Misiones', 'Neuquen', 'Rio Negro', 'Salta', 'San Juan',
   'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero',
-  'Tierra del Fuego', 'Tucumán'
+  'Tierra del Fuego', 'Tucuman'
 ]
 
 const CATEGORIAS_MONOTRIBUTO = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 
+const METODOS_PAGO = [
+  { value: 'debito_automatico', label: 'Debito automatico' },
+  { value: 'vep', label: 'VEP (Volante Electronico de Pago)' },
+  { value: 'mercadopago', label: 'Mercado Pago' },
+  { value: 'efectivo', label: 'Efectivo / Rapipago / PagoFacil' },
+  { value: 'otro', label: 'Otro' }
+]
+
+const ESTADOS_PAGO = [
+  { value: 'al_dia', label: 'Al dia', color: 'green' },
+  { value: 'debe_1_cuota', label: 'Debe 1 cuota', color: 'yellow' },
+  { value: 'debe_2_mas', label: 'Debe 2+ cuotas', color: 'red' },
+  { value: 'desconocido', label: 'No se', color: 'gray' }
+]
+
 /**
- * Formulario de datos fiscales
- * @param {string} roleName - Nombre del rol seleccionado (monotributista, responsable_inscripto)
+ * Seccion colapsable
+ */
+function SeccionColapsable({ titulo, icono: Icon, children, defaultOpen = true, iconColor = 'text-violet-600' }) {
+  const [abierto, setAbierto] = useState(defaultOpen)
+
+  return (
+    <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setAbierto(!abierto)}
+        className="w-full p-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Icon className={`w-5 h-5 ${iconColor}`} />
+          <span className="font-medium text-gray-900">{titulo}</span>
+        </div>
+        {abierto ? (
+          <ChevronUp className="w-5 h-5 text-gray-400" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-gray-400" />
+        )}
+      </button>
+      {abierto && (
+        <div className="p-4 space-y-4">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Formulario de datos fiscales reorganizado
  */
 export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
   const [cuitFormatted, setCuitFormatted] = useState(data.cuit ? formatCUIT(data.cuit) : '')
 
-  // Auto-establecer tipo de contribuyente según el rol
   useEffect(() => {
     if (roleName && !data.tipoContribuyente) {
       const tipoContribuyente = roleName === 'monotributista' ? 'monotributista' : 'responsable_inscripto'
@@ -32,8 +80,6 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
   const handleCuitChange = (e) => {
     const value = e.target.value.replace(/[^0-9-]/g, '')
     setCuitFormatted(value)
-
-    // Guardar sin guiones
     const cleanCuit = value.replace(/-/g, '')
     onChange({ ...data, cuit: cleanCuit })
   }
@@ -51,133 +97,185 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
   const isMonotributista = data.tipoContribuyente === 'monotributista'
 
   return (
-    <div className="space-y-6">
-      {/* CUIT */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          CUIT *
-        </label>
-        <input
-          type="text"
-          value={cuitFormatted}
-          onChange={handleCuitChange}
-          onBlur={handleCuitBlur}
-          placeholder="XX-XXXXXXXX-X"
-          maxLength={13}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-            errors.cuit ? 'border-red-500' : 'border-gray-300'
-          }`}
-        />
-        {errors.cuit && <p className="text-sm text-red-600 mt-1">{errors.cuit}</p>}
-        {data.cuit && data.cuit.length === 11 && !validateCUIT(data.cuit) && (
-          <p className="text-sm text-amber-600 mt-1 flex items-center gap-1">
-            <Info className="w-4 h-4" />
-            El CUIT ingresado no es válido
-          </p>
-        )}
-      </div>
-
-      {/* Razón Social */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Razón Social / Nombre de Fantasía
-        </label>
-        <input
-          type="text"
-          value={data.razonSocial || ''}
-          onChange={(e) => handleChange('razonSocial', e.target.value)}
-          placeholder="Ej: Juan Pérez o Mi Negocio"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Tipo de Contribuyente - Solo lectura cuando viene del rol */}
-      {roleName ? (
+    <div className="space-y-4">
+      {/* SECCION 1: IDENTIFICACION FISCAL */}
+      <SeccionColapsable titulo="Identificacion Fiscal" icono={Building2} defaultOpen={true}>
+        {/* CUIT */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tipo de Contribuyente
+            CUIT *
           </label>
-          <div className="p-3 rounded-lg border-2 border-blue-500 bg-blue-50 text-blue-700 text-center font-medium">
-            {isMonotributista ? 'Monotributista' : 'Responsable Inscripto'}
-          </div>
-        </div>
-      ) : (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tipo de Contribuyente *
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleChange('tipoContribuyente', 'monotributista')}
-              className={`p-3 rounded-lg border-2 text-center transition-colors ${
-                isMonotributista
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              Monotributista
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChange('tipoContribuyente', 'responsable_inscripto')}
-              className={`p-3 rounded-lg border-2 text-center transition-colors ${
-                data.tipoContribuyente === 'responsable_inscripto'
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              Resp. Inscripto
-            </button>
-          </div>
-          {errors.tipoContribuyente && (
-            <p className="text-sm text-red-600 mt-1">{errors.tipoContribuyente}</p>
+          <input
+            type="text"
+            value={cuitFormatted}
+            onChange={handleCuitChange}
+            onBlur={handleCuitBlur}
+            placeholder="XX-XXXXXXXX-X"
+            maxLength={13}
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500 ${
+              errors.cuit ? 'border-red-500' : 'border-gray-300'
+            }`}
+          />
+          {errors.cuit && <p className="text-sm text-red-600 mt-1">{errors.cuit}</p>}
+          {data.cuit && data.cuit.length === 11 && !validateCUIT(data.cuit) && (
+            <p className="text-sm text-amber-600 mt-1 flex items-center gap-1">
+              <Info className="w-4 h-4" />
+              El CUIT ingresado no es valido
+            </p>
           )}
         </div>
-      )}
 
-      {/* Categoría Monotributo (solo si es monotributista) */}
-      {isMonotributista && (
+        {/* Razon Social */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Categoria Monotributo *
+            Razon Social / Nombre de Fantasia
           </label>
-          <div className="relative">
-            <select
-              value={data.categoriaMonotributo || ''}
-              onChange={(e) => handleChange('categoriaMonotributo', e.target.value)}
-              className={`w-full px-4 py-2 border rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500 ${
-                errors.categoriaMonotributo ? 'border-red-500' : 'border-gray-300'
-              }`}
-            >
-              <option value="">Seleccionar categoria</option>
-              {CATEGORIAS_MONOTRIBUTO.map(cat => (
-                <option key={cat} value={cat}>Categoria {cat}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-          </div>
-          {errors.categoriaMonotributo && (
-            <p className="text-sm text-red-600 mt-1">{errors.categoriaMonotributo}</p>
-          )}
+          <input
+            type="text"
+            value={data.razonSocial || ''}
+            onChange={(e) => handleChange('razonSocial', e.target.value)}
+            placeholder="Ej: Juan Perez o Mi Negocio"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+          />
         </div>
-      )}
 
-      {/* Fechas importantes para Monotributo */}
-      {isMonotributista && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Tipo de Contribuyente */}
+        {roleName ? (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha alta Monotributo
+              Tipo de Contribuyente
+            </label>
+            <div className="p-3 rounded-lg border-2 border-violet-500 bg-violet-50 text-violet-700 text-center font-medium">
+              {isMonotributista ? 'Monotributista' : 'Responsable Inscripto'}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Contribuyente *
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleChange('tipoContribuyente', 'monotributista')}
+                className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                  isMonotributista
+                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Monotributista
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange('tipoContribuyente', 'responsable_inscripto')}
+                className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                  data.tipoContribuyente === 'responsable_inscripto'
+                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Resp. Inscripto
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Fecha alta monotributo */}
+        {isMonotributista && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha alta en Monotributo
             </label>
             <input
               type="date"
               value={data.fechaAltaMonotributo || ''}
               onChange={(e) => handleChange('fechaAltaMonotributo', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
             />
-            <p className="text-xs text-gray-400 mt-1">Para control de topes 12 meses</p>
+            <p className="text-xs text-gray-400 mt-1">Importante para calcular los 12 meses de tope</p>
           </div>
+        )}
+      </SeccionColapsable>
+
+      {/* SECCION 2: CATEGORIA Y ACTIVIDAD (solo monotributistas) */}
+      {isMonotributista && (
+        <SeccionColapsable titulo="Categoria y Actividad" icono={FileText} iconColor="text-blue-600">
+          {/* Categoria actual */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoria actual *
+            </label>
+            <div className="relative">
+              <select
+                value={data.categoriaMonotributo || ''}
+                onChange={(e) => handleChange('categoriaMonotributo', e.target.value)}
+                className={`w-full px-4 py-2 border rounded-lg appearance-none bg-white focus:ring-2 focus:ring-violet-500 ${
+                  errors.categoriaMonotributo ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                <option value="">Seleccionar categoria</option>
+                {CATEGORIAS_MONOTRIBUTO.map(cat => (
+                  <option key={cat} value={cat}>Categoria {cat}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+            {errors.categoriaMonotributo && (
+              <p className="text-sm text-red-600 mt-1">{errors.categoriaMonotributo}</p>
+            )}
+          </div>
+
+          {/* Categoria anterior (colapsable) */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.tuvoCategoriaAnterior || false}
+                onChange={(e) => handleChange('tuvoCategoriaAnterior', e.target.checked)}
+                className="mt-1 w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+              />
+              <div>
+                <span className="font-medium text-gray-900">Tuvo otra categoria antes</span>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Marcar si el cliente se recategorizo recientemente
+                </p>
+              </div>
+            </label>
+
+            {data.tuvoCategoriaAnterior && (
+              <div className="mt-3 pt-3 border-t border-amber-200 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Categoria anterior
+                  </label>
+                  <select
+                    value={data.categoriaAnterior || ''}
+                    onChange={(e) => handleChange('categoriaAnterior', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="">Seleccionar</option>
+                    {CATEGORIAS_MONOTRIBUTO.map(cat => (
+                      <option key={cat} value={cat}>Cat. {cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha del cambio
+                  </label>
+                  <input
+                    type="date"
+                    value={data.fechaCambioCategoria || ''}
+                    onChange={(e) => handleChange('fechaCambioCategoria', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Ultima recategorizacion */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Ultima recategorizacion
@@ -186,185 +284,408 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
               type="date"
               value={data.fechaUltimaRecategorizacion || ''}
               onChange={(e) => handleChange('fechaUltimaRecategorizacion', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
             />
           </div>
-        </div>
-      )}
 
-      {/* Tipo de Actividad */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tipo de Actividad
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { value: 'servicios', label: 'Servicios' },
-            { value: 'productos', label: 'Productos' },
-            { value: 'ambos', label: 'Ambos' }
-          ].map(option => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => handleChange('tipoActividad', option.value)}
-              className={`p-2 text-sm rounded-lg border-2 transition-colors ${
-                data.tipoActividad === option.value
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Codigo de actividad AFIP con buscador */}
-      <SelectorActividadAFIP
-        codigo={data.codigoActividadAfip || ''}
-        descripcion={data.descripcionActividadAfip || ''}
-        onSelect={(codigo, descripcion) => {
-          onChange({
-            ...data,
-            codigoActividadAfip: codigo,
-            descripcionActividadAfip: descripcion
-          })
-        }}
-      />
-
-      {/* Punto de venta AFIP (solo si factura solo) */}
-      {isMonotributista && data.gestionFacturacion === 'autonomo' && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Punto de venta AFIP
-          </label>
-          <input
-            type="number"
-            value={data.puntoVentaAfip || ''}
-            onChange={(e) => handleChange('puntoVentaAfip', e.target.value ? parseInt(e.target.value) : null)}
-            placeholder="Ej: 1"
-            min="1"
-            max="99999"
-            className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
-          />
-          <p className="text-xs text-gray-400 mt-1">Numero de punto de venta para facturacion electronica</p>
-        </div>
-      )}
-
-      {/* Gestión de Facturación (solo para monotributistas) */}
-      {isMonotributista && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            ¿Quién gestiona la facturación?
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleChange('gestionFacturacion', 'autonomo')}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                data.gestionFacturacion === 'autonomo'
-                  ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-200'
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <div className="font-medium text-gray-900">El cliente factura solo</div>
-              <div className="text-sm text-gray-500 mt-1">
-                Carga su total facturado mensual en la app
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChange('gestionFacturacion', 'contadora')}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                data.gestionFacturacion === 'contadora' || !data.gestionFacturacion
-                  ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-200'
-                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <div className="font-medium text-gray-900">La contadora le factura</div>
-              <div className="text-sm text-gray-500 mt-1">
-                Vos cargás la facturación por él
-              </div>
-            </button>
-          </div>
-          <p className="text-xs text-gray-400 mt-2">
-            Podés cambiar esto después desde la edición del cliente
-          </p>
-        </div>
-      )}
-
-      {/* Domicilio Fiscal */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Domicilio Fiscal
-        </label>
-        <input
-          type="text"
-          value={data.domicilioFiscal || ''}
-          onChange={(e) => handleChange('domicilioFiscal', e.target.value)}
-          placeholder="Calle, número, piso, depto"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Localidad, CP y Provincia */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Localidad
-          </label>
-          <input
-            type="text"
-            value={data.localidad || ''}
-            onChange={(e) => handleChange('localidad', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Código Postal
-          </label>
-          <input
-            type="text"
-            value={data.codigoPostal || ''}
-            onChange={(e) => handleChange('codigoPostal', e.target.value)}
-            maxLength={8}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Provincia
-          </label>
-          <div className="relative">
-            <select
-              value={data.provincia || ''}
-              onChange={(e) => handleChange('provincia', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Seleccionar</option>
-              {PROVINCIAS.map(prov => (
-                <option key={prov} value={prov}>{prov}</option>
+          {/* Tipo de Actividad */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de Actividad
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {['servicios', 'productos', 'ambos'].map(tipo => (
+                <button
+                  key={tipo}
+                  type="button"
+                  onClick={() => handleChange('tipoActividad', tipo)}
+                  className={`p-2 rounded-lg border-2 text-center text-sm transition-colors capitalize ${
+                    data.tipoActividad === tipo
+                      ? 'border-violet-500 bg-violet-50 text-violet-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {tipo}
+                </button>
               ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Régimen IIBB */}
-      <div className="space-y-3">
+          {/* Actividad ARCA */}
+          <SelectorActividadAFIP
+            codigo={data.codigoActividadAfip || ''}
+            descripcion={data.descripcionActividadAfip || ''}
+            onSelect={(codigo, descripcion) => {
+              handleChange('codigoActividadAfip', codigo)
+              handleChange('descripcionActividadAfip', descripcion)
+            }}
+          />
+
+          {/* Punto de venta */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Punto de venta ARCA
+            </label>
+            <input
+              type="number"
+              value={data.puntoVentaAfip || ''}
+              onChange={(e) => handleChange('puntoVentaAfip', e.target.value ? parseInt(e.target.value) : null)}
+              placeholder="Ej: 1"
+              min="1"
+              max="99999"
+              className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono"
+            />
+          </div>
+
+          {/* Gestion de facturacion */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ¿Quien gestiona la facturacion?
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleChange('gestionFacturacion', 'autonomo')}
+                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  data.gestionFacturacion === 'autonomo'
+                    ? 'border-violet-500 bg-violet-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium text-gray-900 text-sm">El cliente factura solo</div>
+                <div className="text-xs text-gray-500 mt-1">Carga su facturacion en la app</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange('gestionFacturacion', 'contadora')}
+                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  data.gestionFacturacion === 'contadora' || !data.gestionFacturacion
+                    ? 'border-violet-500 bg-violet-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium text-gray-900 text-sm">La contadora le factura</div>
+                <div className="text-xs text-gray-500 mt-1">Vos cargas la facturacion</div>
+              </button>
+            </div>
+          </div>
+        </SeccionColapsable>
+      )}
+
+      {/* SECCION 3: SITUACION ESPECIAL (solo monotributistas) */}
+      {isMonotributista && (
+        <SeccionColapsable titulo="Situacion Especial" icono={Users} iconColor="text-orange-600" defaultOpen={false}>
+          <p className="text-sm text-gray-500 mb-4">
+            Esta informacion afecta la categoria maxima permitida
+          </p>
+
+          {/* Trabaja en relacion de dependencia */}
+          <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+            <input
+              type="checkbox"
+              checked={data.trabajaRelacionDependencia || false}
+              onChange={(e) => handleChange('trabajaRelacionDependencia', e.target.checked)}
+              className="w-5 h-5 text-violet-600 border-gray-300 rounded"
+            />
+            <div>
+              <span className="font-medium text-gray-900">Trabaja en relacion de dependencia</span>
+              <p className="text-xs text-gray-500">Ademas de ser monotributista</p>
+            </div>
+          </label>
+
+          {/* Tiene empleados */}
+          <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.tieneEmpleados || false}
+                onChange={(e) => handleChange('tieneEmpleados', e.target.checked)}
+                className="w-5 h-5 text-violet-600 border-gray-300 rounded"
+              />
+              <span className="font-medium text-gray-900">Tiene empleados</span>
+            </label>
+
+            {data.tieneEmpleados && (
+              <div className="ml-8">
+                <label className="block text-sm text-gray-600 mb-1">Cantidad</label>
+                <input
+                  type="number"
+                  value={data.cantidadEmpleados || ''}
+                  onChange={(e) => handleChange('cantidadEmpleados', parseInt(e.target.value) || 0)}
+                  min="1"
+                  max="3"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-1">Maximo 3 para monotributo</p>
+              </div>
+            )}
+          </div>
+
+          {/* Tiene local */}
+          <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.tieneLocal || false}
+                onChange={(e) => handleChange('tieneLocal', e.target.checked)}
+                className="w-5 h-5 text-violet-600 border-gray-300 rounded"
+              />
+              <span className="font-medium text-gray-900">Tiene local comercial</span>
+            </label>
+
+            {data.tieneLocal && (
+              <div className="ml-8 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Alquiler mensual</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                    <input
+                      type="number"
+                      value={data.alquilerMensual || ''}
+                      onChange={(e) => handleChange('alquilerMensual', parseFloat(e.target.value) || null)}
+                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Superficie m2</label>
+                  <input
+                    type="number"
+                    value={data.superficieLocal || ''}
+                    onChange={(e) => handleChange('superficieLocal', parseInt(e.target.value) || null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Obra social */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Obra social elegida
+            </label>
+            <input
+              type="text"
+              value={data.obraSocial || ''}
+              onChange={(e) => handleChange('obraSocial', e.target.value)}
+              placeholder="Ej: OSDE, Swiss Medical, etc."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </SeccionColapsable>
+      )}
+
+      {/* SECCION 4: PAGO DEL MONOTRIBUTO (solo monotributistas) */}
+      {isMonotributista && (
+        <SeccionColapsable titulo="Pago del Monotributo" icono={CreditCard} iconColor="text-green-600" defaultOpen={false}>
+          {/* Metodo de pago */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              ¿Como paga la cuota?
+            </label>
+            <div className="relative">
+              <select
+                value={data.metodoPagoMonotributo || ''}
+                onChange={(e) => handleChange('metodoPagoMonotributo', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Seleccionar</option>
+                {METODOS_PAGO.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* CBU si es debito automatico */}
+          {data.metodoPagoMonotributo === 'debito_automatico' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CBU / Alias para debito
+              </label>
+              <input
+                type="text"
+                value={data.cbuDebito || ''}
+                onChange={(e) => handleChange('cbuDebito', e.target.value)}
+                placeholder="CBU o Alias"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono text-sm"
+              />
+            </div>
+          )}
+
+          {/* Estado de pago */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Estado de pago
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {ESTADOS_PAGO.map(estado => (
+                <button
+                  key={estado.value}
+                  type="button"
+                  onClick={() => handleChange('estadoPagoMonotributo', estado.value)}
+                  className={`p-2 rounded-lg border-2 text-center text-sm transition-colors ${
+                    data.estadoPagoMonotributo === estado.value
+                      ? estado.color === 'green' ? 'border-green-500 bg-green-50 text-green-700'
+                      : estado.color === 'yellow' ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
+                      : estado.color === 'red' ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-500 bg-gray-50 text-gray-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {estado.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </SeccionColapsable>
+      )}
+
+      {/* SECCION 5: ACCESOS ARCA (solo monotributistas) */}
+      {isMonotributista && (
+        <SeccionColapsable titulo="Accesos ARCA" icono={Shield} iconColor="text-purple-600" defaultOpen={false}>
+          {/* Nivel clave fiscal */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nivel de clave fiscal
+            </label>
+            <div className="flex gap-2">
+              {[2, 3, 4, 5].map(nivel => (
+                <button
+                  key={nivel}
+                  type="button"
+                  onClick={() => handleChange('nivelClaveFiscal', nivel)}
+                  className={`w-12 h-12 rounded-lg border-2 font-bold transition-colors ${
+                    data.nivelClaveFiscal === nivel
+                      ? 'border-purple-500 bg-purple-50 text-purple-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                  }`}
+                >
+                  {nivel}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Servicios delegados */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+              <input
+                type="checkbox"
+                checked={data.serviciosDelegados || false}
+                onChange={(e) => handleChange('serviciosDelegados', e.target.checked)}
+                className="w-5 h-5 text-purple-600 border-gray-300 rounded"
+              />
+              <div>
+                <span className="font-medium text-gray-900">Servicios delegados</span>
+                <p className="text-xs text-gray-500">El cliente te delego servicios en ARCA</p>
+              </div>
+            </label>
+
+            {data.serviciosDelegados && (
+              <div className="ml-8">
+                <label className="block text-sm text-gray-600 mb-1">Fecha de delegacion</label>
+                <input
+                  type="date"
+                  value={data.fechaDelegacion || ''}
+                  onChange={(e) => handleChange('fechaDelegacion', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Factura electronica */}
+          <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+            <input
+              type="checkbox"
+              checked={data.facturaElectronicaHabilitada || false}
+              onChange={(e) => handleChange('facturaElectronicaHabilitada', e.target.checked)}
+              className="w-5 h-5 text-purple-600 border-gray-300 rounded"
+            />
+            <div>
+              <span className="font-medium text-gray-900">Factura electronica habilitada</span>
+              <p className="text-xs text-gray-500">Ya puede emitir facturas electronicas</p>
+            </div>
+          </label>
+        </SeccionColapsable>
+      )}
+
+      {/* SECCION 6: DOMICILIO */}
+      <SeccionColapsable titulo="Domicilio Fiscal" icono={MapPin} iconColor="text-red-600" defaultOpen={false}>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Regimen Ingresos Brutos
+            Direccion
+          </label>
+          <input
+            type="text"
+            value={data.domicilioFiscal || ''}
+            onChange={(e) => handleChange('domicilioFiscal', e.target.value)}
+            placeholder="Calle, numero, piso, depto"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Localidad
+            </label>
+            <input
+              type="text"
+              value={data.localidad || ''}
+              onChange={(e) => handleChange('localidad', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Codigo Postal
+            </label>
+            <input
+              type="text"
+              value={data.codigoPostal || ''}
+              onChange={(e) => handleChange('codigoPostal', e.target.value)}
+              maxLength={8}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Provincia
+            </label>
+            <div className="relative">
+              <select
+                value={data.provincia || ''}
+                onChange={(e) => handleChange('provincia', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Seleccionar</option>
+                {PROVINCIAS.map(prov => (
+                  <option key={prov} value={prov}>{prov}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+        </div>
+      </SeccionColapsable>
+
+      {/* SECCION 7: INGRESOS BRUTOS */}
+      <SeccionColapsable titulo="Ingresos Brutos" icono={FileText} iconColor="text-teal-600" defaultOpen={false}>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Regimen
           </label>
           <div className="relative">
             <select
               value={data.regimenIibb || ''}
               onChange={(e) => handleChange('regimenIibb', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-violet-500"
             >
               <option value="">Seleccionar</option>
               <option value="local">Local (Provincial)</option>
@@ -377,7 +698,6 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
           </div>
         </div>
 
-        {/* Número IIBB (si tiene regimen que lo requiere) */}
         {data.regimenIibb && !['exento', 'no_inscripto'].includes(data.regimenIibb) && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -388,31 +708,25 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
               value={data.numeroIibb || ''}
               onChange={(e) => handleChange('numeroIibb', e.target.value.replace(/[^0-9-]/g, '').slice(0, 30))}
               placeholder="Numero de inscripcion"
-              maxLength={30}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono"
             />
           </div>
         )}
-      </div>
+      </SeccionColapsable>
 
-      {/* Notas internas - Datos Fiscales */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Notas internas (Datos Fiscales)
-        </label>
+      {/* SECCION 8: NOTAS INTERNAS */}
+      <SeccionColapsable titulo="Notas Internas" icono={AlertTriangle} iconColor="text-yellow-600" defaultOpen={false}>
         <textarea
           value={data.notasInternasFiscales || ''}
           onChange={(e) => handleChange('notasInternasFiscales', e.target.value)}
           placeholder="Observaciones internas sobre la situacion fiscal del cliente..."
           rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 resize-none"
         />
-        <p className="text-xs text-gray-400 mt-1">
-          Solo visible para la contadora
-        </p>
-      </div>
+        <p className="text-xs text-gray-400">Solo visible para la contadora</p>
+      </SeccionColapsable>
 
-      {/* Es alta de cliente (nuevo monotributista) */}
+      {/* ES ALTA DE CLIENTE */}
       {isMonotributista && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <label className="flex items-start gap-3 cursor-pointer">
@@ -423,10 +737,9 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
               className="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <div>
-              <span className="font-medium text-gray-900">Es un alta de cliente</span>
+              <span className="font-medium text-gray-900">Es un alta de cliente nuevo</span>
               <p className="text-sm text-gray-600 mt-1">
-                Marcá esta opción si es un cliente nuevo que recién se inscribe en el Monotributo.
-                Si viene de otro contador y ya tiene facturación previa, dejá desmarcado.
+                Marca si recien se inscribe. Si viene de otro contador, deja desmarcado para cargar facturacion historica.
               </p>
             </div>
           </label>

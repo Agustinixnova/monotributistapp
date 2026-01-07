@@ -60,13 +60,31 @@ export async function updateFiscalData(userId, fiscalData) {
     tieneEmpleados,
     cantidadEmpleados,
     facturadorElectronico,
-    // Nuevos campos
+    // Campos agregados previamente
     fechaAltaMonotributo,
     fechaUltimaRecategorizacion,
     codigoActividadAfip,
     descripcionActividadAfip,
     puntoVentaAfip,
-    notasInternasFiscales
+    notasInternasFiscales,
+    // Situacion especial
+    trabajaRelacionDependencia,
+    tieneLocal,
+    alquilerMensual,
+    superficieLocal,
+    // Pago monotributo
+    metodoPagoMonotributo,
+    estadoPagoMonotributo,
+    cbuDebito,
+    // Accesos ARCA
+    nivelClaveFiscal,
+    serviciosDelegados,
+    fechaDelegacion,
+    facturaElectronicaHabilitada,
+    // Historial categoria simple
+    categoriaAnterior,
+    fechaCambioCategoria,
+    motivoCambioCategoria
   } = fiscalData
 
   const updateData = {}
@@ -87,15 +105,33 @@ export async function updateFiscalData(userId, fiscalData) {
   if (regimenIibb !== undefined) updateData.regimen_iibb = regimenIibb
   if (numeroIibb !== undefined) updateData.numero_iibb = numeroIibb
   if (tieneEmpleados !== undefined) updateData.tiene_empleados = tieneEmpleados
-  if (cantidadEmpleados !== undefined) updateData.cantidad_empleados = cantidadEmpleados
-  if (facturadorElectronico !== undefined) updateData.facturador_electronico = facturadorElectronico
-  // Nuevos campos
+  if (cantidadEmpleados !== undefined) updateData.cantidad_empleados = cantidadEmpleados || 0
+  if (facturadorElectronico !== undefined) updateData.facturador_electronico = facturadorElectronico || null
+  // Campos agregados previamente
   if (fechaAltaMonotributo !== undefined) updateData.fecha_alta_monotributo = fechaAltaMonotributo || null
   if (fechaUltimaRecategorizacion !== undefined) updateData.fecha_ultima_recategorizacion = fechaUltimaRecategorizacion || null
   if (codigoActividadAfip !== undefined) updateData.codigo_actividad_afip = codigoActividadAfip || null
   if (descripcionActividadAfip !== undefined) updateData.descripcion_actividad_afip = descripcionActividadAfip || null
   if (puntoVentaAfip !== undefined) updateData.punto_venta_afip = puntoVentaAfip || null
   if (notasInternasFiscales !== undefined) updateData.notas_internas_fiscales = notasInternasFiscales || null
+  // Situacion especial
+  if (trabajaRelacionDependencia !== undefined) updateData.trabaja_relacion_dependencia = trabajaRelacionDependencia
+  if (tieneLocal !== undefined) updateData.tiene_local = tieneLocal
+  if (alquilerMensual !== undefined) updateData.alquiler_mensual = alquilerMensual || null
+  if (superficieLocal !== undefined) updateData.superficie_local = superficieLocal || null
+  // Pago monotributo
+  if (metodoPagoMonotributo !== undefined) updateData.metodo_pago_monotributo = metodoPagoMonotributo || null
+  if (estadoPagoMonotributo !== undefined) updateData.estado_pago_monotributo = estadoPagoMonotributo || 'al_dia'
+  if (cbuDebito !== undefined) updateData.cbu_debito = cbuDebito || null
+  // Accesos ARCA
+  if (nivelClaveFiscal !== undefined) updateData.nivel_clave_fiscal = nivelClaveFiscal || null
+  if (serviciosDelegados !== undefined) updateData.servicios_delegados = serviciosDelegados
+  if (fechaDelegacion !== undefined) updateData.fecha_delegacion = fechaDelegacion || null
+  if (facturaElectronicaHabilitada !== undefined) updateData.factura_electronica_habilitada = facturaElectronicaHabilitada
+  // Historial categoria simple
+  if (categoriaAnterior !== undefined) updateData.categoria_anterior = categoriaAnterior || null
+  if (fechaCambioCategoria !== undefined) updateData.fecha_cambio_categoria = fechaCambioCategoria || null
+  if (motivoCambioCategoria !== undefined) updateData.motivo_cambio_categoria = motivoCambioCategoria || null
 
   const { data, error } = await supabase
     .from('client_fiscal_data')

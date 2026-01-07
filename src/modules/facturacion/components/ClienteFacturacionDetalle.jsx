@@ -7,6 +7,7 @@ import { useClienteFiscal } from '../hooks/useClienteFiscal'
 import { BarraProgresoTope } from './BarraProgresoTope'
 import { FormCargaComprobante } from './FormCargaComprobante'
 import { ListaCargasMes } from './ListaCargasMes'
+import { PanelNotasInternas } from './PanelNotasInternas'
 import { formatearMoneda, formatearCUIT } from '../utils/formatters'
 import { calcularEstadoAlerta, getNombreMes } from '../utils/calculosFacturacion'
 import { getResumenesCliente, getAcumulado12Meses } from '../services/resumenService'
@@ -380,6 +381,12 @@ export function ClienteFacturacionDetalle() {
             </div>
           </div>
         </div>
+
+        {/* Panel de notas internas - Solo visible para contadora */}
+        <PanelNotasInternas
+          clientId={clientId}
+          mesActivo={mesExpandido ? { anio: mesExpandido.anio, mes: mesExpandido.mes } : null}
+        />
 
         {/* Lista de meses */}
         <div className="bg-white rounded-xl border border-gray-200">

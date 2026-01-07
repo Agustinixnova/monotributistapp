@@ -56,11 +56,33 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       descripcionActividadAfip: user?.fiscal_data?.descripcion_actividad_afip || '',
       puntoVentaAfip: user?.fiscal_data?.punto_venta_afip || '',
       notasInternasFiscales: user?.fiscal_data?.notas_internas_fiscales || '',
-      esAltaCliente: true // Por defecto asumimos que es un alta (nuevo cliente)
+      esAltaCliente: true, // Por defecto asumimos que es un alta (nuevo cliente)
+      // Situacion especial
+      trabajaRelacionDependencia: user?.fiscal_data?.trabaja_relacion_dependencia || false,
+      tieneLocal: user?.fiscal_data?.tiene_local || false,
+      alquilerMensual: user?.fiscal_data?.alquiler_mensual || null,
+      superficieLocal: user?.fiscal_data?.superficie_local || null,
+      obraSocial: user?.fiscal_data?.obra_social || '',
+      // Pago monotributo
+      metodoPagoMonotributo: user?.fiscal_data?.metodo_pago_monotributo || '',
+      estadoPagoMonotributo: user?.fiscal_data?.estado_pago_monotributo || 'al_dia',
+      cbuDebito: user?.fiscal_data?.cbu_debito || '',
+      // Accesos ARCA
+      nivelClaveFiscal: user?.fiscal_data?.nivel_clave_fiscal || null,
+      serviciosDelegados: user?.fiscal_data?.servicios_delegados || false,
+      fechaDelegacion: user?.fiscal_data?.fecha_delegacion || '',
+      facturaElectronicaHabilitada: user?.fiscal_data?.factura_electronica_habilitada || false,
+      // Historial categoria simple
+      tuvoCategoriaAnterior: !!user?.fiscal_data?.categoria_anterior,
+      categoriaAnterior: user?.fiscal_data?.categoria_anterior || '',
+      fechaCambioCategoria: user?.fiscal_data?.fecha_cambio_categoria || '',
+      motivoCambioCategoria: user?.fiscal_data?.motivo_cambio_categoria || ''
     },
     historicalBilling: {
       modoHistorico: 'total',
       totalAcumulado12Meses: null,
+      fechaCorte: '',
+      notaHistorico: '',
       facturacionMensual: null,
       omitirHistorico: false
     },

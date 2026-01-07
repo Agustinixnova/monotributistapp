@@ -17,6 +17,7 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `09_rls_policies.sql` | - | Politicas de Row Level Security |
 | `10_mi_cuenta_module.sql` | - | Modulo Mi Cuenta para clientes |
 | `storage_policies.sql` | - | Politicas de Storage para bucket invoices |
+| `22_notas_internas.sql` | `client_notas_internas` | Notas internas de contadora por cliente |
 
 ## Diagrama de Relaciones
 
@@ -36,6 +37,8 @@ auth.users
             |       +---> modules (N:1)
             |
             +---> client_fiscal_data (1:1)
+                    |
+                    +---> client_notas_internas (1:N)
             |
             +---> profiles (assigned_to, N:1)
 ```
@@ -91,4 +94,4 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
-2025-01-04 - Creacion inicial del esquema de base de datos
+2025-01-07 - Agregada tabla client_notas_internas para notas internas de contadora

@@ -44,7 +44,7 @@ serve(async (req) => {
 
     // Obtener datos del body
     const body = await req.json()
-    const { email, password, nombre, apellido, telefono, whatsapp, dni, roleId, assignedTo, fiscalData } = body
+    const { email, password, nombre, apellido, telefono, whatsapp, dni, notasInternas, roleId, assignedTo, fiscalData, historicalBilling } = body
 
     console.log('Datos recibidos:', { email, nombre, apellido, roleId })
 
@@ -150,6 +150,7 @@ serve(async (req) => {
         telefono: telefono || null,
         whatsapp: whatsapp || null,
         dni: dni || null,
+        notas_internas: notasInternas || null,
         role_id: roleId,
         assigned_to: assignedTo || null,
         is_active: true,
@@ -179,7 +180,7 @@ serve(async (req) => {
       console.log('Creando datos fiscales para CUIT:', fiscalData.cuit)
 
       // Usar upsert para datos fiscales también
-      const { error: fiscalError } = await supabaseAdmin
+      const { data: fiscalResult, error: fiscalError } = await supabaseAdmin
         .from('client_fiscal_data')
         .upsert({
           user_id: userId,
@@ -188,21 +189,126 @@ serve(async (req) => {
           tipo_contribuyente: fiscalData.tipoContribuyente || null,
           categoria_monotributo: fiscalData.categoriaMonotributo || null,
           tipo_actividad: fiscalData.tipoActividad || null,
+          gestion_facturacion: fiscalData.gestionFacturacion || 'contadora',
           domicilio_fiscal: fiscalData.domicilioFiscal || null,
           codigo_postal: fiscalData.codigoPostal || null,
           localidad: fiscalData.localidad || null,
           provincia: fiscalData.provincia || null,
           regimen_iibb: fiscalData.regimenIibb || null,
-          facturador_electronico: fiscalData.facturadorElectronico || null
+          numero_iibb: fiscalData.numeroIibb || null,
+          facturador_electronico: fiscalData.facturadorElectronico || null,
+          fecha_alta_monotributo: fiscalData.fechaAltaMonotributo || null,
+          fecha_ultima_recategorizacion: fiscalData.fechaUltimaRecategorizacion || null,
+          codigo_actividad_afip: fiscalData.codigoActividadAfip || null,
+          descripcion_actividad_afip: fiscalData.descripcionActividadAfip || null,
+          punto_venta_afip: fiscalData.puntoVentaAfip || null,
+          notas_internas_fiscales: fiscalData.notasInternasFiscales || null,
+          // Situacion especial
+          trabaja_relacion_dependencia: fiscalData.trabajaRelacionDependencia || false,
+          tiene_local: fiscalData.tieneLocal || false,
+          alquiler_mensual: fiscalData.alquilerMensual || null,
+          superficie_local: fiscalData.superficieLocal || null,
+          obra_social: fiscalData.obraSocial || null,
+          // Pago monotributo
+          metodo_pago_monotributo: fiscalData.metodoPagoMonotributo || null,
+          estado_pago_monotributo: fiscalData.estadoPagoMonotributo || 'al_dia',
+          cbu_debito: fiscalData.cbuDebito || null,
+          // Accesos ARCA
+          nivel_clave_fiscal: fiscalData.nivelClaveFiscal || null,
+          servicios_delegados: fiscalData.serviciosDelegados || false,
+          fecha_delegacion: fiscalData.fechaDelegacion || null,
+          factura_electronica_habilitada: fiscalData.facturaElectronicaHabilitada || false,
+          // Historial categoria simple
+          categoria_anterior: fiscalData.categoriaAnterior || null,
+          fecha_cambio_categoria: fiscalData.fechaCambioCategoria || null,
+          motivo_cambio_categoria: fiscalData.motivoCambioCategoria || null
         }, {
           onConflict: 'user_id'
         })
+        .select('id')
+        .single()
 
       if (fiscalError) {
         console.error('Error creando datos fiscales:', fiscalError)
-        // No hacemos rollback pero avisamos en la respuesta
       } else {
         console.log('Datos fiscales creados exitosamente')
+
+        // Crear entrada inicial en historial de categorias si tiene categoria
+        if (fiscalResult?.id && fiscalData.categoriaMonotributo) {
+          const fechaDesde = fiscalData.fechaAltaMonotributo || new Date().toISOString().split('T')[0]
+          const motivo = fiscalData.esAltaCliente ? 'alta_inicial' : 'migracion_sistema'
+
+          try {
+            // Usar la funcion RPC para agregar al historial
+            const { error: historialError } = await supabaseAdmin.rpc('agregar_historial_categoria', {
+              p_client_id: fiscalResult.id,
+              p_categoria: fiscalData.categoriaMonotributo,
+              p_fecha_desde: fechaDesde,
+              p_fecha_hasta: null,
+              p_motivo: motivo,
+              p_notas: fiscalData.esAltaCliente ? 'Alta inicial del cliente' : 'Migrado al sistema',
+              p_user_id: createdBy
+            })
+
+            if (historialError) {
+              console.error('Error creando historial categoria:', historialError)
+            } else {
+              console.log('Historial de categoria inicial creado')
+            }
+          } catch (histErr) {
+            console.error('Error en RPC historial:', histErr)
+          }
+        }
+
+        // Procesar facturacion historica si existe y no se omite
+        if (historicalBilling && !historicalBilling.omitirHistorico && fiscalResult?.id) {
+          const clientId = fiscalResult.id
+
+          if (historicalBilling.modoHistorico === 'total' && historicalBilling.totalAcumulado12Meses) {
+            // Modo total: guardar en client_fiscal_data
+            await supabaseAdmin
+              .from('client_fiscal_data')
+              .update({
+                facturacion_historica_total: historicalBilling.totalAcumulado12Meses,
+                facturacion_historica_fecha_corte: historicalBilling.fechaCorte || null,
+                facturacion_historica_nota: historicalBilling.notaHistorico || null
+              })
+              .eq('id', clientId)
+
+            console.log('Facturacion historica (total) guardada')
+
+          } else if (historicalBilling.modoHistorico === 'mensual' && historicalBilling.facturacionMensual) {
+            // Modo mensual: crear cargas historicas
+            const cargasHistoricas = []
+
+            for (const [key, monto] of Object.entries(historicalBilling.facturacionMensual)) {
+              if (monto && monto > 0) {
+                const [anio, mes] = key.split('-').map(Number)
+                cargasHistoricas.push({
+                  client_id: clientId,
+                  anio,
+                  mes,
+                  tipo_comprobante: 'factura',
+                  monto_total: monto,
+                  es_historico: true,
+                  created_by: createdBy
+                })
+              }
+            }
+
+            if (cargasHistoricas.length > 0) {
+              const { error: cargasError } = await supabaseAdmin
+                .from('client_facturacion_cargas')
+                .insert(cargasHistoricas)
+
+              if (cargasError) {
+                console.error('Error creando cargas historicas:', cargasError)
+              } else {
+                console.log(`${cargasHistoricas.length} cargas historicas creadas`)
+              }
+            }
+          }
+        }
       }
     } else {
       console.log('No se recibieron datos fiscales o CUIT vacío')
