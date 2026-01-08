@@ -24,7 +24,9 @@ import {
   ChevronDown,
   ChevronRight,
   Ticket,
-  ChartNoAxesCombined
+  ChartNoAxesCombined,
+  GraduationCap,
+  Wallet
 } from 'lucide-react'
 
 // Mapeo de nombres de iconos a componentes de Lucide
@@ -45,7 +47,9 @@ const iconMap = {
   Code2,
   Lightbulb,
   Bug,
-  Ticket
+  Ticket,
+  GraduationCap,
+  Wallet
 }
 
 // Items estáticos como fallback (fuente de verdad para sincronizar)

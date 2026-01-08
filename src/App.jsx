@@ -12,6 +12,8 @@ import { IdeasPage, ReportesPage } from './pages/desarrollo'
 import { EscalasPage } from './modules/configuracion/escalas/components/EscalasPage'
 import { FacturacionPage, ClienteFacturacionDetalle } from './modules/facturacion/components'
 import { NotificacionesPage } from './modules/notificaciones/components'
+import { MiCarteraPage, ClienteDetallePage } from './modules/mi-cartera/pages'
+import { EducacionPage, EducacionArticuloPage, EducacionAdminPage, EducacionEditorPage } from './modules/educacion-impositiva/pages'
 
 function App() {
   return (
@@ -63,12 +65,25 @@ function App() {
             }
           />
           <Route
-            path="/clientes"
+            path="/mi-cartera"
             element={
               <ProtectedRoute>
-                <PlaceholderPage />
+                <MiCarteraPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/mi-cartera/:clientId"
+            element={
+              <ProtectedRoute>
+                <ClienteDetallePage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Redirect vieja ruta /clientes a /mi-cartera */}
+          <Route
+            path="/clientes"
+            element={<Navigate to="/mi-cartera" replace />}
           />
           <Route
             path="/facturacion"
@@ -168,6 +183,47 @@ function App() {
             element={
               <ProtectedRoute>
                 <ReportesPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Rutas Educacion Impositiva */}
+          <Route
+            path="/educacion"
+            element={
+              <ProtectedRoute>
+                <EducacionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/educacion/admin"
+            element={
+              <ProtectedRoute>
+                <EducacionAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/educacion/admin/nuevo"
+            element={
+              <ProtectedRoute>
+                <EducacionEditorPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/educacion/admin/editar/:id"
+            element={
+              <ProtectedRoute>
+                <EducacionEditorPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/educacion/:slug"
+            element={
+              <ProtectedRoute>
+                <EducacionArticuloPage />
               </ProtectedRoute>
             }
           />
