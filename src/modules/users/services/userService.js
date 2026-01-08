@@ -271,7 +271,23 @@ export async function updateUser(id, userData) {
           codigo_actividad_afip: fiscalData.codigoActividadAfip || null,
           descripcion_actividad_afip: fiscalData.descripcionActividadAfip || null,
           punto_venta_afip: fiscalData.puntoVentaAfip || null,
-          notas_internas_fiscales: fiscalData.notasInternasFiscales || null
+          notas_internas_fiscales: fiscalData.notasInternasFiscales || null,
+          // Nuevos campos
+          trabaja_relacion_dependencia: fiscalData.trabajaRelacionDependencia || false,
+          tiene_local: fiscalData.tieneLocal || false,
+          alquiler_mensual: fiscalData.alquilerMensual || null,
+          superficie_local: fiscalData.superficieLocal || null,
+          obra_social: fiscalData.obraSocial || null,
+          metodo_pago_monotributo: fiscalData.metodoPagoMonotributo || null,
+          estado_pago_monotributo: fiscalData.estadoPagoMonotributo || 'al_dia',
+          cbu_debito: fiscalData.cbuDebito || null,
+          nivel_clave_fiscal: fiscalData.nivelClaveFiscal || null,
+          servicios_delegados: fiscalData.serviciosDelegados || false,
+          fecha_delegacion: fiscalData.fechaDelegacion || null,
+          factura_electronica_habilitada: fiscalData.facturaElectronicaHabilitada || false,
+          categoria_anterior: fiscalData.categoriaAnterior || null,
+          fecha_cambio_categoria: fiscalData.fechaCambioCategoria || null,
+          motivo_cambio_categoria: fiscalData.motivoCambioCategoria || null
         })
       }
     } catch (fiscalError) {

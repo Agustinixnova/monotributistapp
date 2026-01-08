@@ -59,10 +59,17 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       esAltaCliente: true, // Por defecto asumimos que es un alta (nuevo cliente)
       // Situacion especial
       trabajaRelacionDependencia: user?.fiscal_data?.trabaja_relacion_dependencia || false,
+      empleadorCuit: user?.fiscal_data?.empleador_cuit || '',
+      empleadorRazonSocial: user?.fiscal_data?.empleador_razon_social || '',
+      sueldoBruto: user?.fiscal_data?.sueldo_bruto || null,
       tieneLocal: user?.fiscal_data?.tiene_local || false,
-      alquilerMensual: user?.fiscal_data?.alquiler_mensual || null,
-      superficieLocal: user?.fiscal_data?.superficie_local || null,
+      locales: user?.locales || [],
+      // Obra social
       obraSocial: user?.fiscal_data?.obra_social || '',
+      obraSocialTipoCobertura: user?.fiscal_data?.obra_social_tipo_cobertura || 'titular',
+      obraSocialAdicional: user?.fiscal_data?.obra_social_adicional || false,
+      obraSocialAdicionalNombre: user?.fiscal_data?.obra_social_adicional_nombre || '',
+      grupoFamiliar: user?.grupo_familiar || [],
       // Pago monotributo
       metodoPagoMonotributo: user?.fiscal_data?.metodo_pago_monotributo || '',
       estadoPagoMonotributo: user?.fiscal_data?.estado_pago_monotributo || 'al_dia',

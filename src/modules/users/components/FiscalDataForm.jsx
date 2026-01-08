@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronDown, ChevronUp, Info, Building2, CreditCard,
-  Shield, Users, MapPin, FileText, AlertTriangle
+  Shield, Users, MapPin, FileText, AlertTriangle, Plus, Trash2
 } from 'lucide-react'
 import { validateCUIT } from '../utils/validators'
 import { formatCUIT } from '../utils/formatters'
 import { SelectorActividadAFIP } from './SelectorActividadAFIP'
+import { SelectorObraSocial } from './SelectorObraSocial'
 
 const PROVINCIAS = [
   'Buenos Aires', 'CABA', 'Catamarca', 'Chaco', 'Chubut', 'Cordoba',
@@ -30,6 +31,13 @@ const ESTADOS_PAGO = [
   { value: 'debe_1_cuota', label: 'Debe 1 cuota', color: 'yellow' },
   { value: 'debe_2_mas', label: 'Debe 2+ cuotas', color: 'red' },
   { value: 'desconocido', label: 'No se', color: 'gray' }
+]
+
+const PARENTESCOS = [
+  { value: 'conyuge', label: 'Conyuge' },
+  { value: 'concubino', label: 'Concubino/a' },
+  { value: 'hijo', label: 'Hijo/a' },
+  { value: 'otro', label: 'Otro' }
 ]
 
 /**
@@ -79,9 +87,12 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
 
   const handleCuitChange = (e) => {
     const value = e.target.value.replace(/[^0-9-]/g, '')
-    setCuitFormatted(value)
-    const cleanCuit = value.replace(/-/g, '')
-    onChange({ ...data, cuit: cleanCuit })
+    const cleanCuit = value.replace(/-/g, '').slice(0, 11)
+    // Solo permitir el valor si no excede 11 digitos
+    if (cleanCuit.length <= 11) {
+      setCuitFormatted(value.slice(0, 13)) // 11 digitos + 2 guiones max
+      onChange({ ...data, cuit: cleanCuit })
+    }
   }
 
   const handleCuitBlur = () => {
@@ -275,19 +286,6 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
             )}
           </div>
 
-          {/* Ultima recategorizacion */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ultima recategorizacion
-            </label>
-            <input
-              type="date"
-              value={data.fechaUltimaRecategorizacion || ''}
-              onChange={(e) => handleChange('fechaUltimaRecategorizacion', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-
           {/* Tipo de Actividad */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -380,18 +378,64 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
           </p>
 
           {/* Trabaja en relacion de dependencia */}
-          <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
-            <input
-              type="checkbox"
-              checked={data.trabajaRelacionDependencia || false}
-              onChange={(e) => handleChange('trabajaRelacionDependencia', e.target.checked)}
-              className="w-5 h-5 text-violet-600 border-gray-300 rounded"
-            />
-            <div>
-              <span className="font-medium text-gray-900">Trabaja en relacion de dependencia</span>
-              <p className="text-xs text-gray-500">Ademas de ser monotributista</p>
-            </div>
-          </label>
+          <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.trabajaRelacionDependencia || false}
+                onChange={(e) => handleChange('trabajaRelacionDependencia', e.target.checked)}
+                className="w-5 h-5 text-violet-600 border-gray-300 rounded"
+              />
+              <div>
+                <span className="font-medium text-gray-900">Trabaja en relacion de dependencia</span>
+                <p className="text-xs text-gray-500">Ademas de ser monotributista</p>
+              </div>
+            </label>
+
+            {data.trabajaRelacionDependencia && (
+              <div className="ml-8 space-y-3 pt-2 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">CUIT Empleador</label>
+                    <input
+                      type="text"
+                      value={data.empleadorCuit || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 11)
+                        handleChange('empleadorCuit', val)
+                      }}
+                      placeholder="Ej: 30123456789"
+                      maxLength={11}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Sueldo Bruto</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                      <input
+                        type="number"
+                        value={data.sueldoBruto || ''}
+                        onChange={(e) => handleChange('sueldoBruto', parseFloat(e.target.value) || null)}
+                        placeholder="0.00"
+                        className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Razon Social Empleador</label>
+                  <input
+                    type="text"
+                    value={data.empleadorRazonSocial || ''}
+                    onChange={(e) => handleChange('empleadorRazonSocial', e.target.value)}
+                    placeholder="Nombre de la empresa"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Tiene empleados */}
           <div className="p-3 bg-gray-50 rounded-lg space-y-3">
@@ -421,57 +465,287 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
             )}
           </div>
 
-          {/* Tiene local */}
+          {/* Tiene locales */}
           <div className="p-3 bg-gray-50 rounded-lg space-y-3">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={data.tieneLocal || false}
-                onChange={(e) => handleChange('tieneLocal', e.target.checked)}
+                onChange={(e) => {
+                  handleChange('tieneLocal', e.target.checked)
+                  if (e.target.checked && (!data.locales || data.locales.length === 0)) {
+                    handleChange('locales', [{ descripcion: '', alquiler: null, superficie: null, esPropio: false }])
+                  }
+                }}
                 className="w-5 h-5 text-violet-600 border-gray-300 rounded"
               />
-              <span className="font-medium text-gray-900">Tiene local comercial</span>
+              <span className="font-medium text-gray-900">Tiene local/es comercial/es</span>
             </label>
 
             {data.tieneLocal && (
-              <div className="ml-8 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Alquiler mensual</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                    <input
-                      type="number"
-                      value={data.alquilerMensual || ''}
-                      onChange={(e) => handleChange('alquilerMensual', parseFloat(e.target.value) || null)}
-                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
+              <div className="space-y-3">
+                {(data.locales || []).map((local, index) => (
+                  <div key={index} className="p-3 bg-white border border-gray-200 rounded-lg space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">Local {index + 1}</span>
+                      {(data.locales || []).length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newLocales = [...(data.locales || [])]
+                            newLocales.splice(index, 1)
+                            handleChange('locales', newLocales)
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        value={local.descripcion || ''}
+                        onChange={(e) => {
+                          const newLocales = [...(data.locales || [])]
+                          newLocales[index] = { ...newLocales[index], descripcion: e.target.value }
+                          handleChange('locales', newLocales)
+                        }}
+                        placeholder="Descripcion (ej: Local Centro, Deposito)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Alquiler</label>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                          <input
+                            type="number"
+                            value={local.alquiler || ''}
+                            onChange={(e) => {
+                              const newLocales = [...(data.locales || [])]
+                              newLocales[index] = { ...newLocales[index], alquiler: parseFloat(e.target.value) || null }
+                              handleChange('locales', newLocales)
+                            }}
+                            className="w-full pl-6 pr-2 py-1.5 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">m2</label>
+                        <input
+                          type="number"
+                          value={local.superficie || ''}
+                          onChange={(e) => {
+                            const newLocales = [...(data.locales || [])]
+                            newLocales[index] = { ...newLocales[index], superficie: parseInt(e.target.value) || null }
+                            handleChange('locales', newLocales)
+                          }}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                        />
+                      </div>
+                      <div className="flex items-end pb-1">
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={local.esPropio || false}
+                            onChange={(e) => {
+                              const newLocales = [...(data.locales || [])]
+                              newLocales[index] = { ...newLocales[index], esPropio: e.target.checked }
+                              handleChange('locales', newLocales)
+                            }}
+                            className="w-4 h-4 text-violet-600 border-gray-300 rounded"
+                          />
+                          Propio
+                        </label>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Superficie m2</label>
-                  <input
-                    type="number"
-                    value={data.superficieLocal || ''}
-                    onChange={(e) => handleChange('superficieLocal', parseInt(e.target.value) || null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
+                ))}
+
+                {/* Boton agregar local */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLocales = [...(data.locales || [])]
+                    newLocales.push({ descripcion: '', alquiler: null, superficie: null, esPropio: false })
+                    handleChange('locales', newLocales)
+                  }}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-violet-400 hover:text-violet-600 flex items-center justify-center gap-2 text-sm transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar otro local
+                </button>
+
+                {/* Totales */}
+                {(data.locales || []).length > 0 && (
+                  <div className="pt-2 border-t border-gray-200 flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      Total: {(data.locales || []).length} local{(data.locales || []).length > 1 ? 'es' : ''}
+                    </span>
+                    <div className="flex gap-4">
+                      <span className="text-gray-900">
+                        Alquiler: <strong>${((data.locales || []).reduce((sum, l) => sum + (l.alquiler || 0), 0)).toLocaleString()}</strong>
+                      </span>
+                      <span className="text-gray-900">
+                        Superficie: <strong>{(data.locales || []).reduce((sum, l) => sum + (l.superficie || 0), 0)} m2</strong>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Obra social */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Obra social elegida
-            </label>
-            <input
-              type="text"
+          <div className="p-3 bg-gray-50 rounded-lg space-y-4">
+            <SelectorObraSocial
               value={data.obraSocial || ''}
-              onChange={(e) => handleChange('obraSocial', e.target.value)}
-              placeholder="Ej: OSDE, Swiss Medical, etc."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500"
+              onChange={(value) => handleChange('obraSocial', value)}
+              label="Obra social elegida"
             />
+
+            {/* Tipo de cobertura */}
+            {data.obraSocial && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de cobertura
+                  </label>
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoCobertura"
+                        checked={data.obraSocialTipoCobertura === 'titular' || !data.obraSocialTipoCobertura}
+                        onChange={() => handleChange('obraSocialTipoCobertura', 'titular')}
+                        className="w-4 h-4 text-violet-600"
+                      />
+                      <span className="text-sm">Solo titular</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tipoCobertura"
+                        checked={data.obraSocialTipoCobertura === 'grupo_familiar'}
+                        onChange={() => handleChange('obraSocialTipoCobertura', 'grupo_familiar')}
+                        className="w-4 h-4 text-violet-600"
+                      />
+                      <span className="text-sm">Grupo familiar</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Grupo familiar */}
+                {data.obraSocialTipoCobertura === 'grupo_familiar' && (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Integrantes del grupo familiar
+                    </label>
+
+                    {(data.grupoFamiliar || []).map((integrante, index) => (
+                      <div key={index} className="p-3 bg-white border border-gray-200 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-600">Integrante {index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newGrupo = [...(data.grupoFamiliar || [])]
+                              newGrupo.splice(index, 1)
+                              handleChange('grupoFamiliar', newGrupo)
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={integrante.nombre || ''}
+                            onChange={(e) => {
+                              const newGrupo = [...(data.grupoFamiliar || [])]
+                              newGrupo[index] = { ...newGrupo[index], nombre: e.target.value }
+                              handleChange('grupoFamiliar', newGrupo)
+                            }}
+                            placeholder="Nombre completo"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={integrante.dni || ''}
+                            onChange={(e) => {
+                              const newGrupo = [...(data.grupoFamiliar || [])]
+                              newGrupo[index] = { ...newGrupo[index], dni: e.target.value.replace(/[^0-9]/g, '').slice(0, 8) }
+                              handleChange('grupoFamiliar', newGrupo)
+                            }}
+                            placeholder="DNI"
+                            maxLength={8}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                          />
+                          <select
+                            value={integrante.parentesco || ''}
+                            onChange={(e) => {
+                              const newGrupo = [...(data.grupoFamiliar || [])]
+                              newGrupo[index] = { ...newGrupo[index], parentesco: e.target.value }
+                              handleChange('grupoFamiliar', newGrupo)
+                            }}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">Parentesco</option>
+                            {PARENTESCOS.map(p => (
+                              <option key={p.value} value={p.value}>{p.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newGrupo = [...(data.grupoFamiliar || [])]
+                        newGrupo.push({ nombre: '', dni: '', parentesco: '' })
+                        handleChange('grupoFamiliar', newGrupo)
+                      }}
+                      className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-violet-400 hover:text-violet-600 flex items-center justify-center gap-2 text-sm transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Agregar integrante
+                    </button>
+                  </div>
+                )}
+
+                {/* Obra social adicional */}
+                <div className="pt-3 border-t border-gray-200">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={data.obraSocialAdicional || false}
+                      onChange={(e) => handleChange('obraSocialAdicional', e.target.checked)}
+                      className="w-5 h-5 text-violet-600 border-gray-300 rounded"
+                    />
+                    <div>
+                      <span className="font-medium text-gray-900 text-sm">Paga obra social adicional/superadora</span>
+                      <p className="text-xs text-gray-500">Aparte de la incluida en el monotributo</p>
+                    </div>
+                  </label>
+
+                  {data.obraSocialAdicional && (
+                    <div className="mt-2 ml-8">
+                      <input
+                        type="text"
+                        value={data.obraSocialAdicionalNombre || ''}
+                        onChange={(e) => handleChange('obraSocialAdicionalNombre', e.target.value)}
+                        placeholder="Nombre del plan adicional (ej: OSDE 310)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </SeccionColapsable>
       )}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, ChevronDown, ChevronUp, AlertTriangle, Info } from 'lucide-react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { ArrowLeft, Plus, ChevronDown, ChevronUp, AlertTriangle, Info, User } from 'lucide-react'
 import { Layout } from '../../../components/layout/Layout'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { useClienteFiscal } from '../hooks/useClienteFiscal'
@@ -24,7 +24,11 @@ import {
 export function ClienteFacturacionDetalle() {
   const { clientId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
+
+  // Verificar si viene de Mi Cartera
+  const fromCartera = location.state?.fromCartera
 
   const { cliente, tope, loading: loadingCliente } = useClienteFiscal(clientId)
 
@@ -225,14 +229,26 @@ export function ClienteFacturacionDetalle() {
   return (
     <Layout title="Detalle facturacion">
       <div className="space-y-6">
-        {/* Header con botón volver */}
-        <button
-          onClick={() => navigate('/facturacion')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a lista
-        </button>
+        {/* Header con botones de navegacion */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/facturacion')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver a lista
+          </button>
+
+          {fromCartera && (
+            <button
+              onClick={() => navigate(`/mi-cartera/${clientId}`)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-violet-100 text-violet-700 hover:bg-violet-200 rounded-lg text-sm transition-colors"
+            >
+              <User className="w-4 h-4" />
+              Ver ficha del cliente
+            </button>
+          )}
+        </div>
 
         {/* Info del cliente */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">

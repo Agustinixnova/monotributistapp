@@ -115,7 +115,7 @@ BEGIN
         n.fecha_recordatorio,
         n.recordatorio_completado,
         n.created_by,
-        p.full_name as created_by_nombre,
+        COALESCE(p.nombre || ' ' || p.apellido, p.email) as created_by_nombre,
         n.created_at
     FROM public.client_notas_internas n
     JOIN public.profiles p ON n.created_by = p.id
@@ -142,7 +142,7 @@ BEGIN
     SELECT
         n.id,
         n.client_id,
-        COALESCE(p.full_name, c.razon_social) as cliente_nombre,
+        COALESCE(p.nombre || ' ' || p.apellido, c.razon_social) as cliente_nombre,
         n.contenido,
         n.fecha_recordatorio,
         (n.fecha_recordatorio - CURRENT_DATE)::INTEGER as dias_restantes

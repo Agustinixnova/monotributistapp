@@ -69,9 +69,14 @@ export async function updateFiscalData(userId, fiscalData) {
     notasInternasFiscales,
     // Situacion especial
     trabajaRelacionDependencia,
+    empleadorCuit,
+    empleadorRazonSocial,
+    sueldoBruto,
     tieneLocal,
-    alquilerMensual,
-    superficieLocal,
+    // Obra social ampliada
+    obraSocialTipoCobertura,
+    obraSocialAdicional,
+    obraSocialAdicionalNombre,
     // Pago monotributo
     metodoPagoMonotributo,
     estadoPagoMonotributo,
@@ -116,9 +121,14 @@ export async function updateFiscalData(userId, fiscalData) {
   if (notasInternasFiscales !== undefined) updateData.notas_internas_fiscales = notasInternasFiscales || null
   // Situacion especial
   if (trabajaRelacionDependencia !== undefined) updateData.trabaja_relacion_dependencia = trabajaRelacionDependencia
+  if (empleadorCuit !== undefined) updateData.empleador_cuit = empleadorCuit || null
+  if (empleadorRazonSocial !== undefined) updateData.empleador_razon_social = empleadorRazonSocial || null
+  if (sueldoBruto !== undefined) updateData.sueldo_bruto = sueldoBruto || null
   if (tieneLocal !== undefined) updateData.tiene_local = tieneLocal
-  if (alquilerMensual !== undefined) updateData.alquiler_mensual = alquilerMensual || null
-  if (superficieLocal !== undefined) updateData.superficie_local = superficieLocal || null
+  // Obra social ampliada
+  if (obraSocialTipoCobertura !== undefined) updateData.obra_social_tipo_cobertura = obraSocialTipoCobertura || 'titular'
+  if (obraSocialAdicional !== undefined) updateData.obra_social_adicional = obraSocialAdicional
+  if (obraSocialAdicionalNombre !== undefined) updateData.obra_social_adicional_nombre = obraSocialAdicionalNombre || null
   // Pago monotributo
   if (metodoPagoMonotributo !== undefined) updateData.metodo_pago_monotributo = metodoPagoMonotributo || null
   if (estadoPagoMonotributo !== undefined) updateData.estado_pago_monotributo = estadoPagoMonotributo || 'al_dia'

@@ -18,6 +18,8 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `10_mi_cuenta_module.sql` | - | Modulo Mi Cuenta para clientes |
 | `storage_policies.sql` | - | Politicas de Storage para bucket invoices |
 | `22_notas_internas.sql` | `client_notas_internas` | Notas internas de contadora por cliente |
+| `24_mi_cartera_completo.sql` | `client_*` | Modulo Mi Cartera completo (locales, grupo familiar, sugerencias) |
+| `25_educacion_impositiva.sql` | `educacion_*` | Modulo Educacion Impositiva (articulos, categorias, adjuntos) |
 
 ## Diagrama de Relaciones
 
@@ -94,4 +96,4 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
-2025-01-07 - Agregada tabla client_notas_internas para notas internas de contadora
+07-01-2026 - Agregado modulo Educacion Impositiva (articulos, categorias, storage)

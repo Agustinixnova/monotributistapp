@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { User, CreditCard } from 'lucide-react'
+import { User, CreditCard, FileText, MessageSquare } from 'lucide-react'
 import { Layout } from '../../../components/layout/Layout'
 import { MisDatos } from './MisDatos'
 import { MiSuscripcion } from './MiSuscripcion'
+import { FichaClienteReducida } from '../../mi-cartera/components/FichaClienteReducida'
+import { MisSugerencias } from '../../mi-cartera/components/MisSugerencias'
 import { cuentaService } from '../services/cuentaService'
 
 /**
@@ -32,7 +34,9 @@ export function MiCuentaPage() {
 
   const tabs = [
     { id: 'datos', label: 'Mis Datos', icon: User },
-    { id: 'suscripcion', label: 'Mi Suscripción', icon: CreditCard }
+    { id: 'fiscales', label: 'Datos Fiscales', icon: FileText },
+    { id: 'sugerencias', label: 'Sugerencias', icon: MessageSquare },
+    { id: 'suscripcion', label: 'Mi Suscripcion', icon: CreditCard }
   ]
 
   return (
@@ -78,6 +82,12 @@ export function MiCuentaPage() {
             <>
               {activeTab === 'datos' && (
                 <MisDatos profile={profile} onProfileUpdate={loadProfile} />
+              )}
+              {activeTab === 'fiscales' && (
+                <FichaClienteReducida />
+              )}
+              {activeTab === 'sugerencias' && (
+                <MisSugerencias />
               )}
               {activeTab === 'suscripcion' && (
                 <MiSuscripcion />

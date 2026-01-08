@@ -205,10 +205,14 @@ serve(async (req) => {
           notas_internas_fiscales: fiscalData.notasInternasFiscales || null,
           // Situacion especial
           trabaja_relacion_dependencia: fiscalData.trabajaRelacionDependencia || false,
+          empleador_cuit: fiscalData.empleadorCuit || null,
+          empleador_razon_social: fiscalData.empleadorRazonSocial || null,
+          sueldo_bruto: fiscalData.sueldoBruto || null,
           tiene_local: fiscalData.tieneLocal || false,
-          alquiler_mensual: fiscalData.alquilerMensual || null,
-          superficie_local: fiscalData.superficieLocal || null,
           obra_social: fiscalData.obraSocial || null,
+          obra_social_tipo_cobertura: fiscalData.obraSocialTipoCobertura || 'titular',
+          obra_social_adicional: fiscalData.obraSocialAdicional || false,
+          obra_social_adicional_nombre: fiscalData.obraSocialAdicionalNombre || null,
           // Pago monotributo
           metodo_pago_monotributo: fiscalData.metodoPagoMonotributo || null,
           estado_pago_monotributo: fiscalData.estadoPagoMonotributo || 'al_dia',
@@ -257,6 +261,49 @@ serve(async (req) => {
             }
           } catch (histErr) {
             console.error('Error en RPC historial:', histErr)
+          }
+        }
+
+        // Guardar locales si existen
+        if (fiscalResult?.id && fiscalData.locales && fiscalData.locales.length > 0) {
+          const localesData = fiscalData.locales.map((local: any) => ({
+            client_id: fiscalResult.id,
+            descripcion: local.descripcion || null,
+            alquiler_mensual: local.alquiler || null,
+            superficie_m2: local.superficie || null,
+            es_propio: local.esPropio || false
+          }))
+
+          const { error: localesError } = await supabaseAdmin
+            .from('client_locales')
+            .insert(localesData)
+
+          if (localesError) {
+            console.error('Error guardando locales:', localesError)
+          } else {
+            console.log(`${localesData.length} locales guardados`)
+          }
+        }
+
+        // Guardar grupo familiar si existe
+        if (fiscalResult?.id && fiscalData.grupoFamiliar && fiscalData.grupoFamiliar.length > 0) {
+          const grupoData = fiscalData.grupoFamiliar.filter((g: any) => g.nombre).map((integrante: any) => ({
+            client_id: fiscalResult.id,
+            nombre: integrante.nombre,
+            dni: integrante.dni || null,
+            parentesco: integrante.parentesco || 'otro'
+          }))
+
+          if (grupoData.length > 0) {
+            const { error: grupoError } = await supabaseAdmin
+              .from('client_grupo_familiar')
+              .insert(grupoData)
+
+            if (grupoError) {
+              console.error('Error guardando grupo familiar:', grupoError)
+            } else {
+              console.log(`${grupoData.length} integrantes del grupo familiar guardados`)
+            }
           }
         }
 
