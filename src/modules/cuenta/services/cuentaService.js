@@ -23,7 +23,11 @@ export const cuentaService = {
       .single()
 
     if (error) throw error
-    return { ...data, email: user.email }
+
+    // Normalizar fiscal_data (puede venir como array desde Supabase)
+    const normalizedFiscalData = Array.isArray(data.fiscal_data) ? data.fiscal_data[0] || null : data.fiscal_data
+
+    return { ...data, fiscal_data: normalizedFiscalData, email: user.email }
   },
 
   /**

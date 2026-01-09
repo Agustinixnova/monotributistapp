@@ -209,6 +209,9 @@ serve(async (req) => {
           empleador_razon_social: fiscalData.empleadorRazonSocial || null,
           sueldo_bruto: fiscalData.sueldoBruto || null,
           tiene_local: fiscalData.tieneLocal || false,
+          // Empleados
+          tiene_empleados: fiscalData.tieneEmpleados || false,
+          cantidad_empleados: fiscalData.cantidadEmpleados || 0,
           obra_social: fiscalData.obraSocial || null,
           obra_social_tipo_cobertura: fiscalData.obraSocialTipoCobertura || 'titular',
           obra_social_adicional: fiscalData.obraSocialAdicional || false,

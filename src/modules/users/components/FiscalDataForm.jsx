@@ -958,7 +958,15 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
           <div className="relative">
             <select
               value={data.regimenIibb || ''}
-              onChange={(e) => handleChange('regimenIibb', e.target.value)}
+              onChange={(e) => {
+                const newRegimen = e.target.value
+                // Autocompletar numero IIBB con CUIT si es simplificado
+                if (newRegimen === 'simplificado' && data.cuit) {
+                  onChange({ ...data, regimenIibb: newRegimen, numeroIibb: data.cuit })
+                } else {
+                  handleChange('regimenIibb', newRegimen)
+                }
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-violet-500"
             >
               <option value="">Seleccionar</option>

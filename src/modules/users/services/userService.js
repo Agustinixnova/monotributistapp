@@ -111,8 +111,10 @@ export async function getUsers(filters = {}) {
   }
 
   // Agregar assigned_counter y subscription a cada usuario
+  // Normalizar fiscal_data (puede venir como array desde Supabase)
   const usersWithData = data?.map(user => ({
     ...user,
+    fiscal_data: Array.isArray(user.fiscal_data) ? user.fiscal_data[0] || null : user.fiscal_data,
     assigned_counter: user.assigned_to ? countersMap[user.assigned_to] || null : null,
     subscription: subscriptionsMap[user.id] || []
   }))
@@ -153,7 +155,43 @@ export async function getUserById(id) {
     assigned_counter = counter
   }
 
-  return { ...data, assigned_counter }
+  // Normalizar fiscal_data (puede venir como array desde Supabase)
+  const normalizedFiscalData = Array.isArray(data.fiscal_data) ? data.fiscal_data[0] || null : data.fiscal_data
+
+  // Cargar locales y grupo familiar si tiene fiscal_data
+  let locales = []
+  let grupo_familiar = []
+
+  if (normalizedFiscalData?.id) {
+    // Cargar locales
+    const { data: localesData } = await supabase
+      .from('client_locales')
+      .select('*')
+      .eq('client_id', normalizedFiscalData.id)
+      .order('orden', { ascending: true })
+
+    if (localesData) {
+      locales = localesData
+    }
+
+    // Cargar grupo familiar
+    const { data: grupoData } = await supabase
+      .from('client_grupo_familiar')
+      .select('*')
+      .eq('client_id', normalizedFiscalData.id)
+
+    if (grupoData) {
+      grupo_familiar = grupoData
+    }
+  }
+
+  return {
+    ...data,
+    fiscal_data: normalizedFiscalData,
+    locales,
+    grupo_familiar,
+    assigned_counter
+  }
 }
 
 /**
@@ -266,25 +304,37 @@ export async function updateUser(id, userData) {
           provincia: fiscalData.provincia || null,
           regimen_iibb: fiscalData.regimenIibb || null,
           numero_iibb: fiscalData.numeroIibb || null,
+          facturador_electronico: fiscalData.facturadorElectronico || null,
           fecha_alta_monotributo: fiscalData.fechaAltaMonotributo || null,
           fecha_ultima_recategorizacion: fiscalData.fechaUltimaRecategorizacion || null,
           codigo_actividad_afip: fiscalData.codigoActividadAfip || null,
           descripcion_actividad_afip: fiscalData.descripcionActividadAfip || null,
           punto_venta_afip: fiscalData.puntoVentaAfip || null,
           notas_internas_fiscales: fiscalData.notasInternasFiscales || null,
-          // Nuevos campos
+          // Situacion especial
           trabaja_relacion_dependencia: fiscalData.trabajaRelacionDependencia || false,
+          empleador_cuit: fiscalData.empleadorCuit || null,
+          empleador_razon_social: fiscalData.empleadorRazonSocial || null,
+          sueldo_bruto: fiscalData.sueldoBruto || null,
           tiene_local: fiscalData.tieneLocal || false,
-          alquiler_mensual: fiscalData.alquilerMensual || null,
-          superficie_local: fiscalData.superficieLocal || null,
+          // Empleados
+          tiene_empleados: fiscalData.tieneEmpleados || false,
+          cantidad_empleados: fiscalData.cantidadEmpleados || 0,
+          // Obra social
           obra_social: fiscalData.obraSocial || null,
+          obra_social_tipo_cobertura: fiscalData.obraSocialTipoCobertura || 'titular',
+          obra_social_adicional: fiscalData.obraSocialAdicional || false,
+          obra_social_adicional_nombre: fiscalData.obraSocialAdicionalNombre || null,
+          // Pago monotributo
           metodo_pago_monotributo: fiscalData.metodoPagoMonotributo || null,
           estado_pago_monotributo: fiscalData.estadoPagoMonotributo || 'al_dia',
           cbu_debito: fiscalData.cbuDebito || null,
+          // Accesos ARCA
           nivel_clave_fiscal: fiscalData.nivelClaveFiscal || null,
           servicios_delegados: fiscalData.serviciosDelegados || false,
           fecha_delegacion: fiscalData.fechaDelegacion || null,
           factura_electronica_habilitada: fiscalData.facturaElectronicaHabilitada || false,
+          // Historial categoria
           categoria_anterior: fiscalData.categoriaAnterior || null,
           fecha_cambio_categoria: fiscalData.fechaCambioCategoria || null,
           motivo_cambio_categoria: fiscalData.motivoCambioCategoria || null

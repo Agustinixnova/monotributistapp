@@ -12,8 +12,7 @@ const STEPS = [
   { id: 1, title: 'Datos Personales', icon: User },
   { id: 2, title: 'Rol y Asignación', icon: Briefcase },
   { id: 3, title: 'Datos Fiscales', icon: FileText },
-  { id: 4, title: 'Fact. Historica', icon: History },
-  { id: 5, title: 'Módulos Extra', icon: Settings }
+  { id: 4, title: 'Fact. Historica', icon: History }
 ]
 
 /**
@@ -63,13 +62,16 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       empleadorRazonSocial: user?.fiscal_data?.empleador_razon_social || '',
       sueldoBruto: user?.fiscal_data?.sueldo_bruto || null,
       tieneLocal: user?.fiscal_data?.tiene_local || false,
-      locales: user?.locales || [],
+      locales: user?.locales || [], // Cargados desde client_locales
+      // Empleados
+      tieneEmpleados: user?.fiscal_data?.tiene_empleados || false,
+      cantidadEmpleados: user?.fiscal_data?.cantidad_empleados || 0,
       // Obra social
       obraSocial: user?.fiscal_data?.obra_social || '',
       obraSocialTipoCobertura: user?.fiscal_data?.obra_social_tipo_cobertura || 'titular',
       obraSocialAdicional: user?.fiscal_data?.obra_social_adicional || false,
       obraSocialAdicionalNombre: user?.fiscal_data?.obra_social_adicional_nombre || '',
-      grupoFamiliar: user?.grupo_familiar || [],
+      grupoFamiliar: user?.grupo_familiar || [], // Cargados desde client_grupo_familiar
       // Pago monotributo
       metodoPagoMonotributo: user?.fiscal_data?.metodo_pago_monotributo || '',
       estadoPagoMonotributo: user?.fiscal_data?.estado_pago_monotributo || 'al_dia',
@@ -143,6 +145,15 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
 
   const handleFiscalDataChange = (fiscalData) => {
     setFormData(prev => ({ ...prev, fiscalData }))
+    // Limpiar errores de campos fiscales cuando se editan
+    if (Object.keys(errors).some(key => ['cuit', 'tipoContribuyente', 'categoriaMonotributo'].includes(key))) {
+      setErrors(prev => ({
+        ...prev,
+        cuit: undefined,
+        tipoContribuyente: undefined,
+        categoriaMonotributo: undefined
+      }))
+    }
   }
 
   const handleHistoricalBillingChange = (historicalBilling) => {
@@ -196,16 +207,16 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       setErrors({})
       let nextStepNum = currentStep + 1
 
-      // Saltar paso 3 si no requiere datos fiscales
+      // Saltar paso 3 y 4 si no requiere datos fiscales
       if (currentStep === 2 && !requiresFiscalData()) {
-        nextStepNum = 5
+        nextStepNum = 4 // Ir al final para enviar
       }
       // Saltar paso 4 si no requiere facturacion historica
       else if (currentStep === 3 && !requiresHistoricalBilling()) {
-        nextStepNum = 5
+        nextStepNum = 4 // Ir al final para enviar
       }
 
-      setCurrentStep(Math.min(nextStepNum, 5))
+      setCurrentStep(Math.min(nextStepNum, 4))
     }
   }
 
@@ -214,16 +225,25 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
     let prevStepNum = currentStep - 1
 
     // Volver correctamente si se saltó el paso 4
-    if (currentStep === 5 && !requiresHistoricalBilling()) {
+    if (currentStep === 4 && !requiresHistoricalBilling()) {
       prevStepNum = requiresFiscalData() ? 3 : 2
     }
     // Volver correctamente si se saltó el paso 3
-    else if (currentStep === 5 && !requiresFiscalData()) {
+    else if (currentStep === 4 && !requiresFiscalData()) {
       prevStepNum = 2
     }
 
     setCurrentStep(Math.max(prevStepNum, 1))
   }
+
+  // Determinar el último paso
+  const getLastStep = () => {
+    if (!requiresFiscalData()) return 2
+    if (!requiresHistoricalBilling()) return 3
+    return 4
+  }
+
+  const isLastStep = currentStep === getLastStep() || currentStep === 4
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -232,7 +252,6 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
     const stepsToValidate = [1, 2]
     if (requiresFiscalData()) stepsToValidate.push(3)
     if (requiresHistoricalBilling()) stepsToValidate.push(4)
-    stepsToValidate.push(5)
 
     for (const step of stepsToValidate) {
       if (!validateStep(step)) {
@@ -390,15 +409,18 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WhatsApp
+                  WhatsApp *
                 </label>
                 <input
                   type="tel"
                   value={formData.whatsapp}
                   onChange={(e) => handleChange('whatsapp', e.target.value)}
                   placeholder="Ej: 11 1234-5678"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    errors.whatsapp ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.whatsapp && <p className="text-sm text-red-600 mt-1">{errors.whatsapp}</p>}
               </div>
             </div>
 
@@ -494,20 +516,6 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
           </div>
         )}
 
-        {/* Paso 5: Módulos Extra */}
-        {currentStep === 5 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Módulos Adicionales</h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Seleccione módulos adicionales a los que el usuario tendrá acceso, además de los incluidos en su rol.
-            </p>
-            <ModuleAccessManager
-              selectedModules={formData.extraModules}
-              defaultModules={defaultModules}
-              onChange={(modules) => handleChange('extraModules', modules)}
-            />
-          </div>
-        )}
       </div>
 
       {/* Error general */}
@@ -528,7 +536,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
           {currentStep === 1 ? 'Cancelar' : 'Anterior'}
         </button>
 
-        {currentStep < 5 ? (
+        {!isLastStep ? (
           <button
             type="button"
             onClick={nextStep}

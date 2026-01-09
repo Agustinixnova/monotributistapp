@@ -34,6 +34,7 @@ export function useUsers(initialFilters = {}) {
     try {
       setLoading(true)
       setError(null)
+
       const result = await createUser(userData)
 
       // Si hay datos historicos de facturacion, crearlos

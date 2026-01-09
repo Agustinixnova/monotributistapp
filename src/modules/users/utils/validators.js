@@ -151,6 +151,13 @@ export function validateUserForm(userData, isNewUser = true) {
     errors.telefono = 'Teléfono inválido'
   }
 
+  // WhatsApp es obligatorio
+  if (!validateRequired(userData.whatsapp)) {
+    errors.whatsapp = 'El WhatsApp es requerido'
+  } else if (!validatePhone(userData.whatsapp)) {
+    errors.whatsapp = 'WhatsApp inválido'
+  }
+
   if (userData.dni && !validateDNI(userData.dni)) {
     errors.dni = 'DNI inválido'
   }
