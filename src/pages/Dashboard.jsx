@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react'
 import { Layout } from '../components/layout'
-import { 
-  Users, 
-  FileText, 
-  Clock, 
+import {
+  Users,
+  FileText,
+  Clock,
   DollarSign,
   TrendingUp,
   AlertCircle,
@@ -10,6 +11,19 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { useAuth } from '../auth/hooks/useAuth'
+import { supabase } from '../lib/supabase'
+import { ResumenFacturacionDashboard } from '../modules/facturacion/components/ResumenFacturacionDashboard'
+import { CardCuotaMonotributo } from '../modules/facturacion/components/CardCuotaMonotributo'
+import { ModalRecordatorioVencimiento } from '../modules/facturacion/components/ModalRecordatorioVencimiento'
+import {
+  getCuotaMesActual,
+  calcularMontoCuota,
+  calcularEstadoVencimiento,
+  getMesActualNombre
+} from '../modules/facturacion/services/cuotaService'
+
+const ROLES_CONTADORA = ['admin', 'contadora_principal', 'desarrollo', 'comunicadora', 'contador_secundario']
 
 // Componente para las cards de métricas
 function MetricCard({ title, value, icon: Icon, trend, trendValue, color = 'violet' }) {
@@ -56,6 +70,99 @@ function EmptyState({ icon: Icon, title, description }) {
 }
 
 export function Dashboard() {
+  const { user } = useAuth()
+  const [roleName, setRoleName] = useState(null)
+  const [nombreUsuario, setNombreUsuario] = useState('')
+  const [loadingRole, setLoadingRole] = useState(true)
+  const [showRecordatorio, setShowRecordatorio] = useState(false)
+  const [datosRecordatorio, setDatosRecordatorio] = useState(null)
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (!user?.id) return
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('nombre, apellido, roles(name)')
+        .eq('id', user.id)
+        .single()
+
+      setRoleName(data?.roles?.name || null)
+      setNombreUsuario(data?.nombre || '')
+      setLoadingRole(false)
+    }
+
+    fetchRole()
+  }, [user?.id])
+
+  const esCliente = !loadingRole && !ROLES_CONTADORA.includes(roleName)
+
+  // Verificar si debe mostrar recordatorio de vencimiento
+  useEffect(() => {
+    const verificarRecordatorio = async () => {
+      if (!esCliente || !user?.id) return
+
+      // Verificar si ya se mostro hoy
+      const hoy = new Date().toISOString().split('T')[0]
+      const ultimoRecordatorio = localStorage.getItem('ultimoRecordatorioCuota')
+      if (ultimoRecordatorio === hoy) return
+
+      // Verificar dias restantes
+      const estadoVencimiento = calcularEstadoVencimiento()
+      if (estadoVencimiento.diasRestantes > 1) return // Solo mostrar si falta 1 dia o menos
+
+      try {
+        // Obtener datos del cliente
+        const { data: clienteData } = await supabase
+          .from('client_fiscal_data')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+
+        if (!clienteData) return
+
+        // Verificar si la cuota ya esta pagada
+        const cuota = await getCuotaMesActual(clienteData.id)
+        if (cuota?.estado === 'informada' || cuota?.estado === 'verificada') return
+
+        // Obtener datos de la categoria para calcular monto
+        const { data: catData } = await supabase
+          .from('monotributo_categorias')
+          .select('*')
+          .eq('categoria', clienteData.categoria_monotributo)
+          .is('vigente_hasta', null)
+          .single()
+
+        if (!catData) return
+
+        const montoCuota = calcularMontoCuota(
+          catData,
+          clienteData.tipo_actividad,
+          clienteData.trabaja_relacion_dependencia
+        )
+
+        // Mostrar recordatorio
+        setDatosRecordatorio({
+          montoCuota,
+          mesNombre: getMesActualNombre(),
+          diasRestantes: estadoVencimiento.diasRestantes
+        })
+        setShowRecordatorio(true)
+      } catch (err) {
+        console.error('Error verificando recordatorio:', err)
+      }
+    }
+
+    verificarRecordatorio()
+  }, [esCliente, user?.id])
+
+  const handleCerrarRecordatorio = () => {
+    // Guardar que ya se mostro hoy
+    const hoy = new Date().toISOString().split('T')[0]
+    localStorage.setItem('ultimoRecordatorioCuota', hoy)
+    setShowRecordatorio(false)
+  }
+
   const metrics = [
     { title: 'Clientes', value: '0', icon: Users, color: 'violet' },
     { title: 'Facturas', value: '0', icon: FileText, color: 'blue' },
@@ -65,11 +172,43 @@ export function Dashboard() {
 
   return (
     <Layout title="Dashboard">
-      {/* Welcome section */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Bienvenido</h2>
-        <p className="text-gray-500 mt-1">Panel de gestión de clientes monotributistas</p>
-      </div>
+      {/* Welcome section para clientes - arriba de todo */}
+      {esCliente && (
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Bienvenido{nombreUsuario ? `, ${nombreUsuario}` : ''}
+          </h2>
+        </div>
+      )}
+
+      {/* Resumen de facturacion para clientes */}
+      {esCliente && (
+        <div className="space-y-4 mb-6">
+          <ResumenFacturacionDashboard />
+
+          {/* Cards de cuota y proxima (2 columnas en desktop) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <CardCuotaMonotributo />
+
+            {/* Card vacia para futuro uso */}
+            <div className="bg-white rounded-xl border border-gray-200 border-dashed p-4 sm:p-6 flex items-center justify-center min-h-[200px]">
+              <p className="text-gray-400 text-sm">Proximamente...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome section para contadoras */}
+      {!esCliente && (
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Bienvenido{nombreUsuario ? `, ${nombreUsuario}` : ''}
+          </h2>
+          <p className="text-gray-500 mt-1">
+            Panel de gestion de clientes monotributistas
+          </p>
+        </div>
+      )}
 
       {/* Metrics grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -117,6 +256,16 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Modal de recordatorio de vencimiento */}
+      {showRecordatorio && datosRecordatorio && (
+        <ModalRecordatorioVencimiento
+          montoCuota={datosRecordatorio.montoCuota}
+          mesNombre={datosRecordatorio.mesNombre}
+          diasRestantes={datosRecordatorio.diasRestantes}
+          onClose={handleCerrarRecordatorio}
+        />
+      )}
     </Layout>
   )
 }

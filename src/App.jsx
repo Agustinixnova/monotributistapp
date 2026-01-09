@@ -14,6 +14,7 @@ import { FacturacionPage, ClienteFacturacionDetalle } from './modules/facturacio
 import { NotificacionesPage } from './modules/notificaciones/components'
 import { MiCarteraPage, ClienteDetallePage } from './modules/mi-cartera/pages'
 import { EducacionPage, EducacionArticuloPage, EducacionAdminPage, EducacionEditorPage } from './modules/educacion-impositiva/pages'
+import { BuzonPage } from './modules/buzon/components/BuzonPage'
 
 function App() {
   return (
@@ -113,7 +114,7 @@ function App() {
             path="/mensajes"
             element={
               <ProtectedRoute>
-                <PlaceholderPage />
+                <BuzonPage />
               </ProtectedRoute>
             }
           />
