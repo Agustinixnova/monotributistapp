@@ -17,7 +17,7 @@ export const cuentaService = {
       .select(`
         *,
         role:roles(id, name, display_name),
-        fiscal_data:client_fiscal_data(*)
+        fiscal_data:client_fiscal_data!user_id(*)
       `)
       .eq('id', user.id)
       .single()

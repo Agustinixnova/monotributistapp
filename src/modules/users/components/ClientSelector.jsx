@@ -27,7 +27,7 @@ export function ClientSelector({ selectedClients = [], onChange, excludeAssigned
       .from('profiles')
       .select(`
         id, nombre, apellido, email,
-        fiscal_data:client_fiscal_data(cuit, razon_social)
+        fiscal_data:client_fiscal_data!user_id(cuit, razon_social)
       `)
       .in('id', selectedClients)
 
@@ -53,7 +53,7 @@ export function ClientSelector({ selectedClients = [], onChange, excludeAssigned
         .select(`
           id, nombre, apellido, email, dni, assigned_to,
           role:roles(name),
-          fiscal_data:client_fiscal_data(cuit, razon_social)
+          fiscal_data:client_fiscal_data!user_id(cuit, razon_social)
         `)
         .eq('is_active', true)
         .or(`nombre.ilike.%${value}%,apellido.ilike.%${value}%,email.ilike.%${value}%,dni.ilike.%${value}%`)

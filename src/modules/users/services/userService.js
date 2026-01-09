@@ -19,7 +19,7 @@ export async function getUsers(filters = {}) {
     .select(`
       *,
       role:roles(*),
-      fiscal_data:client_fiscal_data(*)
+      fiscal_data:client_fiscal_data!user_id(*)
     `)
     .order('created_at', { ascending: false })
 
@@ -130,7 +130,7 @@ export async function getUserById(id) {
     .select(`
       *,
       role:roles(*),
-      fiscal_data:client_fiscal_data(*),
+      fiscal_data:client_fiscal_data!user_id(*),
       module_access:user_module_access(
         *,
         module:modules(*)
