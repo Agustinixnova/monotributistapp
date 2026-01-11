@@ -199,7 +199,7 @@ export function TablaCategorias({ categorias, fechaVigencia, loading, onUpdate, 
                     <td className="px-2 py-2 text-center">
                       <button
                         onClick={(e) => handleEdit(cat, e)}
-                        className="p-1.5 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                        className="p-2.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>

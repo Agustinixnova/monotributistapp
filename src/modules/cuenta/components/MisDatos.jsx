@@ -199,7 +199,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
           {editMode !== 'contact' && (
             <button
               onClick={() => setEditMode('contact')}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="py-2.5 px-3 min-h-[44px] text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg font-medium transition-colors"
             >
               Editar
             </button>
@@ -214,7 +214,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                   type="tel"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Ej: 11 1234-5678"
                 />
               </div>
@@ -224,7 +224,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                   type="tel"
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Ej: 11 1234-5678"
                 />
               </div>
@@ -232,7 +232,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                 <button
                   onClick={handleSaveContact}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -247,7 +247,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     setTelefono(profile?.telefono || '')
                     setWhatsapp(profile?.whatsapp || '')
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                  className="px-4 py-2.5 min-h-[44px] border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -278,7 +278,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
           {editMode !== 'address' && (
             <button
               onClick={() => setEditMode('address')}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="py-2.5 px-3 min-h-[44px] text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg font-medium transition-colors"
             >
               Editar
             </button>
@@ -293,7 +293,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                   type="text"
                   value={direccion}
                   onChange={(e) => setDireccion(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Ej: Av. Corrientes 1234, Piso 5, Depto A"
                 />
               </div>
@@ -304,7 +304,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     type="text"
                     value={localidad}
                     onChange={(e) => setLocalidad(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Ej: CABA"
                   />
                 </div>
@@ -314,7 +314,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     type="text"
                     value={codigoPostal}
                     onChange={(e) => setCodigoPostal(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Ej: 1043"
                   />
                 </div>
@@ -324,7 +324,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                 <select
                   value={provincia}
                   onChange={(e) => setProvincia(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Seleccionar provincia</option>
                   <option value="Buenos Aires">Buenos Aires</option>
@@ -357,7 +357,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                 <button
                   onClick={handleSaveAddress}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -374,7 +374,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     setCodigoPostal(profile?.codigo_postal || '')
                     setProvincia(profile?.provincia || '')
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                  className="px-4 py-2.5 min-h-[44px] border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -423,7 +423,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
           {editMode !== 'email' && (
             <button
               onClick={() => setEditMode('email')}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="py-2.5 px-3 min-h-[44px] text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg font-medium transition-colors"
             >
               Cambiar
             </button>
@@ -442,7 +442,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="nuevo@email.com"
                 />
               </div>
@@ -453,7 +453,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                 <button
                   onClick={handleSaveEmail}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -467,7 +467,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     setEditMode(null)
                     setNewEmail('')
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                  className="px-4 py-2.5 min-h-[44px] border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -489,7 +489,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
           {editMode !== 'password' && (
             <button
               onClick={() => setEditMode('password')}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="py-2.5 px-3 min-h-[44px] text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg font-medium transition-colors"
             >
               Cambiar
             </button>
@@ -505,13 +505,13 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2.5 min-h-[44px] pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Mínimo 6 caracteres"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -523,7 +523,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Repetí la contraseña"
                 />
               </div>
@@ -531,7 +531,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                 <button
                   onClick={handleSavePassword}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -546,7 +546,7 @@ export function MisDatos({ profile, onProfileUpdate }) {
                     setNewPassword('')
                     setConfirmPassword('')
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                  className="px-4 py-2.5 min-h-[44px] border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
                 >
                   Cancelar
                 </button>

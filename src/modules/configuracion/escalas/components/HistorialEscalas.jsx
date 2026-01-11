@@ -81,7 +81,7 @@ export function HistorialEscalas({ historial, loading, onVerDetalle }) {
 
       {/* Modal de detalle */}
       {selectedPeriodo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 pt-safe-top pb-safe-bottom">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -93,7 +93,7 @@ export function HistorialEscalas({ historial, loading, onVerDetalle }) {
               </div>
               <button
                 onClick={closeDetalle}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-3 min-h-[44px] min-w-[44px] inline-flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -108,38 +108,67 @@ export function HistorialEscalas({ historial, loading, onVerDetalle }) {
                   ))}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Cat.</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Tope Facturacion</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Cuota Serv.</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Cuota Prod.</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {categoriasPeriodo.map((cat) => (
-                        <tr key={cat.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2">
-                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-bold text-xs ${getCategoriaColor(cat.categoria)}`}>
-                              {cat.categoria}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium text-gray-900">
+                <>
+                  {/* Mobile: Lista compacta */}
+                  <div className="md:hidden space-y-2">
+                    {categoriasPeriodo.map((cat) => (
+                      <div key={cat.id} className="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-bold text-sm ${getCategoriaColor(cat.categoria)}`}>
+                            {cat.categoria}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
                             {formatMoneda(cat.tope_facturacion_anual)}
-                          </td>
-                          <td className="px-3 py-2 text-right text-gray-700">
-                            {formatMoneda(cat.cuota_total_servicios)}
-                          </td>
-                          <td className="px-3 py-2 text-right text-gray-700">
-                            {formatMoneda(cat.cuota_total_productos)}
-                          </td>
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Serv:</span>
+                            <span className="ml-1 text-gray-700">{formatMoneda(cat.cuota_total_servicios)}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Prod:</span>
+                            <span className="ml-1 text-gray-700">{formatMoneda(cat.cuota_total_productos)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop: Tabla completa */}
+                  <div className="hidden md:block overflow-x-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Cat.</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">Tope Facturacion</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">Cuota Serv.</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-600">Cuota Prod.</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {categoriasPeriodo.map((cat) => (
+                          <tr key={cat.id} className="hover:bg-gray-50">
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg font-bold text-xs ${getCategoriaColor(cat.categoria)}`}>
+                                {cat.categoria}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-medium text-gray-900">
+                              {formatMoneda(cat.tope_facturacion_anual)}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-700">
+                              {formatMoneda(cat.cuota_total_servicios)}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-700">
+                              {formatMoneda(cat.cuota_total_productos)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
 

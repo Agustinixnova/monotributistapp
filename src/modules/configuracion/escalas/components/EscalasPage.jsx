@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Scale, Bell, History } from 'lucide-react'
+import { ArrowLeft, Scale, Bell, History, FileSpreadsheet } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Layout } from '../../../../components/layout/Layout'
 import { useAuth } from '../../../../auth/hooks/useAuth'
@@ -8,9 +8,11 @@ import { supabase } from '../../../../lib/supabase'
 import TablaCategorias from './TablaCategorias'
 import ConfigAlertas from './ConfigAlertas'
 import HistorialEscalas from './HistorialEscalas'
+import ConfigConvenioMultilateral from './ConfigConvenioMultilateral'
 
 const TABS = [
-  { id: 'categorias', label: 'Categorias Vigentes', icon: Scale },
+  { id: 'categorias', label: 'Categorias', icon: Scale },
+  { id: 'convenio', label: 'Conv. Multilateral', icon: FileSpreadsheet },
   { id: 'alertas', label: 'Alertas', icon: Bell },
   { id: 'historial', label: 'Historial', icon: History }
 ]
@@ -73,7 +75,7 @@ export function EscalasPage() {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 font-heading">Escalas Monotributo</h1>
+            <h1 className="text-xl font-bold text-gray-900">Escalas Monotributo</h1>
             <p className="text-sm text-gray-500">Categorias, valores y configuracion de alertas</p>
           </div>
         </div>
@@ -124,6 +126,10 @@ export function EscalasPage() {
 
           {activeTab === 'alertas' && (
             <ConfigAlertas canEdit={canEdit} />
+          )}
+
+          {activeTab === 'convenio' && (
+            <ConfigConvenioMultilateral canEdit={canEdit} />
           )}
 
           {activeTab === 'historial' && (

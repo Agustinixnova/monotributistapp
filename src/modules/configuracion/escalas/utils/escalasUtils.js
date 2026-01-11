@@ -189,25 +189,9 @@ export function formatFecha(fecha) {
   }).format(date)
 }
 
-/**
- * Obtiene el color de badge segun la categoria
- */
-export function getCategoriaColor(categoria) {
-  const colores = {
-    A: 'bg-emerald-100 text-emerald-700',
-    B: 'bg-emerald-100 text-emerald-700',
-    C: 'bg-teal-100 text-teal-700',
-    D: 'bg-cyan-100 text-cyan-700',
-    E: 'bg-blue-100 text-blue-700',
-    F: 'bg-indigo-100 text-indigo-700',
-    G: 'bg-violet-100 text-violet-700',
-    H: 'bg-purple-100 text-purple-700',
-    I: 'bg-fuchsia-100 text-fuchsia-700',
-    J: 'bg-pink-100 text-pink-700',
-    K: 'bg-rose-100 text-rose-700'
-  }
-  return colores[categoria] || 'bg-gray-100 text-gray-700'
-}
+// Re-exportar getCategoriaColor desde la utilidad compartida
+// para mantener compatibilidad con imports existentes
+export { getCategoriaColor } from '../../../../utils/categoriaColors'
 
 /**
  * Verifica si una categoria es solo para productos

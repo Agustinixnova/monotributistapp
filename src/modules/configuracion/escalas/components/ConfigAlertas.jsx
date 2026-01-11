@@ -79,7 +79,7 @@ export function ConfigAlertas({ canEdit }) {
             disabled={!canEdit}
             className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
           />
-          <div className="w-16 flex items-center justify-center">
+          <div className="flex items-center gap-1">
             <input
               type="number"
               min="50"
@@ -87,9 +87,9 @@ export function ConfigAlertas({ canEdit }) {
               value={formData.alerta_recategorizacion_porcentaje || 80}
               onChange={(e) => handleChange('alerta_recategorizacion_porcentaje', e.target.value)}
               disabled={!canEdit}
-              className="w-14 px-2 py-1 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
+              className="w-16 px-2 py-2.5 min-h-[44px] border border-gray-200 rounded-lg text-center font-semibold text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
             />
-            <span className="text-gray-500 ml-1">%</span>
+            <span className="text-gray-500">%</span>
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ export function ConfigAlertas({ canEdit }) {
             disabled={!canEdit}
             className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-500"
           />
-          <div className="w-16 flex items-center justify-center">
+          <div className="flex items-center gap-1">
             <input
               type="number"
               min="70"
@@ -125,9 +125,9 @@ export function ConfigAlertas({ canEdit }) {
               value={formData.alerta_exclusion_porcentaje || 90}
               onChange={(e) => handleChange('alerta_exclusion_porcentaje', e.target.value)}
               disabled={!canEdit}
-              className="w-14 px-2 py-1 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
+              className="w-16 px-2 py-2.5 min-h-[44px] border border-gray-200 rounded-lg text-center font-semibold text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
             />
-            <span className="text-gray-500 ml-1">%</span>
+            <span className="text-gray-500">%</span>
           </div>
         </div>
       </div>
@@ -153,7 +153,7 @@ export function ConfigAlertas({ canEdit }) {
             value={formData.dias_alerta_vencimiento_cuota || 5}
             onChange={(e) => handleChange('dias_alerta_vencimiento_cuota', e.target.value)}
             disabled={!canEdit}
-            className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
+            className="w-20 px-3 py-2.5 min-h-[44px] border border-gray-200 rounded-lg text-center font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <span className="text-gray-600">dias antes</span>
         </div>
@@ -180,7 +180,7 @@ export function ConfigAlertas({ canEdit }) {
             value={formData.dias_alerta_recategorizacion || 15}
             onChange={(e) => handleChange('dias_alerta_recategorizacion', e.target.value)}
             disabled={!canEdit}
-            className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
+            className="w-20 px-3 py-2.5 min-h-[44px] border border-gray-200 rounded-lg text-center font-semibold text-gray-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
           />
           <span className="text-gray-600">dias antes</span>
         </div>
@@ -207,7 +207,7 @@ export function ConfigAlertas({ canEdit }) {
             value={formData.dias_alerta_facturacion_pendiente || 5}
             onChange={(e) => handleChange('dias_alerta_facturacion_pendiente', e.target.value)}
             disabled={!canEdit}
-            className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-center font-semibold text-gray-900"
+            className="w-20 px-3 py-2.5 min-h-[44px] border border-gray-200 rounded-lg text-center font-semibold text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           />
           <span className="text-gray-600">dias antes de fin de mes</span>
         </div>

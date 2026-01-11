@@ -162,7 +162,7 @@ async function getExpiringSubscriptions(daysAhead = 7) {
       plan:subscription_plans (
         name,
         plan_key,
-        grace_period_days
+        renewal_alert_days
       )
     `)
     .in('status', ['active', 'grace_period'])
