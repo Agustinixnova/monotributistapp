@@ -149,9 +149,9 @@ export default defineConfig({
         globIgnores: ['**/node_modules/**', 'sw.js', 'workbox-*.js']
       },
 
-      // Modo desarrollo - activar PWA para testing
+      // Modo desarrollo - DESACTIVADO para evitar problemas de cache con auth
       devOptions: {
-        enabled: true
+        enabled: false
       }
     })
   ],
