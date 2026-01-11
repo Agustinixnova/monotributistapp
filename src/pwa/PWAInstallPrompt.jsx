@@ -75,7 +75,7 @@ export function PWAInstallPrompt() {
   if (isInstalled || !showPrompt) return null
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 animate-slide-up md:left-auto md:right-4 md:w-96">
+    <div className="fixed bottom-4 left-4 right-4 z-50 animate-slide-up md:left-auto md:right-4 md:w-96 pb-safe-bottom">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
         <div className="flex items-start gap-3">
           <div className="p-2 bg-violet-100 rounded-xl">
@@ -101,7 +101,7 @@ export function PWAInstallPrompt() {
 
           <button
             onClick={handleDismiss}
-            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors rounded-lg"
             aria-label="Cerrar"
           >
             <X className="w-5 h-5" />
@@ -112,13 +112,13 @@ export function PWAInstallPrompt() {
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleDismiss}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+              className="flex-1 px-4 py-2.5 min-h-[44px] text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
             >
               Ahora no
             </button>
             <button
               onClick={handleInstall}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 min-h-[44px] text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-colors flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" />
               Instalar
