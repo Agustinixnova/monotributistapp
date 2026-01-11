@@ -20,6 +20,9 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `22_notas_internas.sql` | `client_notas_internas` | Notas internas de contadora por cliente |
 | `24_mi_cartera_completo.sql` | `client_*` | Modulo Mi Cartera completo (locales, grupo familiar, sugerencias) |
 | `25_educacion_impositiva.sql` | `educacion_*` | Modulo Educacion Impositiva (articulos, categorias, adjuntos) |
+| `26_storage_comprobantes_cuotas.sql` | `storage.objects` | Bucket para comprobantes de pago de cuotas |
+| `27_client_notifications.sql` | `client_notifications` | Notificaciones personalizadas de contadores a clientes |
+| `28_estado_pago_automatico.sql` | Función + Trigger | Calculo automático de estado de pago basado en cuotas mensuales |
 
 ## Diagrama de Relaciones
 
@@ -41,6 +44,8 @@ auth.users
             +---> client_fiscal_data (1:1)
                     |
                     +---> client_notas_internas (1:N)
+                    |
+                    +---> client_notifications (1:N)
             |
             +---> profiles (assigned_to, N:1)
 ```
@@ -96,4 +101,6 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+11-01-2026 - Agregada función y trigger para calcular automáticamente estado_pago_monotributo
+10-01-2026 - Agregada tabla client_notifications para notificaciones personalizadas a clientes
 07-01-2026 - Agregado modulo Educacion Impositiva (articulos, categorias, storage)

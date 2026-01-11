@@ -12,6 +12,7 @@ import { FichaSeccionGrupoFamiliar } from './FichaSeccionGrupoFamiliar'
 import { FichaHistorialCategorias } from './FichaHistorialCategorias'
 import { FichaAuditoria } from './FichaAuditoria'
 import { FichaSeccionNotificaciones } from './FichaSeccionNotificaciones'
+import { FichaSeccionCuotas } from './FichaSeccionCuotas'
 import { HistorialCambiosCliente } from '../../../components/common/HistorialCambiosCliente'
 
 const CATEGORIAS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
@@ -672,6 +673,14 @@ export function FichaCliente({ clientId }) {
             )}
           </div>
         </FichaSeccion>
+      )}
+
+      {/* Historial de Cuotas Mensuales */}
+      {isMonotributista && (
+        <FichaSeccionCuotas
+          clientId={cliente?.id}
+          clienteData={cliente}
+        />
       )}
 
       {/* Accesos ARCA */}
