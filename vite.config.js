@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// PWA v2 - Force redeploy 2024-01-11
 export default defineConfig({
   plugins: [
     react(),
