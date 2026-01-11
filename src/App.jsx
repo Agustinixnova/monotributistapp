@@ -15,11 +15,16 @@ import { NotificacionesPage } from './modules/notificaciones/components'
 import { MiCarteraPage, ClienteDetallePage } from './modules/mi-cartera/pages'
 import { EducacionPage, EducacionArticuloPage, EducacionAdminPage, EducacionEditorPage } from './modules/educacion-impositiva/pages'
 import { BuzonPage } from './modules/buzon/components/BuzonPage'
+import { PWAInstallPrompt, PWAUpdatePrompt } from './pwa'
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* PWA Prompts */}
+        <PWAUpdatePrompt />
+        <PWAInstallPrompt />
+
         <Routes>
           {/* Ruta pública */}
           <Route path="/login" element={<Login />} />
@@ -112,6 +117,14 @@ function App() {
           />
           <Route
             path="/mensajes"
+            element={
+              <ProtectedRoute>
+                <BuzonPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mensajes/:conversacionId"
             element={
               <ProtectedRoute>
                 <BuzonPage />
