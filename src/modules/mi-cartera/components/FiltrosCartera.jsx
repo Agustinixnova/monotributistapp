@@ -1,9 +1,15 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Filter, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Filter, X, CheckCircle, AlertTriangle, XCircle } from 'lucide-react'
 
 const TIPOS_CONTRIBUYENTE = [
   { value: 'monotributista', label: 'Monotributista' },
   { value: 'responsable_inscripto', label: 'Responsable Inscripto' }
+]
+
+const ESTADOS_FISCALES = [
+  { value: 'ok', label: 'Al dia', icon: CheckCircle, bgActive: 'bg-green-100', borderActive: 'border-green-300', textActive: 'text-green-700' },
+  { value: 'atencion', label: 'Atencion', icon: AlertTriangle, bgActive: 'bg-amber-100', borderActive: 'border-amber-300', textActive: 'text-amber-700' },
+  { value: 'riesgo', label: 'Riesgo', icon: XCircle, bgActive: 'bg-red-100', borderActive: 'border-red-300', textActive: 'text-red-700' }
 ]
 
 const ESTADOS_PAGO = [
@@ -31,6 +37,7 @@ export function FiltrosCartera({ filters, onFilterChange, categorias = [], stats
       categoria: '',
       tipoContribuyente: '',
       estadoPago: '',
+      estadoFiscal: '',
       gestionFacturacion: '',
       conSugerencias: false
     })
@@ -62,8 +69,50 @@ export function FiltrosCartera({ filters, onFilterChange, categorias = [], stats
       {/* Filtros */}
       {expanded && (
         <div className="px-4 pb-4 border-t border-gray-100 space-y-4">
-          {/* Tipo de contribuyente */}
+          {/* Estado fiscal (semaforo) */}
           <div className="pt-4">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Estado fiscal
+              {stats?.estadoFiscalRiesgo > 0 && (
+                <span className="ml-2 text-xs text-red-600 font-normal">
+                  ({stats.estadoFiscalRiesgo} en riesgo)
+                </span>
+              )}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {ESTADOS_FISCALES.map(estado => {
+                const Icon = estado.icon
+                const isActive = filters.estadoFiscal === estado.value
+                const count = estado.value === 'ok' ? stats?.estadoFiscalOk :
+                              estado.value === 'atencion' ? stats?.estadoFiscalAtencion :
+                              stats?.estadoFiscalRiesgo
+                return (
+                  <button
+                    key={estado.value}
+                    onClick={() => onFilterChange({
+                      estadoFiscal: filters.estadoFiscal === estado.value ? '' : estado.value
+                    })}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                      isActive
+                        ? `${estado.bgActive} ${estado.borderActive} ${estado.textActive}`
+                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {estado.label}
+                    {count > 0 && (
+                      <span className={`text-xs ${isActive ? '' : 'text-gray-400'}`}>
+                        ({count})
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Tipo de contribuyente */}
+          <div>
             <label className="block text-sm font-medium text-gray-600 mb-2">
               Tipo de contribuyente
             </label>
@@ -101,7 +150,7 @@ export function FiltrosCartera({ filters, onFilterChange, categorias = [], stats
                     })}
                     className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                       filters.categoria === cat
-                        ? 'bg-blue-100 border-blue-300 text-blue-700'
+                        ? 'bg-violet-100 border-violet-300 text-violet-700'
                         : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                     }`}
                   >

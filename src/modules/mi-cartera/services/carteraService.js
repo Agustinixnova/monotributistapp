@@ -1,4 +1,44 @@
 import { supabase } from '../../../lib/supabase'
+import { registrarCambio, TIPO_CAMBIO } from '../../../services/historialCambiosService'
+
+// Mapeo de campos a tipos de cambio y labels para FichaCliente
+const CAMPOS_FICHA = {
+  tipo_contribuyente: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Tipo de contribuyente' },
+  categoria_monotributo: { tipoCambio: TIPO_CAMBIO.CATEGORIA, label: 'Categoria monotributo' },
+  tipo_actividad: { tipoCambio: TIPO_CAMBIO.TIPO_ACTIVIDAD, label: 'Tipo de actividad' },
+  gestion_facturacion: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Gestion facturacion' },
+  razon_social: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Razon social' },
+  trabaja_relacion_dependencia: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Trabaja en relacion de dependencia' },
+  empleador_cuit: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'CUIT empleador' },
+  empleador_razon_social: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Empleador' },
+  sueldo_bruto: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Sueldo bruto' },
+  tiene_empleados: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Tiene empleados' },
+  cantidad_empleados: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Cantidad empleados' },
+  obra_social: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Obra social' },
+  obra_social_tipo_cobertura: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Tipo cobertura obra social' },
+  obra_social_adicional: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Obra social adicional' },
+  obra_social_adicional_nombre: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Nombre obra social adicional' },
+  metodo_pago_monotributo: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Metodo pago monotributo' },
+  estado_pago_monotributo: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Estado pago monotributo' },
+  cbu_debito: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'CBU debito automatico' },
+  nivel_clave_fiscal: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Nivel clave fiscal' },
+  servicios_delegados: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Servicios delegados' },
+  fecha_delegacion: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Fecha delegacion' },
+  factura_electronica_habilitada: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Factura electronica' },
+  domicilio_fiscal: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Domicilio fiscal' },
+  codigo_postal: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Codigo postal' },
+  localidad: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Localidad' },
+  provincia: { tipoCambio: TIPO_CAMBIO.OTROS, label: 'Provincia' },
+  regimen_iibb: { tipoCambio: TIPO_CAMBIO.REGIMEN_IIBB, label: 'Regimen IIBB' },
+  numero_iibb: { tipoCambio: TIPO_CAMBIO.REGIMEN_IIBB, label: 'Numero IIBB' }
+}
+
+// Helper para formatear valores
+function formatValue(value) {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'boolean') return value ? 'Si' : 'No'
+  return String(value)
+}
 
 /**
  * Obtener lista de clientes para la cartera
@@ -25,6 +65,7 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
       obra_social,
       trabaja_relacion_dependencia,
       tiene_local,
+      regimen_iibb,
       user:profiles!user_id(
         id,
         nombre,
@@ -67,6 +108,33 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
     clientesRaw = clientesRaw.filter(c => c.user?.assigned_to === userId)
   }
 
+  // Obtener IDs de clientes para buscar facturación
+  const clienteIds = clientesRaw.map(c => c.id)
+
+  // Obtener facturación de los últimos 12 meses para cada cliente
+  let facturacionMap = {}
+  if (clienteIds.length > 0) {
+    const fechaHace12Meses = new Date()
+    fechaHace12Meses.setMonth(fechaHace12Meses.getMonth() - 12)
+    const fechaDesde = fechaHace12Meses.toISOString().split('T')[0]
+
+    const { data: facturacion } = await supabase
+      .from('client_facturacion_mensual_resumen')
+      .select('client_id, total_neto')
+      .in('client_id', clienteIds)
+      .gte('created_at', fechaDesde)
+
+    if (facturacion) {
+      // Sumar por cliente
+      facturacion.forEach(f => {
+        if (!facturacionMap[f.client_id]) {
+          facturacionMap[f.client_id] = 0
+        }
+        facturacionMap[f.client_id] += f.total_neto || 0
+      })
+    }
+  }
+
   const clientes = clientesRaw.map(c => ({
       client_id: c.id,
       user_id: c.user_id,
@@ -92,6 +160,8 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
       obra_social: c.obra_social,
       trabaja_relacion_dependencia: c.trabaja_relacion_dependencia,
       tiene_local: c.tiene_local,
+      regimen_iibb: c.regimen_iibb,
+      facturacion_12_meses: facturacionMap[c.id] || null,
       contador_nombre: c.user?.contador?.nombre,
       contador_apellido: c.user?.contador?.apellido,
       sugerencias_pendientes: 0, // Se calculará después si es necesario
@@ -213,28 +283,22 @@ export async function actualizarCampoCliente(clientId, campo, valorNuevo, valorA
 }
 
 /**
- * Actualizar multiples campos del cliente con auditoria
- * @param {string} clientId - ID del cliente
+ * Actualizar multiples campos del cliente con historial unificado
+ * @param {string} clientId - ID del cliente (client_fiscal_data.id)
  * @param {Object} cambios - Objeto con los campos a cambiar
- * @param {Object} valoresAnteriores - Valores anteriores para auditoria
- * @param {string} userId - ID del usuario
- * @param {string} motivo - Motivo del cambio
+ * @param {Object} valoresAnteriores - Valores anteriores para historial
+ * @param {string} userId - ID del usuario que realiza el cambio
+ * @param {string} motivo - Motivo del cambio (opcional, se guarda en metadata)
  */
 export async function actualizarCamposCliente(clientId, cambios, valoresAnteriores, userId, motivo = null) {
-  // Registrar cada cambio en auditoria
-  for (const [campo, valorNuevo] of Object.entries(cambios)) {
-    const valorAnterior = valoresAnteriores[campo]
-    if (valorAnterior !== valorNuevo) {
-      await supabase.rpc('registrar_cambio_auditoria', {
-        p_client_id: clientId,
-        p_campo: campo,
-        p_valor_anterior: String(valorAnterior ?? ''),
-        p_valor_nuevo: String(valorNuevo ?? ''),
-        p_user_id: userId,
-        p_motivo: motivo
-      })
-    }
-  }
+  // Obtener user_id del cliente para el historial
+  const { data: clientData } = await supabase
+    .from('client_fiscal_data')
+    .select('user_id')
+    .eq('id', clientId)
+    .single()
+
+  const clientUserId = clientData?.user_id
 
   // Actualizar todos los campos
   const { data, error } = await supabase
@@ -249,6 +313,27 @@ export async function actualizarCamposCliente(clientId, cambios, valoresAnterior
     .single()
 
   if (error) throw error
+
+  // Registrar cada cambio en el nuevo historial unificado
+  for (const [campo, valorNuevo] of Object.entries(cambios)) {
+    const valorAnterior = valoresAnteriores[campo]
+    const config = CAMPOS_FICHA[campo]
+
+    // Solo registrar si hay cambio real
+    if (formatValue(valorAnterior) !== formatValue(valorNuevo)) {
+      await registrarCambio({
+        userId: clientUserId,
+        clientFiscalDataId: clientId,
+        tipoCambio: config?.tipoCambio || TIPO_CAMBIO.OTROS,
+        campo: config?.label || campo,
+        valorAnterior: formatValue(valorAnterior),
+        valorNuevo: formatValue(valorNuevo),
+        metadata: motivo ? { motivo } : {},
+        realizadoPor: userId
+      })
+    }
+  }
+
   return data
 }
 

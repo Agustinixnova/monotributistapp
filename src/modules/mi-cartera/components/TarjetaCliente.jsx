@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Phone, MessageCircle, Mail, ChevronRight, AlertCircle, Building2, Briefcase } from 'lucide-react'
+import { SemaforoTooltip } from '../../facturacion/components/SemaforoEstadoFiscal'
+import { BadgeCategoria } from '../../facturacion/components/BadgeCategoria'
 
 const ESTADO_PAGO_COLORS = {
   al_dia: 'bg-green-100 text-green-700',
@@ -42,11 +44,23 @@ export function TarjetaCliente({ cliente }) {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Categoria */}
+            {/* Semaforo estado fiscal */}
+            <SemaforoTooltip clientId={cliente.client_id} />
+
+            {/* Categoria clickeable */}
             {cliente.categoria_monotributo && (
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">
-                {cliente.categoria_monotributo}
-              </span>
+              <BadgeCategoria
+                cliente={{
+                  id: cliente.client_id,
+                  client_id: cliente.client_id,
+                  categoria_monotributo: cliente.categoria_monotributo,
+                  tipo_actividad: cliente.tipo_actividad,
+                  trabaja_relacion_dependencia: cliente.trabaja_relacion_dependencia,
+                  full_name: cliente.full_name || cliente.razon_social
+                }}
+                porcentajeUso={cliente.porcentaje_tope || 0}
+                size="sm"
+              />
             )}
             <ChevronRight className="w-5 h-5 text-gray-400" />
           </div>

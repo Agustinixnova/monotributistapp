@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Phone, MessageCircle, Mail, FileText, Receipt,
   Building2, CreditCard, Shield, MapPin, Users, Briefcase,
-  AlertTriangle, Heart, History, Plus, Trash2
+  AlertTriangle, Heart, History, Plus, Trash2, MoreVertical
 } from 'lucide-react'
 import { useClienteDetalle } from '../hooks/useClienteDetalle'
 import { FichaSeccion, FichaCampo } from './FichaSeccion'
@@ -11,6 +11,8 @@ import { FichaSeccionLocales } from './FichaSeccionLocales'
 import { FichaSeccionGrupoFamiliar } from './FichaSeccionGrupoFamiliar'
 import { FichaHistorialCategorias } from './FichaHistorialCategorias'
 import { FichaAuditoria } from './FichaAuditoria'
+import { FichaSeccionNotificaciones } from './FichaSeccionNotificaciones'
+import { HistorialCambiosCliente } from '../../../components/common/HistorialCambiosCliente'
 
 const CATEGORIAS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 const TIPOS_ACTIVIDAD = [
@@ -66,6 +68,9 @@ export function FichaCliente({ clientId }) {
   // Estados para arrays editables
   const [editLocales, setEditLocales] = useState([])
   const [editGrupo, setEditGrupo] = useState([])
+
+  // Estado para ActionMenu mobile
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
 
   const formatCuit = (cuit) => {
     if (!cuit) return '-'
@@ -147,7 +152,7 @@ export function FichaCliente({ clientId }) {
   const isMonotributista = cliente.tipo_contribuyente === 'monotributista'
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="space-y-4">
       {/* Header */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex items-start justify-between">
@@ -172,13 +177,13 @@ export function FichaCliente({ clientId }) {
           {/* Badges */}
           <div className="flex items-center gap-2">
             {cliente.categoria_monotributo && (
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 font-bold rounded-lg">
+              <span className="px-3 py-1 bg-violet-100 text-violet-700 font-bold rounded-lg">
                 Cat. {cliente.categoria_monotributo}
               </span>
             )}
             <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
               cliente.estado_pago_monotributo === 'al_dia' ? 'bg-green-100 text-green-700' :
-              cliente.estado_pago_monotributo === 'debe_1_cuota' ? 'bg-yellow-100 text-yellow-700' :
+              cliente.estado_pago_monotributo === 'debe_1_cuota' ? 'bg-amber-100 text-amber-700' :
               cliente.estado_pago_monotributo === 'debe_2_mas' ? 'bg-red-100 text-red-700' :
               'bg-gray-100 text-gray-600'
             }`}>
@@ -187,8 +192,8 @@ export function FichaCliente({ clientId }) {
           </div>
         </div>
 
-        {/* Acciones rapidas */}
-        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
+        {/* Acciones rapidas - Desktop */}
+        <div className="hidden md:flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-100">
           {perfil?.telefono && (
             <a
               href={`tel:${perfil.telefono}`}
@@ -212,7 +217,7 @@ export function FichaCliente({ clientId }) {
           {perfil?.email && (
             <a
               href={`mailto:${perfil.email}`}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
             >
               <Mail className="w-4 h-4" />
               Email
@@ -228,6 +233,62 @@ export function FichaCliente({ clientId }) {
           </Link>
         </div>
 
+        {/* Acciones rapidas - Mobile: ActionMenu */}
+        <div className="md:hidden mt-4 pt-4 border-t border-gray-100 relative">
+          <button
+            onClick={() => setShowActionsMenu(!showActionsMenu)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium text-sm"
+          >
+            <MoreVertical className="w-4 h-4" />
+            Acciones
+          </button>
+          {showActionsMenu && (
+            <div className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border py-1 z-50">
+              {perfil?.telefono && (
+                <a
+                  href={`tel:${perfil.telefono}`}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  <Phone className="w-4 h-4 text-gray-500" />
+                  Llamar
+                </a>
+              )}
+              {perfil?.whatsapp && (
+                <a
+                  href={`https://wa.me/54${perfil.whatsapp.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  <MessageCircle className="w-4 h-4 text-green-600" />
+                  WhatsApp
+                </a>
+              )}
+              {perfil?.email && (
+                <a
+                  href={`mailto:${perfil.email}`}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  <Mail className="w-4 h-4 text-gray-500" />
+                  Email
+                </a>
+              )}
+              <Link
+                to={`/facturacion/${clientId}`}
+                state={{ fromCartera: true, clientId }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-violet-600"
+                onClick={() => setShowActionsMenu(false)}
+              >
+                <Receipt className="w-4 h-4" />
+                Facturacion
+              </Link>
+            </div>
+          )}
+        </div>
+
         {/* Contador asignado */}
         {contador && (
           <p className="text-sm text-gray-500 mt-3">
@@ -236,13 +297,16 @@ export function FichaCliente({ clientId }) {
         )}
       </div>
 
+      {/* Notificaciones al cliente */}
+      <FichaSeccionNotificaciones clientId={clientId} />
+
       {/* Historial de categorias */}
       {isMonotributista && (
         <FichaSeccion
           titulo="Historial de Categorias"
           icono={History}
-          iconColor="text-blue-600"
-          defaultOpen={false}
+          iconColor="text-violet-600"
+          defaultOpen={true}
         >
           <FichaHistorialCategorias
             historial={cliente.historialCategorias}
@@ -263,13 +327,16 @@ export function FichaCliente({ clientId }) {
           categoria_monotributo: cliente.categoria_monotributo,
           tipo_actividad: cliente.tipo_actividad,
           gestion_facturacion: cliente.gestion_facturacion,
-          razon_social: cliente.razon_social
+          razon_social: cliente.razon_social,
+          codigo_actividad_afip: cliente.codigo_actividad_afip,
+          descripcion_actividad_afip: cliente.descripcion_actividad_afip,
+          punto_venta_afip: cliente.punto_venta_afip
         })}
         onSave={() => handleSave('fiscal')}
         onCancel={cancelEditing}
         saving={saving}
       >
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
           <FichaCampo
             label="Tipo contribuyente"
             value={cliente.tipo_contribuyente === 'monotributista' ? 'Monotributista' : 'Resp. Inscripto'}
@@ -317,7 +384,29 @@ export function FichaCliente({ clientId }) {
             editValue={editData.razon_social}
             onChange={(v) => setEditData(p => ({ ...p, razon_social: v }))}
             editing={editingSection === 'fiscal'}
+            className="md:col-span-3"
+          />
+          <FichaCampo
+            label="Codigo actividad AFIP"
+            value={cliente.codigo_actividad_afip}
+            editValue={editData.codigo_actividad_afip}
+            onChange={(v) => setEditData(p => ({ ...p, codigo_actividad_afip: v }))}
+            editing={editingSection === 'fiscal'}
+          />
+          <FichaCampo
+            label="Descripcion actividad"
+            value={cliente.descripcion_actividad_afip}
+            editValue={editData.descripcion_actividad_afip}
+            onChange={(v) => setEditData(p => ({ ...p, descripcion_actividad_afip: v }))}
+            editing={editingSection === 'fiscal'}
             className="md:col-span-2"
+          />
+          <FichaCampo
+            label="Punto de venta AFIP"
+            value={cliente.punto_venta_afip}
+            editValue={editData.punto_venta_afip}
+            onChange={(v) => setEditData(p => ({ ...p, punto_venta_afip: v }))}
+            editing={editingSection === 'fiscal'}
           />
         </div>
       </FichaSeccion>
@@ -328,7 +417,7 @@ export function FichaCliente({ clientId }) {
           titulo="Situacion Laboral"
           icono={Briefcase}
           iconColor="text-teal-600"
-          defaultOpen={cliente.trabaja_relacion_dependencia}
+          defaultOpen={true}
           editable
           editing={editingSection === 'laboral'}
           onEdit={() => startEditing('laboral', {
@@ -445,7 +534,7 @@ export function FichaCliente({ clientId }) {
           titulo="Obra Social"
           icono={Heart}
           iconColor="text-pink-600"
-          defaultOpen={!!cliente.obra_social}
+          defaultOpen={true}
           editable
           editing={editingSection === 'obra_social'}
           onEdit={() => startEditing('obra_social', {
@@ -541,7 +630,7 @@ export function FichaCliente({ clientId }) {
           titulo="Pago del Monotributo"
           icono={CreditCard}
           iconColor="text-green-600"
-          defaultOpen={false}
+          defaultOpen={true}
           editable
           editing={editingSection === 'pago'}
           onEdit={() => startEditing('pago', {
@@ -591,7 +680,7 @@ export function FichaCliente({ clientId }) {
           titulo="Accesos ARCA"
           icono={Shield}
           iconColor="text-purple-600"
-          defaultOpen={false}
+          defaultOpen={true}
           editable
           editing={editingSection === 'arca'}
           onEdit={() => startEditing('arca', {
@@ -649,7 +738,7 @@ export function FichaCliente({ clientId }) {
         titulo="Domicilio Fiscal"
         icono={MapPin}
         iconColor="text-red-600"
-        defaultOpen={false}
+        defaultOpen={true}
         editable
         editing={editingSection === 'domicilio'}
         onEdit={() => startEditing('domicilio', {
@@ -700,7 +789,7 @@ export function FichaCliente({ clientId }) {
         titulo="Ingresos Brutos"
         icono={FileText}
         iconColor="text-teal-600"
-        defaultOpen={false}
+        defaultOpen={true}
         editable
         editing={editingSection === 'iibb'}
         onEdit={() => startEditing('iibb', {
@@ -744,6 +833,21 @@ export function FichaCliente({ clientId }) {
           </div>
         </FichaSeccion>
       )}
+
+      {/* Historial de cambios completo */}
+      <FichaSeccion
+        titulo="Historial de Cambios"
+        icono={History}
+        iconColor="text-indigo-600"
+        defaultOpen={true}
+      >
+        <div className="pt-4">
+          <HistorialCambiosCliente
+            userId={perfil?.id}
+            clientFiscalDataId={cliente.id}
+          />
+        </div>
+      </FichaSeccion>
 
       {/* Auditoria */}
       <FichaAuditoria auditoria={auditoria} />

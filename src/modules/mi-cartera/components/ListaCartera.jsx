@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Users, AlertCircle, Building2, Briefcase, ChevronRight } from 'lucide-react'
+import { Search, Users, AlertCircle, Building2, Briefcase, ChevronRight, Phone } from 'lucide-react'
 import { FiltrosCartera } from './FiltrosCartera'
 import { TarjetaCliente } from './TarjetaCliente'
+import { getCategoriaColor } from '../../../utils/categoriaColors'
+import { BadgeCategoria } from '../../facturacion/components/BadgeCategoria'
 
 const ESTADO_PAGO_COLORS = {
   al_dia: 'bg-green-100 text-green-700',
@@ -39,33 +41,23 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
       {/* Stats rapidos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-violet-500" />
-            <span className="text-2xl font-bold text-gray-900">{stats?.total || 0}</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Total clientes</p>
+          <p className="text-xs text-gray-500">Total clientes</p>
+          <p className="text-lg font-semibold text-gray-900">{stats?.total || 0}</p>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-green-600">{stats?.alDia || 0}</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Al dia</p>
+          <p className="text-xs text-gray-500">Al dia</p>
+          <p className="text-lg font-semibold text-green-600">{stats?.alDia || 0}</p>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-amber-500" />
-            <span className="text-2xl font-bold text-amber-600">{stats?.conSugerencias || 0}</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Con sugerencias</p>
+          <p className="text-xs text-gray-500">Con sugerencias</p>
+          <p className="text-lg font-semibold text-amber-600">{stats?.conSugerencias || 0}</p>
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-red-600">{stats?.conDeuda || 0}</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">Con deuda</p>
+          <p className="text-xs text-gray-500">Con deuda</p>
+          <p className="text-lg font-semibold text-red-600">{stats?.conDeuda || 0}</p>
         </div>
       </div>
 
@@ -132,11 +124,20 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       CUIT
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      WhatsApp
+                    </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Cat.
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Estado
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      IIBB
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Fact. 12M
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Info
@@ -153,7 +154,7 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                       key={cliente.client_id}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-4">
                         <div>
                           <div className="font-medium text-gray-900">
                             {cliente.full_name || cliente.razon_social || 'Sin nombre'}
@@ -163,17 +164,42 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-sm text-gray-600">
+                      <td className="px-4 py-4 font-mono text-sm text-gray-600">
                         {formatCuit(cliente.cuit)}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        {cliente.categoria_monotributo && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">
-                            {cliente.categoria_monotributo}
-                          </span>
+                      <td className="px-4 py-4">
+                        {cliente.whatsapp ? (
+                          <a
+                            href={`https://wa.me/54${cliente.whatsapp.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-sm text-green-600 hover:text-green-700 hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            {cliente.whatsapp}
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-4 text-center">
+                        {cliente.categoria_monotributo && (
+                          <BadgeCategoria
+                            cliente={{
+                              id: cliente.client_id,
+                              client_id: cliente.client_id,
+                              categoria_monotributo: cliente.categoria_monotributo,
+                              tipo_actividad: cliente.tipo_actividad,
+                              trabaja_relacion_dependencia: cliente.trabaja_relacion_dependencia,
+                              full_name: cliente.full_name || cliente.razon_social
+                            }}
+                            porcentajeUso={cliente.porcentaje_tope || 0}
+                            size="sm"
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-center">
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           ESTADO_PAGO_COLORS[cliente.estado_pago_monotributo] || ESTADO_PAGO_COLORS.desconocido
                         }`}>
@@ -182,7 +208,29 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                            cliente.estado_pago_monotributo === 'debe_2_mas' ? '2+ cuotas' : '-'}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-4 text-center">
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          cliente.regimen_iibb === 'simplificado' ? 'bg-blue-100 text-blue-700' :
+                          cliente.regimen_iibb === 'local' ? 'bg-purple-100 text-purple-700' :
+                          cliente.regimen_iibb === 'convenio_multilateral' ? 'bg-orange-100 text-orange-700' :
+                          cliente.regimen_iibb === 'exento' ? 'bg-green-100 text-green-700' :
+                          'bg-gray-100 text-gray-500'
+                        }`}>
+                          {cliente.regimen_iibb === 'simplificado' ? 'Simplif.' :
+                           cliente.regimen_iibb === 'local' ? 'Local' :
+                           cliente.regimen_iibb === 'convenio_multilateral' ? 'C.M.' :
+                           cliente.regimen_iibb === 'exento' ? 'Exento' :
+                           cliente.regimen_iibb === 'no_inscripto' ? 'No insc.' : '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <span className="text-sm font-medium text-gray-900">
+                          {cliente.facturacion_12_meses != null
+                            ? `$${cliente.facturacion_12_meses.toLocaleString('es-AR')}`
+                            : '-'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
                         <div className="flex items-center justify-center gap-1">
                           {cliente.sugerencias_pendientes > 0 && (
                             <span className="p-1 bg-amber-100 text-amber-700 rounded" title="Sugerencias pendientes">
@@ -201,12 +249,12 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-4 text-sm text-gray-500">
                         {cliente.contador_nombre
                           ? `${cliente.contador_nombre} ${cliente.contador_apellido || ''}`
                           : '-'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-4">
                         <Link
                           to={`/mi-cartera/${cliente.client_id}`}
                           className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
