@@ -50,8 +50,11 @@ function formatValue(value) {
  * @param {Object} filters - Filtros de busqueda
  */
 export async function getCarteraClientes(userId, userRole, filters = {}) {
-  // Usar query directa en lugar de vista para evitar problemas de RLS
-  let query = supabase
+  // DEBUG: Ver parámetros recibidos
+  console.log('getCarteraClientes - userId:', userId, 'userRole:', userRole, 'filters:', filters)
+
+  // Primero: obtener clientes CON datos fiscales
+  let queryConFiscal = supabase
     .from('client_fiscal_data')
     .select(`
       id,
@@ -84,23 +87,104 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
 
   // Aplicar filtros en la tabla client_fiscal_data
   if (filters.categoria) {
-    query = query.eq('categoria_monotributo', filters.categoria)
+    queryConFiscal = queryConFiscal.eq('categoria_monotributo', filters.categoria)
   }
   if (filters.tipoContribuyente) {
-    query = query.eq('tipo_contribuyente', filters.tipoContribuyente)
+    queryConFiscal = queryConFiscal.eq('tipo_contribuyente', filters.tipoContribuyente)
   }
   if (filters.estadoPago) {
-    query = query.eq('estado_pago_monotributo', filters.estadoPago)
+    queryConFiscal = queryConFiscal.eq('estado_pago_monotributo', filters.estadoPago)
   }
   if (filters.gestionFacturacion) {
-    query = query.eq('gestion_facturacion', filters.gestionFacturacion)
+    queryConFiscal = queryConFiscal.eq('gestion_facturacion', filters.gestionFacturacion)
   }
 
-  const { data, error } = await query
-  if (error) {
-    console.error('Error en getCarteraClientes:', error)
-    throw error
+  const { data: dataConFiscal, error: errorConFiscal } = await queryConFiscal
+  if (errorConFiscal) {
+    console.error('Error en getCarteraClientes (con fiscal):', errorConFiscal)
+    throw errorConFiscal
   }
+
+  console.log('getCarteraClientes - clientes CON fiscal data:', dataConFiscal?.length || 0)
+
+  // Segundo: obtener TODOS los perfiles con roles de cliente para encontrar los que no tienen datos fiscales
+  // IMPORTANTE: Siempre buscar clientes sin datos fiscales para que contadora_principal los vea
+  let clientesSinFiscal = []
+
+  // Solo omitir si hay filtros específicos de datos fiscales que excluirían a estos clientes
+  const tieneFiltroDatosFiscales = filters.categoria || filters.estadoPago || filters.gestionFacturacion
+
+  if (!tieneFiltroDatosFiscales) {
+    // Obtener todos los perfiles con roles de cliente
+    const { data: perfilesClientes, error: errorPerfiles } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        nombre,
+        apellido,
+        email,
+        telefono,
+        whatsapp,
+        assigned_to,
+        is_active,
+        role_id,
+        contador:profiles!assigned_to(id, nombre, apellido)
+      `)
+      .eq('is_active', true)
+
+    // Obtener roles de cliente
+    const { data: rolesCliente } = await supabase
+      .from('roles')
+      .select('id, name')
+      .in('name', ['monotributista', 'responsable_inscripto'])
+
+    const rolesClienteIds = new Set((rolesCliente || []).map(r => r.id))
+    const rolesClienteMap = Object.fromEntries((rolesCliente || []).map(r => [r.id, r.name]))
+
+    if (!errorPerfiles && perfilesClientes) {
+      // Filtrar solo perfiles con rol de cliente
+      const perfilesConRolCliente = perfilesClientes.filter(p => rolesClienteIds.has(p.role_id))
+
+      // Filtrar los que NO tienen datos fiscales
+      const idsConFiscal = new Set((dataConFiscal || []).map(c => c.user_id))
+
+      clientesSinFiscal = perfilesConRolCliente
+        .filter(p => !idsConFiscal.has(p.id))
+        .map(p => ({
+          id: null, // No tiene client_fiscal_data
+          user_id: p.id,
+          cuit: null,
+          razon_social: null,
+          tipo_contribuyente: rolesClienteMap[p.role_id] || null,
+          categoria_monotributo: null,
+          tipo_actividad: null,
+          gestion_facturacion: null,
+          fecha_alta_monotributo: null,
+          estado_pago_monotributo: null,
+          servicios_delegados: null,
+          obra_social: null,
+          trabaja_relacion_dependencia: null,
+          tiene_local: null,
+          regimen_iibb: null,
+          user: {
+            ...p,
+            role: { name: rolesClienteMap[p.role_id] }
+          },
+          datos_incompletos: true
+        }))
+
+      // Filtrar por tipoContribuyente si está presente
+      if (filters.tipoContribuyente) {
+        clientesSinFiscal = clientesSinFiscal.filter(c => c.tipo_contribuyente === filters.tipoContribuyente)
+      }
+
+      console.log('getCarteraClientes - clientes SIN fiscal data:', clientesSinFiscal.length)
+    }
+  }
+
+  // Combinar ambos resultados
+  const data = [...(dataConFiscal || []), ...clientesSinFiscal]
+  console.log('getCarteraClientes - TOTAL clientes:', data.length)
 
   // Transformar datos para mantener compatibilidad con la estructura esperada
   let clientesRaw = (data || [])
@@ -168,7 +252,8 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
       contador_nombre: c.user?.contador?.nombre,
       contador_apellido: c.user?.contador?.apellido,
       sugerencias_pendientes: 0, // Se calculará después si es necesario
-      cantidad_locales: 0 // Se calculará después si es necesario
+      cantidad_locales: 0, // Se calculará después si es necesario
+      datos_incompletos: c.datos_incompletos || false // Flag para clientes sin CUIT
     }))
 
   // Ordenar por nombre

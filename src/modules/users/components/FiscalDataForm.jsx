@@ -81,6 +81,8 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
   useEffect(() => {
     if (roleName && !data.tipoContribuyente) {
       const tipoContribuyente = roleName === 'monotributista' ? 'monotributista' : 'responsable_inscripto'
+      // DEBUG: Ver si este useEffect podría estar causando problemas
+      console.log('FiscalDataForm useEffect - setting tipoContribuyente, current data:', { ...data })
       onChange({ ...data, tipoContribuyente })
     }
   }, [roleName])
@@ -91,6 +93,8 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
     // Solo permitir el valor si no excede 11 digitos
     if (cleanCuit.length <= 11) {
       setCuitFormatted(value.slice(0, 13)) // 11 digitos + 2 guiones max
+      // DEBUG: Ver cambio de CUIT
+      console.log('FiscalDataForm - CUIT cambiado:', cleanCuit)
       onChange({ ...data, cuit: cleanCuit })
     }
   }

@@ -90,7 +90,9 @@ export function useCartera(initialFilters = {}) {
     // Estadisticas de estado fiscal
     estadoFiscalOk: Object.values(estadosFiscales).filter(e => e?.estado === 'ok').length,
     estadoFiscalAtencion: Object.values(estadosFiscales).filter(e => e?.estado === 'atencion').length,
-    estadoFiscalRiesgo: Object.values(estadosFiscales).filter(e => e?.estado === 'riesgo').length
+    estadoFiscalRiesgo: Object.values(estadosFiscales).filter(e => e?.estado === 'riesgo').length,
+    // Clientes con datos incompletos (sin CUIT)
+    datosIncompletos: clientes.filter(c => c.datos_incompletos).length
   }
 
   // Categorias unicas para filtro

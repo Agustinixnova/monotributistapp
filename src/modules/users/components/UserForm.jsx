@@ -260,6 +260,11 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       }
     }
 
+    // DEBUG: Ver formData antes de enviar
+    console.log('UserForm handleSubmit - formData:', formData)
+    console.log('UserForm handleSubmit - fiscalData:', formData.fiscalData)
+    console.log('UserForm handleSubmit - fiscalData.cuit:', formData.fiscalData?.cuit)
+
     try {
       await onSubmit(formData)
     } catch (err) {

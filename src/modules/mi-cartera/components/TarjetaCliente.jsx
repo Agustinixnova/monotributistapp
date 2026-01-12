@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Phone, MessageCircle, Mail, ChevronRight, AlertCircle, Building2, Briefcase } from 'lucide-react'
+import { Phone, MessageCircle, Mail, ChevronRight, AlertCircle, Building2, Briefcase, AlertTriangle } from 'lucide-react'
 import { SemaforoTooltip } from '../../facturacion/components/SemaforoEstadoFiscal'
 import { BadgeCategoria } from '../../facturacion/components/BadgeCategoria'
 
@@ -26,11 +26,26 @@ export function TarjetaCliente({ cliente }) {
     return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`
   }
 
+  // Si no tiene client_id, redirigir a gestión de usuarios
+  const linkDestino = cliente.datos_incompletos
+    ? `/usuarios?search=${encodeURIComponent(cliente.email || cliente.full_name || '')}`
+    : `/mi-cartera/${cliente.client_id}`
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+    <div className={`bg-white rounded-lg border overflow-hidden hover:shadow-md transition-shadow ${
+      cliente.datos_incompletos ? 'border-amber-300 bg-amber-50/30' : 'border-gray-200'
+    }`}>
+      {/* Banner datos incompletos */}
+      {cliente.datos_incompletos && (
+        <div className="bg-amber-100 px-4 py-2 flex items-center gap-2 text-amber-800 text-sm">
+          <AlertTriangle className="w-4 h-4" />
+          <span>Datos fiscales pendientes - Completar CUIT</span>
+        </div>
+      )}
+
       {/* Header */}
       <Link
-        to={`/mi-cartera/${cliente.client_id}`}
+        to={linkDestino}
         className="block p-4"
       >
         <div className="flex items-start justify-between">

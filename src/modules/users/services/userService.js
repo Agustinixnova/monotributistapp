@@ -215,6 +215,10 @@ export async function createUser(userData) {
     throw new Error('No hay sesión activa. Por favor, volvé a iniciar sesión.')
   }
 
+  // DEBUG: Ver datos recibidos
+  console.log('createUser - userData recibido:', userData)
+  console.log('createUser - fiscalData:', userData.fiscalData)
+
   // Limpiar campos vacíos que deberían ser null
   const cleanedData = {
     ...userData,
@@ -223,6 +227,9 @@ export async function createUser(userData) {
     whatsapp: userData.whatsapp || null,
     dni: userData.dni || null
   }
+
+  // DEBUG: Ver datos limpios
+  console.log('createUser - cleanedData fiscalData:', cleanedData.fiscalData)
 
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,

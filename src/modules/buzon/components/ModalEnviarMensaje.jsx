@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Send, Loader2, MessageSquare, Users, User, Search, Check } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
+import { supabase } from '../../../lib/supabase'
 import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes } from '../services/buzonService'
 
 // Roles que pueden seleccionar destinatarios
@@ -33,7 +34,8 @@ export function ModalEnviarMensaje({
   onSuccess
 }) {
   const { user } = useAuth()
-  const userRole = user?.user_metadata?.role
+  const [userRole, setUserRole] = useState(null)
+  const [loadingRole, setLoadingRole] = useState(true)
   const puedeSeleccionarDestinatarios = ROLES_CON_SELECTOR.includes(userRole)
 
   const [asunto, setAsunto] = useState(asuntoInicial)
@@ -50,12 +52,39 @@ export function ModalEnviarMensaje({
   const [destinatariosSeleccionados, setDestinatariosSeleccionados] = useState([])
   const [grupoSeleccionado, setGrupoSeleccionado] = useState(null)
 
+  // Cargar el rol del usuario desde la base de datos
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user?.id) {
+        setLoadingRole(false)
+        return
+      }
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role_id, roles(name)')
+          .eq('id', user.id)
+          .single()
+
+        if (!error && profile) {
+          setUserRole(profile.roles?.name)
+          console.log('ModalEnviarMensaje - userRole:', profile.roles?.name)
+        }
+      } catch (err) {
+        console.error('Error obteniendo rol:', err)
+      } finally {
+        setLoadingRole(false)
+      }
+    }
+    fetchUserRole()
+  }, [user?.id])
+
   // Cargar clientes si puede seleccionar destinatarios
   useEffect(() => {
-    if (puedeSeleccionarDestinatarios) {
+    if (puedeSeleccionarDestinatarios && !loadingRole) {
       fetchClientes()
     }
-  }, [puedeSeleccionarDestinatarios])
+  }, [puedeSeleccionarDestinatarios, loadingRole])
 
   const fetchClientes = async () => {
     setLoadingClientes(true)
@@ -201,7 +230,11 @@ export function ModalEnviarMensaje({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {success ? (
+          {loadingRole ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
+            </div>
+          ) : success ? (
             <div className="py-8 text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Send className="w-8 h-8 text-green-600" />
@@ -443,7 +476,7 @@ export function ModalEnviarMensaje({
         </div>
 
         {/* Footer */}
-        {!success && (
+        {!success && !loadingRole && (
           <div className="p-4 border-t border-gray-100 flex gap-3">
             <button
               onClick={onClose}
