@@ -14,6 +14,7 @@ import { FichaAuditoria } from './FichaAuditoria'
 import { FichaSeccionNotificaciones } from './FichaSeccionNotificaciones'
 import { FichaSeccionCuotas } from './FichaSeccionCuotas'
 import { HistorialCambiosCliente } from '../../../components/common/HistorialCambiosCliente'
+import { FichaHistorialPagos } from './FichaHistorialPagos'
 
 const CATEGORIAS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 const TIPOS_ACTIVIDAD = [
@@ -681,6 +682,24 @@ export function FichaCliente({ clientId }) {
           clientId={cliente?.id}
           clienteData={cliente}
         />
+      )}
+
+      {/* Historial de Pagos - Gestión manual de 12 meses */}
+      {isMonotributista && (
+        <FichaSeccion
+          titulo="Historial de Pagos"
+          icono={Receipt}
+          iconColor="text-indigo-600"
+          defaultOpen={false}
+        >
+          <div className="pt-4">
+            <FichaHistorialPagos
+              clientId={cliente?.id}
+              categoriaActual={cliente?.categoria_monotributo}
+              trabajaRelacionDependencia={cliente?.trabaja_relacion_dependencia}
+            />
+          </div>
+        </FichaSeccion>
       )}
 
       {/* Accesos ARCA */}

@@ -42,6 +42,19 @@ export function FichaSeccionCuotas({ clientId, clienteData }) {
       const fechaDesde = new Date()
       fechaDesde.setMonth(fechaDesde.getMonth() - mesesMostrar)
 
+      // Obtener información del cliente (fecha de alta, deuda inicial)
+      const { data: clienteInfo, error: clienteError } = await supabase
+        .from('client_fiscal_data')
+        .select('fecha_alta_sistema, cuotas_adeudadas_al_alta, periodo_deuda_desde, periodo_deuda_hasta')
+        .eq('id', clientId)
+        .single()
+
+      if (clienteError) throw clienteError
+
+      const fechaAltaSistema = clienteInfo?.fecha_alta_sistema ? new Date(clienteInfo.fecha_alta_sistema) : null
+      const periodoDeudaDesde = clienteInfo?.periodo_deuda_desde ? new Date(clienteInfo.periodo_deuda_desde) : null
+      const periodoDeudaHasta = clienteInfo?.periodo_deuda_hasta ? new Date(clienteInfo.periodo_deuda_hasta) : null
+
       const { data, error } = await supabase
         .from('client_cuota_mensual')
         .select(`
@@ -64,21 +77,46 @@ export function FichaSeccionCuotas({ clientId, clienteData }) {
         const fecha = new Date(ahora2.getFullYear(), ahora2.getMonth() - i, 1)
         const anio = fecha.getFullYear()
         const mes = fecha.getMonth() + 1
+        const fechaMes = new Date(anio, mes - 1, 1)
 
         const cuotaExistente = data?.find(c => c.anio === anio && c.mes === mes)
 
-        // Determinar si está vencida (después del día 20)
-        const hoy = new Date()
-        const diaVencimiento = new Date(anio, mes - 1, 20)
-        const estaVencida = hoy > diaVencimiento && !cuotaExistente
+        // Si hay cuota existente, usarla
+        if (cuotaExistente) {
+          cuotasCompletas.push({
+            anio,
+            mes,
+            ...cuotaExistente
+          })
+          continue
+        }
+
+        // Si NO hay registro, determinar el estado según contexto
+        let estadoSinRegistro = 'pendiente'
+
+        // Si es ANTES de la fecha de alta → no mostrar o marcar como "antes del alta"
+        if (fechaAltaSistema && fechaMes < new Date(fechaAltaSistema.getFullYear(), fechaAltaSistema.getMonth(), 1)) {
+          // Si está en el período de deuda inicial, mostrar como vencida
+          if (periodoDeudaDesde && periodoDeudaHasta &&
+              fechaMes >= new Date(periodoDeudaDesde.getFullYear(), periodoDeudaDesde.getMonth(), 1) &&
+              fechaMes <= new Date(periodoDeudaHasta.getFullYear(), periodoDeudaHasta.getMonth(), 1)) {
+            estadoSinRegistro = 'vencida'
+          } else {
+            // Mes antes del alta y no está en deuda inicial → NO MOSTRAR
+            continue
+          }
+        } else {
+          // Mes DESPUÉS del alta
+          const hoy = new Date()
+          const diaVencimiento = new Date(anio, mes - 1, 20)
+          estadoSinRegistro = hoy > diaVencimiento ? 'vencida' : 'pendiente'
+        }
 
         cuotasCompletas.push({
           anio,
           mes,
-          ...(cuotaExistente || {
-            estado: estaVencida ? 'vencida' : 'pendiente',
-            id: null
-          })
+          estado: estadoSinRegistro,
+          id: null
         })
       }
 

@@ -23,6 +23,7 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `26_storage_comprobantes_cuotas.sql` | `storage.objects` | Bucket para comprobantes de pago de cuotas |
 | `27_client_notifications.sql` | `client_notifications` | Notificaciones personalizadas de contadores a clientes |
 | `28_estado_pago_automatico.sql` | Función + Trigger | Calculo automático de estado de pago basado en cuotas mensuales |
+| `29_deuda_inicial_y_periodos.sql` | Campos + Función + Trigger | Sistema de deuda inicial con períodos específicos y ajuste automático al pagar |
 
 ## Diagrama de Relaciones
 

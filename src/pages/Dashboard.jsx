@@ -200,62 +200,66 @@ export function Dashboard() {
 
       {/* Welcome section para contadoras */}
       {!esCliente && (
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Bienvenido{nombreUsuario ? `, ${nombreUsuario}` : ''}
-          </h2>
-          <p className="text-gray-500 mt-1">
-            Panel de gestion de clientes monotributistas
-          </p>
-        </div>
-      )}
-
-      {/* Metrics grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {metrics.map((metric) => (
-          <MetricCard key={metric.title} {...metric} />
-        ))}
-      </div>
-
-      {/* Two column layout for activity and calendar */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent Activity */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Actividad reciente</h3>
-          </div>
-          <EmptyState 
-            icon={Clock} 
-            title="Sin actividad reciente"
-            description="Las acciones recientes aparecerán aquí"
-          />
-        </div>
-
-        {/* Upcoming deadlines */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Próximos vencimientos</h3>
-          </div>
-          <EmptyState 
-            icon={Calendar} 
-            title="Sin vencimientos próximos"
-            description="Los vencimientos aparecerán aquí"
-          />
-        </div>
-      </div>
-
-      {/* Alerts section */}
-      <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-amber-800">Recordatorio</p>
-            <p className="text-sm text-amber-700 mt-0.5">
-              El vencimiento del monotributo es el día 20 de cada mes.
+        <>
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Bienvenido{nombreUsuario ? `, ${nombreUsuario}` : ''}
+            </h2>
+            <p className="text-gray-500 mt-1">
+              Panel de gestion de clientes monotributistas
             </p>
           </div>
+
+          {/* Metrics grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {metrics.map((metric) => (
+              <MetricCard key={metric.title} {...metric} />
+            ))}
+          </div>
+
+          {/* Two column layout for activity and calendar */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Recent Activity */}
+            <div className="bg-white rounded-xl border border-gray-200">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">Actividad reciente</h3>
+              </div>
+              <EmptyState
+                icon={Clock}
+                title="Sin actividad reciente"
+                description="Las acciones recientes aparecerán aquí"
+              />
+            </div>
+
+            {/* Upcoming deadlines */}
+            <div className="bg-white rounded-xl border border-gray-200">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">Próximos vencimientos</h3>
+              </div>
+              <EmptyState
+                icon={Calendar}
+                title="Sin vencimientos próximos"
+                description="Los vencimientos aparecerán aquí"
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Alerts section - solo para contadoras */}
+      {!esCliente && (
+        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-amber-800">Recordatorio</p>
+              <p className="text-sm text-amber-700 mt-0.5">
+                El vencimiento del monotributo es el día 20 de cada mes.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal de recordatorio de vencimiento */}
       {showRecordatorio && datosRecordatorio && (
