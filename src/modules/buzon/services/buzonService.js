@@ -184,3 +184,41 @@ export async function reabrirConversacion(conversacionId) {
 
   if (error) throw error
 }
+
+/**
+ * Crea una conversacion con destinatarios especificos (para contadoras)
+ */
+export async function crearConversacionConDestinatarios(
+  userId,
+  asunto,
+  contenido,
+  destinatarios = [],
+  origen = 'general',
+  origenReferencia = null
+) {
+  const { data, error } = await supabase
+    .rpc('crear_conversacion_con_destinatarios', {
+      p_iniciado_por: userId,
+      p_asunto: asunto,
+      p_contenido: contenido,
+      p_destinatarios: destinatarios.length > 0 ? destinatarios : null,
+      p_origen: origen,
+      p_origen_referencia: origenReferencia
+    })
+
+  if (error) throw error
+  return data // Retorna el ID de la conversacion
+}
+
+/**
+ * Obtiene la lista de clientes que una contadora puede contactar
+ */
+export async function getClientesParaMensajes(contadorId) {
+  const { data, error } = await supabase
+    .rpc('get_clientes_para_mensajes', {
+      p_contador_id: contadorId
+    })
+
+  if (error) throw error
+  return data || []
+}

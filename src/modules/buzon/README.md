@@ -43,6 +43,8 @@ import { ModalEnviarMensaje } from '../modules/buzon/components/ModalEnviarMensa
 | onSuccess | function | - | Callback al enviar exitosamente |
 
 ## Flujo de Mensajes
+
+### Cliente envia mensaje:
 1. Cliente envia mensaje
 2. Se crea conversacion y se agregan participantes automaticamente:
    - El cliente
@@ -52,8 +54,23 @@ import { ModalEnviarMensaje } from '../modules/buzon/components/ModalEnviarMensa
 4. Pueden responder y el hilo se actualiza
 5. Contadoras pueden cerrar conversaciones resueltas
 
+### Contadora envia mensaje:
+1. Contadora abre modal "Nuevo mensaje"
+2. Selecciona destinatarios:
+   - **Individual**: Buscar y seleccionar clientes especificos
+   - **Grupo**: Todos los clientes, Solo Monotributistas, Solo Resp. Inscriptos
+3. Escribe asunto y mensaje
+4. Se crea conversacion con los destinatarios seleccionados
+
+### Roles que pueden seleccionar destinatarios:
+- `admin`
+- `contadora_principal`
+- `desarrollo`
+- `comunicadora`
+
 ## Tabla SQL
-Ver `SQL_tables/27_buzon_mensajes.sql`
+- `SQL_tables/27_buzon_mensajes.sql` - Tablas base
+- `SQL_tables/27b_buzon_mensajes_contadora.sql` - Funciones para envio a destinatarios
 
 ## Ultima actualizacion
-09-01-2026 - Creacion del modulo
+12-01-2026 - Agregada funcionalidad de envio a usuarios/grupos para contadoras

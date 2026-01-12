@@ -1,7 +1,17 @@
-import { useState } from 'react'
-import { X, Send, Loader2, MessageSquare } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Send, Loader2, MessageSquare, Users, User, Search, Check } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
-import { crearConversacion } from '../services/buzonService'
+import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes } from '../services/buzonService'
+
+// Roles que pueden seleccionar destinatarios
+const ROLES_CON_SELECTOR = ['desarrollo', 'contadora_principal', 'comunicadora', 'admin']
+
+// Grupos predefinidos para envío masivo
+const GRUPOS_DESTINATARIOS = [
+  { id: 'todos', label: 'Todos los clientes', roles: ['monotributista', 'responsable_inscripto'] },
+  { id: 'monotributistas', label: 'Solo Monotributistas', roles: ['monotributista'] },
+  { id: 'responsables', label: 'Solo Resp. Inscriptos', roles: ['responsable_inscripto'] }
+]
 
 /**
  * Modal reutilizable para enviar mensajes al buzon
@@ -23,11 +33,82 @@ export function ModalEnviarMensaje({
   onSuccess
 }) {
   const { user } = useAuth()
+  const userRole = user?.user_metadata?.role
+  const puedeSeleccionarDestinatarios = ROLES_CON_SELECTOR.includes(userRole)
+
   const [asunto, setAsunto] = useState(asuntoInicial)
   const [mensaje, setMensaje] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+
+  // Estados para selector de destinatarios
+  const [modoEnvio, setModoEnvio] = useState('individual') // 'individual' | 'grupo'
+  const [clientes, setClientes] = useState([])
+  const [loadingClientes, setLoadingClientes] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [destinatariosSeleccionados, setDestinatariosSeleccionados] = useState([])
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState(null)
+
+  // Cargar clientes si puede seleccionar destinatarios
+  useEffect(() => {
+    if (puedeSeleccionarDestinatarios) {
+      fetchClientes()
+    }
+  }, [puedeSeleccionarDestinatarios])
+
+  const fetchClientes = async () => {
+    setLoadingClientes(true)
+    try {
+      const data = await getClientesParaMensajes(user.id)
+      setClientes(data)
+    } catch (err) {
+      console.error('Error cargando clientes:', err)
+    } finally {
+      setLoadingClientes(false)
+    }
+  }
+
+  // Filtrar clientes por búsqueda
+  const clientesFiltrados = clientes.filter(c => {
+    const texto = `${c.nombre || ''} ${c.apellido || ''} ${c.email || ''} ${c.razon_social || ''}`.toLowerCase()
+    return texto.includes(busqueda.toLowerCase())
+  })
+
+  // Toggle selección de cliente
+  const toggleCliente = (clienteId) => {
+    setDestinatariosSeleccionados(prev => {
+      if (prev.includes(clienteId)) {
+        return prev.filter(id => id !== clienteId)
+      } else {
+        return [...prev, clienteId]
+      }
+    })
+  }
+
+  // Seleccionar todos los filtrados
+  const seleccionarTodos = () => {
+    const ids = clientesFiltrados.map(c => c.user_id)
+    setDestinatariosSeleccionados(ids)
+  }
+
+  // Deseleccionar todos
+  const deseleccionarTodos = () => {
+    setDestinatariosSeleccionados([])
+  }
+
+  // Obtener destinatarios según modo
+  const getDestinatariosFinales = () => {
+    if (modoEnvio === 'grupo' && grupoSeleccionado) {
+      const grupo = GRUPOS_DESTINATARIOS.find(g => g.id === grupoSeleccionado)
+      if (grupo) {
+        return clientes
+          .filter(c => grupo.roles.includes(c.rol))
+          .map(c => c.user_id)
+      }
+    }
+    return destinatariosSeleccionados
+  }
 
   const handleEnviar = async () => {
     if (!asunto.trim()) {
@@ -39,17 +120,42 @@ export function ModalEnviarMensaje({
       return
     }
 
+    // Validar destinatarios si puede seleccionarlos
+    if (puedeSeleccionarDestinatarios) {
+      const destinatarios = getDestinatariosFinales()
+      if (destinatarios.length === 0) {
+        setError('Selecciona al menos un destinatario')
+        return
+      }
+    }
+
     setLoading(true)
     setError(null)
 
     try {
-      const conversacionId = await crearConversacion(
-        user.id,
-        asunto.trim(),
-        mensaje.trim(),
-        origen,
-        origenReferencia
-      )
+      let conversacionId
+
+      if (puedeSeleccionarDestinatarios) {
+        // Usar función con destinatarios específicos
+        const destinatarios = getDestinatariosFinales()
+        conversacionId = await crearConversacionConDestinatarios(
+          user.id,
+          asunto.trim(),
+          mensaje.trim(),
+          destinatarios,
+          origen,
+          origenReferencia
+        )
+      } else {
+        // Usar función normal (clientes enviando a contadoras)
+        conversacionId = await crearConversacion(
+          user.id,
+          asunto.trim(),
+          mensaje.trim(),
+          origen,
+          origenReferencia
+        )
+      }
 
       setSuccess(true)
 
@@ -65,6 +171,10 @@ export function ModalEnviarMensaje({
     }
   }
 
+  const cantidadSeleccionados = modoEnvio === 'grupo' && grupoSeleccionado
+    ? clientes.filter(c => GRUPOS_DESTINATARIOS.find(g => g.id === grupoSeleccionado)?.roles.includes(c.rol)).length
+    : destinatariosSeleccionados.length
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       {/* Overlay */}
@@ -74,7 +184,7 @@ export function ModalEnviarMensaje({
       />
 
       {/* Modal */}
-      <div className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-hidden flex flex-col safe-area-bottom">
+      <div className={`relative w-full bg-white rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-hidden flex flex-col safe-area-bottom ${puedeSeleccionarDestinatarios ? 'sm:max-w-2xl' : 'sm:max-w-lg'}`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -100,11 +210,187 @@ export function ModalEnviarMensaje({
                 Mensaje enviado
               </h4>
               <p className="text-sm text-gray-500">
-                Tu contadora lo vera pronto
+                {puedeSeleccionarDestinatarios
+                  ? `Se envió a ${cantidadSeleccionados} destinatario${cantidadSeleccionados !== 1 ? 's' : ''}`
+                  : 'Tu contadora lo verá pronto'}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Selector de destinatarios (solo para roles permitidos) */}
+              {puedeSeleccionarDestinatarios && (
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Destinatarios
+                  </label>
+
+                  {/* Tabs de modo */}
+                  <div className="flex bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => {
+                        setModoEnvio('individual')
+                        setGrupoSeleccionado(null)
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                        modoEnvio === 'individual'
+                          ? 'bg-white shadow text-gray-900 font-medium'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <User className="w-4 h-4" />
+                      Individual
+                    </button>
+                    <button
+                      onClick={() => {
+                        setModoEnvio('grupo')
+                        setDestinatariosSeleccionados([])
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                        modoEnvio === 'grupo'
+                          ? 'bg-white shadow text-gray-900 font-medium'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      Grupo
+                    </button>
+                  </div>
+
+                  {modoEnvio === 'individual' ? (
+                    <>
+                      {/* Buscador */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={busqueda}
+                          onChange={(e) => setBusqueda(e.target.value)}
+                          placeholder="Buscar cliente..."
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
+                        />
+                      </div>
+
+                      {/* Acciones rápidas */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">
+                          {destinatariosSeleccionados.length} seleccionado{destinatariosSeleccionados.length !== 1 ? 's' : ''}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={seleccionarTodos}
+                            className="text-violet-600 hover:text-violet-700"
+                          >
+                            Seleccionar todos
+                          </button>
+                          {destinatariosSeleccionados.length > 0 && (
+                            <button
+                              onClick={deseleccionarTodos}
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              Limpiar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Lista de clientes */}
+                      <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                        {loadingClientes ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-5 h-5 animate-spin text-violet-600" />
+                          </div>
+                        ) : clientesFiltrados.length === 0 ? (
+                          <div className="py-6 text-center text-gray-500 text-sm">
+                            No se encontraron clientes
+                          </div>
+                        ) : (
+                          clientesFiltrados.map((cliente) => (
+                            <button
+                              key={cliente.user_id}
+                              onClick={() => toggleCliente(cliente.user_id)}
+                              className={`w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 transition-colors ${
+                                destinatariosSeleccionados.includes(cliente.user_id) ? 'bg-violet-50' : ''
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                destinatariosSeleccionados.includes(cliente.user_id)
+                                  ? 'bg-violet-600 border-violet-600'
+                                  : 'border-gray-300'
+                              }`}>
+                                {destinatariosSeleccionados.includes(cliente.user_id) && (
+                                  <Check className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {cliente.nombre && cliente.apellido
+                                    ? `${cliente.nombre} ${cliente.apellido}`
+                                    : cliente.razon_social || cliente.email}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {cliente.email}
+                                  {cliente.es_mi_cliente && (
+                                    <span className="ml-2 text-violet-600">(Mi cliente)</span>
+                                  )}
+                                </p>
+                              </div>
+                              <span className={`px-2 py-0.5 text-xs rounded ${
+                                cliente.rol === 'monotributista'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {cliente.rol === 'monotributista' ? 'Mono' : 'RI'}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    /* Selector de grupos */
+                    <div className="space-y-2">
+                      {GRUPOS_DESTINATARIOS.map((grupo) => {
+                        const cantidad = clientes.filter(c => grupo.roles.includes(c.rol)).length
+                        return (
+                          <button
+                            key={grupo.id}
+                            onClick={() => setGrupoSeleccionado(grupo.id)}
+                            className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${
+                              grupoSeleccionado === grupo.id
+                                ? 'border-violet-600 bg-violet-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                grupoSeleccionado === grupo.id ? 'bg-violet-600' : 'bg-gray-100'
+                              }`}>
+                                <Users className={`w-5 h-5 ${
+                                  grupoSeleccionado === grupo.id ? 'text-white' : 'text-gray-500'
+                                }`} />
+                              </div>
+                              <div className="text-left">
+                                <p className="font-medium text-gray-900">{grupo.label}</p>
+                                <p className="text-sm text-gray-500">{cantidad} cliente{cantidad !== 1 ? 's' : ''}</p>
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              grupoSeleccionado === grupo.id
+                                ? 'bg-violet-600 border-violet-600'
+                                : 'border-gray-300'
+                            }`}>
+                              {grupoSeleccionado === grupo.id && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Asunto */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -141,7 +427,9 @@ export function ModalEnviarMensaje({
 
               {/* Info */}
               <p className="text-xs text-gray-500">
-                Tu mensaje sera enviado a tu contadora y podras ver las respuestas en tu Buzon de mensajes.
+                {puedeSeleccionarDestinatarios
+                  ? 'Los destinatarios recibirán este mensaje en su buzón.'
+                  : 'Tu mensaje será enviado a tu contadora y podrás ver las respuestas en tu Buzón de mensajes.'}
               </p>
 
               {/* Error */}
@@ -165,7 +453,7 @@ export function ModalEnviarMensaje({
             </button>
             <button
               onClick={handleEnviar}
-              disabled={loading || !asunto.trim() || !mensaje.trim()}
+              disabled={loading || !asunto.trim() || !mensaje.trim() || (puedeSeleccionarDestinatarios && cantidadSeleccionados === 0)}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white rounded-xl transition-colors font-medium"
             >
               {loading ? (
@@ -176,7 +464,9 @@ export function ModalEnviarMensaje({
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  Enviar
+                  {puedeSeleccionarDestinatarios && cantidadSeleccionados > 0
+                    ? `Enviar a ${cantidadSeleccionados}`
+                    : 'Enviar'}
                 </>
               )}
             </button>
