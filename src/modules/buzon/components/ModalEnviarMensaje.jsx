@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { X, Send, Loader2, MessageSquare, Users, User, Search, Check } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Send, Loader2, MessageSquare, Users, User, Search, Check, Paperclip, Image, FileText, Video, FileSpreadsheet, File as FileIcon, Trash2 } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { supabase } from '../../../lib/supabase'
-import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes } from '../services/buzonService'
+import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes, actualizarAdjuntosConversacion } from '../services/buzonService'
+import { subirAdjunto, validarArchivo } from '../services/adjuntosService'
 
 // Roles que pueden seleccionar destinatarios
 const ROLES_CON_SELECTOR = ['desarrollo', 'contadora_principal', 'comunicadora', 'admin']
@@ -34,6 +35,7 @@ export function ModalEnviarMensaje({
   onSuccess
 }) {
   const { user } = useAuth()
+  const fileInputRef = useRef(null)
   const [userRole, setUserRole] = useState(null)
   const [loadingRole, setLoadingRole] = useState(true)
   const puedeSeleccionarDestinatarios = ROLES_CON_SELECTOR.includes(userRole)
@@ -43,6 +45,10 @@ export function ModalEnviarMensaje({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+
+  // Estados para adjuntos
+  const [adjuntos, setAdjuntos] = useState([])
+  const [isDragging, setIsDragging] = useState(false)
 
   // Estados para selector de destinatarios
   const [modoEnvio, setModoEnvio] = useState('individual') // 'individual' | 'grupo'
@@ -139,6 +145,77 @@ export function ModalEnviarMensaje({
     return destinatariosSeleccionados
   }
 
+  // Funciones para manejo de adjuntos
+  const agregarArchivos = (files) => {
+    const nuevosAdjuntos = []
+
+    for (const file of files) {
+      const validacion = validarArchivo(file)
+      if (!validacion.valid) {
+        setError(validacion.error)
+        return
+      }
+
+      // Crear preview para imágenes
+      let preview = null
+      if (file.type.startsWith('image/')) {
+        preview = URL.createObjectURL(file)
+      }
+
+      nuevosAdjuntos.push({
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        preview
+      })
+    }
+
+    setAdjuntos(prev => [...prev, ...nuevosAdjuntos])
+    setError(null)
+  }
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files)
+    agregarArchivos(files)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files)
+    agregarArchivos(files)
+  }
+
+  const eliminarAdjunto = (index) => {
+    setAdjuntos(prev => {
+      const nuevo = [...prev]
+      if (nuevo[index].preview) {
+        URL.revokeObjectURL(nuevo[index].preview)
+      }
+      nuevo.splice(index, 1)
+      return nuevo
+    })
+  }
+
+  const getFileIcon = (type) => {
+    if (type.startsWith('image/')) return Image
+    if (type.startsWith('video/')) return Video
+    if (type.includes('spreadsheet') || type.includes('excel')) return FileSpreadsheet
+    if (type.includes('pdf') || type.includes('word') || type.includes('document')) return FileText
+    return FileIcon
+  }
+
   const handleEnviar = async () => {
     if (!asunto.trim()) {
       setError('El asunto es requerido')
@@ -184,6 +261,26 @@ export function ModalEnviarMensaje({
           origen,
           origenReferencia
         )
+      }
+
+      // Subir adjuntos si hay
+      if (adjuntos.length > 0) {
+        const adjuntosData = []
+
+        for (const adjunto of adjuntos) {
+          try {
+            const data = await subirAdjunto(adjunto.file, conversacionId)
+            adjuntosData.push(data)
+          } catch (err) {
+            console.error('Error subiendo adjunto:', err)
+            // Continuar con los demás adjuntos
+          }
+        }
+
+        // Actualizar conversación con adjuntos
+        if (adjuntosData.length > 0) {
+          await actualizarAdjuntosConversacion(conversacionId, adjuntosData)
+        }
       }
 
       setSuccess(true)
@@ -456,6 +553,97 @@ export function ModalEnviarMensaje({
                   rows={5}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
                 />
+              </div>
+
+              {/* Adjuntos */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Adjuntos (opcional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    Adjuntar
+                  </button>
+                </div>
+
+                {/* Input file oculto */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                {/* Zona drag & drop */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`relative border-2 border-dashed rounded-lg p-4 transition-colors ${
+                    isDragging
+                      ? 'border-violet-400 bg-violet-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {adjuntos.length === 0 ? (
+                    <div className="text-center py-2">
+                      <p className="text-sm text-gray-500">
+                        Arrastra archivos aquí o haz clic en "Adjuntar"
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        PDF, Word, Imágenes, Excel, Videos (máx 100MB)
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {adjuntos.map((adjunto, index) => {
+                        const Icon = getFileIcon(adjunto.type)
+                        const esImagen = adjunto.type.startsWith('image/')
+
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
+                          >
+                            {esImagen && adjunto.preview ? (
+                              <img
+                                src={adjunto.preview}
+                                alt={adjunto.name}
+                                className="w-12 h-12 rounded object-cover"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-white rounded border border-gray-200 flex items-center justify-center">
+                                <Icon className="w-6 h-6 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {adjunto.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(adjunto.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => eliminarAdjunto(index)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Info */}
