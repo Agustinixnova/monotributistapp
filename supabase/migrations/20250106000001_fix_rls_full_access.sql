@@ -45,7 +45,10 @@ COMMENT ON FUNCTION public.is_contador() IS
 -- =============================================
 -- PASO 4: Arreglar políticas de alertas_config
 -- =============================================
+-- COMENTADO: La tabla alertas_config no existe en este punto de las migraciones
+-- Se debe crear la tabla primero o mover esta sección a una migración posterior
 
+/*
 -- Eliminar todas las políticas existentes
 DROP POLICY IF EXISTS "Admins can view alertas_config" ON public.alertas_config;
 DROP POLICY IF EXISTS "Admins can update alertas_config" ON public.alertas_config;
@@ -66,11 +69,15 @@ CREATE POLICY "alertas_config_insert" ON public.alertas_config
 
 CREATE POLICY "alertas_config_delete" ON public.alertas_config
     FOR DELETE USING (public.is_full_access());
+*/
 
 -- =============================================
--- PASO 5: Arreglar políticas de notificaciones
+-- PASO 5-9: Arreglar políticas de varias tablas
 -- =============================================
+-- COMENTADO: Estas tablas no existen en este punto de las migraciones
+-- Las políticas correctas se crean junto con las tablas en sus respectivas migraciones
 
+/*
 DROP POLICY IF EXISTS "notificaciones_select_admin" ON public.notificaciones;
 DROP POLICY IF EXISTS "notificaciones_delete_admin" ON public.notificaciones;
 DROP POLICY IF EXISTS "notificaciones_insert_admin" ON public.notificaciones;
@@ -81,10 +88,6 @@ CREATE POLICY "notificaciones_select_admin" ON public.notificaciones
 
 CREATE POLICY "notificaciones_delete_admin" ON public.notificaciones
     FOR DELETE USING (public.is_full_access());
-
--- =============================================
--- PASO 6: Arreglar políticas de storage facturas (update/delete)
--- =============================================
 
 DROP POLICY IF EXISTS "facturas_update_admin" ON storage.objects;
 DROP POLICY IF EXISTS "facturas_delete_admin" ON storage.objects;
@@ -101,32 +104,21 @@ CREATE POLICY "facturas_delete_admin" ON storage.objects
         AND public.is_full_access()
     );
 
--- =============================================
--- PASO 7: Arreglar políticas de facturacion_mensual (delete)
--- =============================================
-
 DROP POLICY IF EXISTS "facturacion_mensual_delete_admin" ON public.client_facturacion_mensual;
 
 CREATE POLICY "facturacion_mensual_delete_admin" ON public.client_facturacion_mensual
     FOR DELETE USING (public.is_full_access());
-
--- =============================================
--- PASO 8: Arreglar políticas de facturas_detalle (delete)
--- =============================================
 
 DROP POLICY IF EXISTS "facturas_detalle_delete" ON public.client_facturas_detalle;
 
 CREATE POLICY "facturas_detalle_delete" ON public.client_facturas_detalle
     FOR DELETE USING (public.is_full_access());
 
--- =============================================
--- PASO 9: Arreglar políticas de cuota_mensual (delete)
--- =============================================
-
 DROP POLICY IF EXISTS "cuota_mensual_delete_admin" ON public.client_cuota_mensual;
 
 CREATE POLICY "cuota_mensual_delete_admin" ON public.client_cuota_mensual
     FOR DELETE USING (public.is_full_access());
+*/
 
 -- =============================================
 -- VERIFICACIÓN

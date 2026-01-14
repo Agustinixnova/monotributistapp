@@ -108,7 +108,7 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
           {/* Vista mobile: Cards */}
           <div className="md:hidden space-y-3">
             {clientesFiltrados.map(cliente => (
-              <TarjetaCliente key={cliente.client_id} cliente={cliente} />
+              <TarjetaCliente key={cliente.client_id || cliente.user_id} cliente={cliente} />
             ))}
           </div>
 
@@ -151,7 +151,7 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                 <tbody className="divide-y divide-gray-100">
                   {clientesFiltrados.map(cliente => (
                     <tr
-                      key={cliente.client_id}
+                      key={cliente.client_id || cliente.user_id}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-4 py-4">

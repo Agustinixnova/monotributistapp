@@ -3,8 +3,9 @@
 -- =============================================
 
 -- 1. Renombrar tabla actual (backup)
-ALTER TABLE IF EXISTS public.client_facturacion_mensual
-RENAME TO client_facturacion_mensual_old;
+-- COMENTADO: En proyecto nuevo no hay tabla para renombrar
+-- ALTER TABLE IF EXISTS public.client_facturacion_mensual
+-- RENAME TO client_facturacion_mensual_old;
 
 -- 2. Crear nueva tabla de cargas (permite multiples por mes)
 CREATE TABLE IF NOT EXISTS public.client_facturacion_cargas (
@@ -249,12 +250,14 @@ CREATE POLICY "cargas_insert_admin" ON public.client_facturacion_cargas
     );
 
 -- INSERT: Cliente autonomo puede cargar sus propias facturas
+-- NOTA: Verificación de gestion_facturacion='autonomo' comentada temporalmente
+-- porque la columna se agrega en migración posterior
 CREATE POLICY "cargas_insert_cliente" ON public.client_facturacion_cargas
     FOR INSERT WITH CHECK (
         public.get_user_role() IN ('monotributista', 'responsable_inscripto')
         AND client_id IN (
             SELECT id FROM public.client_fiscal_data
-            WHERE user_id = auth.uid() AND gestion_facturacion = 'autonomo'
+            WHERE user_id = auth.uid() -- AND gestion_facturacion = 'autonomo'
         )
     );
 
@@ -265,12 +268,13 @@ CREATE POLICY "cargas_update_admin" ON public.client_facturacion_cargas
     );
 
 -- UPDATE: Cliente autonomo puede editar sus cargas (si el mes no esta cerrado)
+-- NOTA: Verificación de gestion_facturacion='autonomo' comentada temporalmente
 CREATE POLICY "cargas_update_cliente" ON public.client_facturacion_cargas
     FOR UPDATE USING (
         public.get_user_role() IN ('monotributista', 'responsable_inscripto')
         AND client_id IN (
             SELECT id FROM public.client_fiscal_data
-            WHERE user_id = auth.uid() AND gestion_facturacion = 'autonomo'
+            WHERE user_id = auth.uid() -- AND gestion_facturacion = 'autonomo'
         )
         AND NOT EXISTS (
             SELECT 1 FROM public.client_facturacion_mensual_resumen r
@@ -365,7 +369,8 @@ COMMENT ON VIEW public.client_facturacion_resumen_cliente IS 'Vista del resumen 
 -- =============================================
 -- 9. Migrar datos existentes (si hay)
 -- =============================================
-
+-- COMENTADO: En proyecto nuevo no hay tabla old para migrar datos
+/*
 -- Si la tabla vieja tenia datos, migrarlos como una carga unica por mes
 INSERT INTO public.client_facturacion_cargas (
     client_id, anio, mes, fecha_emision,
@@ -407,6 +412,7 @@ SELECT
     cargado_por
 FROM public.client_facturacion_mensual_old
 WHERE monto < 0;
+*/
 
 -- =============================================
 -- 10. Limpiar (despues de verificar migracion)

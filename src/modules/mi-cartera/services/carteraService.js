@@ -195,8 +195,8 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
     clientesRaw = clientesRaw.filter(c => c.user?.assigned_to === userId)
   }
 
-  // Obtener IDs de clientes para buscar facturación
-  const clienteIds = clientesRaw.map(c => c.id)
+  // Obtener IDs de clientes para buscar facturación (filtrar nulls de clientes sin datos fiscales)
+  const clienteIds = clientesRaw.map(c => c.id).filter(Boolean)
 
   // Obtener facturación de los últimos 12 meses para cada cliente
   let facturacionMap = {}

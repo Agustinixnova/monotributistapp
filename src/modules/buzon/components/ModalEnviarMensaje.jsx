@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Send, Loader2, MessageSquare, Users, User, Search, Check, Paperclip, Image, FileText, Video, FileSpreadsheet, File as FileIcon, Trash2 } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { supabase } from '../../../lib/supabase'
-import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes, actualizarAdjuntosConversacion } from '../services/buzonService'
+import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes } from '../services/buzonService'
 import { subirAdjunto, validarArchivo } from '../services/adjuntosService'
 
 // Roles que pueden seleccionar destinatarios
@@ -239,6 +239,24 @@ export function ModalEnviarMensaje({
     setError(null)
 
     try {
+      // Subir adjuntos primero si hay (usar timestamp como ID temporal)
+      const adjuntosData = []
+      const tempId = Date.now().toString()
+
+      if (adjuntos.length > 0) {
+        for (const adjunto of adjuntos) {
+          try {
+            const data = await subirAdjunto(adjunto.file, tempId)
+            adjuntosData.push(data)
+          } catch (err) {
+            console.error('Error subiendo adjunto:', err)
+            setError(`Error subiendo archivo: ${adjunto.name}`)
+            return
+          }
+        }
+      }
+
+      // Crear conversación con adjuntos
       let conversacionId
 
       if (puedeSeleccionarDestinatarios) {
@@ -250,7 +268,8 @@ export function ModalEnviarMensaje({
           mensaje.trim(),
           destinatarios,
           origen,
-          origenReferencia
+          origenReferencia,
+          adjuntosData
         )
       } else {
         // Usar función normal (clientes enviando a contadoras)
@@ -259,28 +278,9 @@ export function ModalEnviarMensaje({
           asunto.trim(),
           mensaje.trim(),
           origen,
-          origenReferencia
+          origenReferencia,
+          adjuntosData
         )
-      }
-
-      // Subir adjuntos si hay
-      if (adjuntos.length > 0) {
-        const adjuntosData = []
-
-        for (const adjunto of adjuntos) {
-          try {
-            const data = await subirAdjunto(adjunto.file, conversacionId)
-            adjuntosData.push(data)
-          } catch (err) {
-            console.error('Error subiendo adjunto:', err)
-            // Continuar con los demás adjuntos
-          }
-        }
-
-        // Actualizar conversación con adjuntos
-        if (adjuntosData.length > 0) {
-          await actualizarAdjuntosConversacion(conversacionId, adjuntosData)
-        }
       }
 
       setSuccess(true)

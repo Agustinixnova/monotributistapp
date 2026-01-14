@@ -1,0 +1,26 @@
+CREDENCIALES PROYECTO SUPABASE ACTUAL (USA)
+==============================================
+
+Región: USA (región original - a migrar)
+URL: https://hymhyqwylgjmqbvuyutd.supabase.co
+Project ID: hymhyqwylgjmqbvuyutd
+
+Anon Key (Public):
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5bWh5cXd5bGdqbXFidnV5dXRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0OTY3MzEsImV4cCI6MjA4MzA3MjczMX0.VX4j-SPrgD5FqlmbOj2S_eJ9BvI-2aJ8waovMOcPFSA
+
+Service Role Key:
+[OBTENER DEL DASHBOARD → Settings → API → service_role]
+
+Database Password:
+Avanzaelleon2025!
+
+Database Connection String:
+postgresql://postgres:Avanzaelleon2025!@db.hymhyqwylgjmqbvuyutd.supabase.co:5432/postgres
+
+PostgreSQL Version: 17
+
+BACKUP CREADO:
+- Archivo: backup_completo_20260113.gz
+- Tamaño: 129KB
+- Fecha: 2026-01-13
+- Ubicación: backups/backup_completo_20260113.gz

@@ -1,0 +1,23 @@
+CREDENCIALES PROYECTO SUPABASE NUEVO (SÃO PAULO)
+===================================================
+
+Región: São Paulo, Brasil
+Project Name: Mimonotributo
+Project ID: nhwiezngaprzoqcvutbx
+URL: https://nhwiezngaprzoqcvutbx.supabase.co
+
+Anon Key (Public):
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5od2llem5nYXByem9xY3Z1dGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzY5OTQsImV4cCI6MjA4MzkxMjk5NH0.LbQ7w36ChLcgn3dyoiLZhW3pu7U4HpIJVQGlDcV0h2A
+
+Service Role Key:
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5od2llem5nYXByem9xY3Z1dGJ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODMzNjk5NCwiZXhwIjoyMDgzOTEyOTk0fQ.57jskRgaw5Yr6liKBaUM477FwyCStcs_XcRth65HxZY
+
+Database Password:
+Avanzaelleon2025!
+
+Database Connection String:
+postgresql://postgres:Avanzaelleon2025!@db.nhwiezngaprzoqcvutbx.supabase.co:5432/postgres
+
+PostgreSQL Version: [A VERIFICAR - debe ser 17]
+
+ESTADO: Proyecto nuevo vacío, listo para migración

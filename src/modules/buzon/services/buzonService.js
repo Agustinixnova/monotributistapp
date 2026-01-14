@@ -3,14 +3,15 @@ import { supabase } from '../../../lib/supabase'
 /**
  * Crea una nueva conversacion
  */
-export async function crearConversacion(userId, asunto, contenido, origen = 'general', origenReferencia = null) {
+export async function crearConversacion(userId, asunto, contenido, origen = 'general', origenReferencia = null, adjuntos = []) {
   const { data, error } = await supabase
     .rpc('crear_conversacion_buzon', {
       p_iniciado_por: userId,
       p_asunto: asunto,
       p_contenido: contenido,
       p_origen: origen,
-      p_origen_referencia: origenReferencia
+      p_origen_referencia: origenReferencia,
+      p_adjuntos: adjuntos
     })
 
   if (error) throw error
@@ -194,7 +195,8 @@ export async function crearConversacionConDestinatarios(
   contenido,
   destinatarios = [],
   origen = 'general',
-  origenReferencia = null
+  origenReferencia = null,
+  adjuntos = []
 ) {
   const { data, error } = await supabase
     .rpc('crear_conversacion_con_destinatarios', {
@@ -203,7 +205,8 @@ export async function crearConversacionConDestinatarios(
       p_contenido: contenido,
       p_destinatarios: destinatarios.length > 0 ? destinatarios : null,
       p_origen: origen,
-      p_origen_referencia: origenReferencia
+      p_origen_referencia: origenReferencia,
+      p_adjuntos: adjuntos
     })
 
   if (error) throw error

@@ -56,8 +56,9 @@ zona horaria: UTC-3  ( SIEMPRE USAR ESE TIMEZONE!!)
 ## 🔑 Credenciales Supabase
 
 ```
-URL: https://hymhyqwylgjmqbvuyutd.supabase.co
-Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5bWh5cXd5bGdqbXFidnV5dXRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0OTY3MzEsImV4cCI6MjA4MzA3MjczMX0.VX4j-SPrgD5FqlmbOj2S_eJ9BvI-2aJ8waovMOcPFSA
+Región: São Paulo, Brasil
+URL: https://nhwiezngaprzoqcvutbx.supabase.co
+Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5od2llem5nYXByem9xY3Z1dGJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzY5OTQsImV4cCI6MjA4MzkxMjk5NH0.LbQ7w36ChLcgn3dyoiLZhW3pu7U4HpIJVQGlDcV0h2A
 ```
 
 ---
