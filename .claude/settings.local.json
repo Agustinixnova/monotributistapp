@@ -43,7 +43,8 @@
       "Bash(scoop:*)",
       "Bash(choco --version:*)",
       "Bash(ls:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(pkill:*)"
     ]
   }
 }

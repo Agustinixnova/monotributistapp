@@ -26,6 +26,7 @@ import {
   responderConversacion
 } from '../services/buzonService'
 import { ModalEnviarMensaje } from './ModalEnviarMensaje'
+import { ModalPreviewAdjunto } from './ModalPreviewAdjunto'
 import { descargarAdjunto } from '../services/adjuntosService'
 
 export function BuzonPage() {
@@ -37,6 +38,7 @@ export function BuzonPage() {
   const [showNuevoMensaje, setShowNuevoMensaje] = useState(false)
   const [respuesta, setRespuesta] = useState('')
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false)
+  const [adjuntoPreview, setAdjuntoPreview] = useState(null)
 
   // Helper para obtener icono de archivo
   const getFileIcon = (type) => {
@@ -314,7 +316,7 @@ export function BuzonPage() {
                                   return (
                                     <button
                                       key={idx}
-                                      onClick={() => handleDescargarAdjunto(adjunto.path, adjunto.name)}
+                                      onClick={() => setAdjuntoPreview(adjunto)}
                                       className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors ${
                                         esMio
                                           ? 'bg-violet-700 hover:bg-violet-800'
@@ -412,6 +414,15 @@ export function BuzonPage() {
         <ModalEnviarMensaje
           onClose={() => setShowNuevoMensaje(false)}
           onSuccess={handleNuevoMensajeSuccess}
+        />
+      )}
+
+      {/* Modal preview adjunto */}
+      {adjuntoPreview && (
+        <ModalPreviewAdjunto
+          adjunto={adjuntoPreview}
+          onClose={() => setAdjuntoPreview(null)}
+          onDownload={handleDescargarAdjunto}
         />
       )}
     </Layout>

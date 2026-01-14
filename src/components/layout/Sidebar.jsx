@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { useSidebarModules } from '../../modules/users/hooks/useSidebarModules'
+import { useMensajesNoLeidos } from '../../modules/buzon/hooks/useMensajesNoLeidos'
 import {
   LayoutDashboard,
   Users,
@@ -69,6 +70,7 @@ const staticMenuItems = [
 export function Sidebar({ isOpen, onClose }) {
   const { user, signOut } = useAuth()
   const { modules, loading: loadingModules } = useSidebarModules()
+  const { count: mensajesNoLeidos } = useMensajesNoLeidos()
   const navigate = useNavigate()
   const location = useLocation()
   const [expandedMenus, setExpandedMenus] = useState({})
@@ -281,7 +283,13 @@ export function Sidebar({ isOpen, onClose }) {
                             strokeWidth={1.5}
                             className={isActive ? 'text-violet-600' : 'text-gray-400 group-hover:text-gray-600'}
                           />
-                          <span className="font-medium text-sm">{item.name}</span>
+                          <span className="font-medium text-sm flex-1">{item.name}</span>
+                          {/* Badge de mensajes no leídos */}
+                          {item.slug === 'mensajes' && mensajesNoLeidos > 0 && (
+                            <span className="min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
+                              {mensajesNoLeidos > 99 ? '99+' : mensajesNoLeidos}
+                            </span>
+                          )}
                         </>
                       )}
                     </NavLink>
