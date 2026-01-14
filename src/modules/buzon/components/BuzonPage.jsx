@@ -10,7 +10,14 @@ import {
   Circle,
   CheckCircle,
   Archive,
-  Clock
+  Clock,
+  Paperclip,
+  Download,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  FileSpreadsheet,
+  File as FileIcon
 } from 'lucide-react'
 import {
   getConversaciones,
@@ -19,6 +26,7 @@ import {
   responderConversacion
 } from '../services/buzonService'
 import { ModalEnviarMensaje } from './ModalEnviarMensaje'
+import { descargarAdjunto } from '../services/adjuntosService'
 
 export function BuzonPage() {
   const { user } = useAuth()
@@ -29,6 +37,25 @@ export function BuzonPage() {
   const [showNuevoMensaje, setShowNuevoMensaje] = useState(false)
   const [respuesta, setRespuesta] = useState('')
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false)
+
+  // Helper para obtener icono de archivo
+  const getFileIcon = (type) => {
+    if (type.startsWith('image/')) return ImageIcon
+    if (type.startsWith('video/')) return Video
+    if (type.includes('spreadsheet') || type.includes('excel')) return FileSpreadsheet
+    if (type.includes('pdf') || type.includes('word') || type.includes('document')) return FileText
+    return FileIcon
+  }
+
+  // Manejar descarga de adjunto
+  const handleDescargarAdjunto = async (path, nombre) => {
+    try {
+      await descargarAdjunto(path, nombre)
+    } catch (err) {
+      console.error('Error descargando adjunto:', err)
+      alert('Error al descargar el archivo')
+    }
+  }
 
   const fetchConversaciones = async () => {
     try {
@@ -277,6 +304,43 @@ export function BuzonPage() {
                             : 'bg-gray-100 text-gray-900 rounded-bl-md'
                         }`}>
                           <p className="text-sm whitespace-pre-wrap">{msg.contenido}</p>
+
+                          {/* Adjuntos */}
+                          {msg.adjuntos && msg.adjuntos.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-opacity-20" style={{ borderColor: esMio ? 'white' : '#000' }}>
+                              <div className="space-y-2">
+                                {msg.adjuntos.map((adjunto, idx) => {
+                                  const Icon = getFileIcon(adjunto.type)
+                                  return (
+                                    <button
+                                      key={idx}
+                                      onClick={() => handleDescargarAdjunto(adjunto.path, adjunto.name)}
+                                      className={`w-full flex items-center gap-2 p-2 rounded-lg transition-colors ${
+                                        esMio
+                                          ? 'bg-violet-700 hover:bg-violet-800'
+                                          : 'bg-white hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 ${
+                                        esMio ? 'bg-violet-800' : 'bg-gray-100'
+                                      }`}>
+                                        <Icon className={`w-4 h-4 ${esMio ? 'text-white' : 'text-gray-600'}`} />
+                                      </div>
+                                      <div className="flex-1 min-w-0 text-left">
+                                        <p className={`text-xs font-medium truncate ${esMio ? 'text-white' : 'text-gray-900'}`}>
+                                          {adjunto.name}
+                                        </p>
+                                        <p className={`text-xs ${esMio ? 'text-violet-200' : 'text-gray-500'}`}>
+                                          {(adjunto.size / 1024 / 1024).toFixed(2)} MB
+                                        </p>
+                                      </div>
+                                      <Download className={`w-4 h-4 flex-shrink-0 ${esMio ? 'text-violet-200' : 'text-gray-400'}`} />
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Hora */}
