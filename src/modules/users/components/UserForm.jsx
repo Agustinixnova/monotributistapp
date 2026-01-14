@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Check, User, Briefcase, FileText, Settings, History } from 'lucide-react'
 import { validateUserForm, validateFiscalDataForm, validatePhone } from '../utils/validators'
 import { useRoles } from '../hooks/useRoles'
@@ -99,6 +99,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
   })
 
   const [errors, setErrors] = useState({})
+  const justChangedStep = useRef(false)
 
   // Cargar contadores disponibles
   useEffect(() => {
@@ -216,6 +217,10 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
         nextStepNum = 4 // Ir al final para enviar
       }
 
+      // Marcar que acabamos de cambiar de paso (para prevenir submit accidental)
+      justChangedStep.current = true
+      setTimeout(() => { justChangedStep.current = false }, 500)
+
       setCurrentStep(Math.min(nextStepNum, 4))
     }
   }
@@ -245,8 +250,21 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
 
   const isLastStep = currentStep === getLastStep() || currentStep === 4
 
+  // Prevenir que Enter envíe el formulario excepto en el último paso con botón explícito
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault()
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Prevenir submit accidental justo después de cambiar de paso
+    if (justChangedStep.current) {
+      console.log('Submit bloqueado - acabamos de cambiar de paso')
+      return
+    }
 
     // Validar todos los pasos relevantes
     const stepsToValidate = [1, 2]
@@ -273,7 +291,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
+    <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="max-w-2xl mx-auto">
       {/* Steps indicator */}
       <div className="mb-8">
         <div className="flex justify-between">
