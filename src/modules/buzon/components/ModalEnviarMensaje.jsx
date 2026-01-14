@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Loader2, MessageSquare, Users, User, Search, Check, Paperclip, Image, FileText, Video, FileSpreadsheet, File as FileIcon, Trash2 } from 'lucide-react'
+import { X, Send, Loader2, MessageSquare, Users, User, Search, Check, Paperclip, Image, FileText, Video, FileSpreadsheet, File as FileIcon, Trash2, Upload } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { supabase } from '../../../lib/supabase'
 import { crearConversacion, crearConversacionConDestinatarios, getClientesParaMensajes } from '../services/buzonService'
@@ -557,19 +557,9 @@ export function ModalEnviarMensaje({
 
               {/* Adjuntos */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Adjuntos (opcional)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                    Adjuntar
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adjuntos (opcional)
+                </label>
 
                 {/* Input file oculto */}
                 <input
@@ -586,61 +576,97 @@ export function ModalEnviarMensaje({
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`relative border-2 border-dashed rounded-lg p-4 transition-colors ${
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`relative border-2 border-dashed rounded-lg transition-all cursor-pointer ${
                     isDragging
-                      ? 'border-violet-400 bg-violet-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-violet-500 bg-violet-50 scale-[1.02]'
+                      : 'border-gray-300 hover:border-violet-400 hover:bg-gray-50'
                   }`}
                 >
                   {adjuntos.length === 0 ? (
-                    <div className="text-center py-2">
-                      <p className="text-sm text-gray-500">
-                        Arrastra archivos aquí o haz clic en "Adjuntar"
+                    <div className="text-center py-8">
+                      <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors ${
+                        isDragging ? 'bg-violet-100' : 'bg-gray-100'
+                      }`}>
+                        <Upload className={`w-8 h-8 transition-colors ${
+                          isDragging ? 'text-violet-600' : 'text-gray-400'
+                        }`} />
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 mb-1">
+                        {isDragging ? 'Suelta los archivos aquí' : 'Arrastra archivos aquí o haz clic'}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-gray-500">
                         PDF, Word, Imágenes, Excel, Videos (máx 100MB)
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {adjuntos.map((adjunto, index) => {
-                        const Icon = getFileIcon(adjunto.type)
-                        const esImagen = adjunto.type.startsWith('image/')
+                    <div className="p-4">
+                      <div className="space-y-2 mb-3">
+                        {adjuntos.map((adjunto, index) => {
+                          const Icon = getFileIcon(adjunto.type)
+                          const esImagen = adjunto.type.startsWith('image/')
 
-                        return (
-                          <div
-                            key={index}
-                            className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
-                          >
-                            {esImagen && adjunto.preview ? (
-                              <img
-                                src={adjunto.preview}
-                                alt={adjunto.name}
-                                className="w-12 h-12 rounded object-cover"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 bg-white rounded border border-gray-200 flex items-center justify-center">
-                                <Icon className="w-6 h-6 text-gray-400" />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {adjunto.name}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {(adjunto.size / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => eliminarAdjunto(index)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-200"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )
-                      })}
+                              {esImagen && adjunto.preview ? (
+                                <img
+                                  src={adjunto.preview}
+                                  alt={adjunto.name}
+                                  className="w-12 h-12 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-50 rounded border border-gray-200 flex items-center justify-center">
+                                  <Icon className="w-6 h-6 text-gray-400" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {adjunto.name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(adjunto.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  eliminarAdjunto(index)
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Zona para agregar más archivos */}
+                      <div className={`border-2 border-dashed rounded-lg p-3 text-center transition-colors ${
+                        isDragging
+                          ? 'border-violet-500 bg-violet-50'
+                          : 'border-gray-200 hover:border-violet-400'
+                      }`}>
+                        <p className="text-xs text-gray-600">
+                          <Paperclip className="w-4 h-4 inline mr-1" />
+                          {isDragging ? 'Suelta para agregar más archivos' : 'Haz clic o arrastra para agregar más'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Overlay cuando se arrastra */}
+                  {isDragging && (
+                    <div className="absolute inset-0 bg-violet-500/10 rounded-lg flex items-center justify-center pointer-events-none">
+                      <div className="bg-white rounded-lg shadow-lg p-4">
+                        <Upload className="w-8 h-8 text-violet-600 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-violet-600">Suelta aquí</p>
+                      </div>
                     </div>
                   )}
                 </div>
