@@ -9,6 +9,7 @@ import { useClienteDetalle } from '../hooks/useClienteDetalle'
 import { FichaSeccion, FichaCampo } from './FichaSeccion'
 import { FichaSeccionLocales } from './FichaSeccionLocales'
 import { FichaSeccionGrupoFamiliar } from './FichaSeccionGrupoFamiliar'
+import { FichaSeccionIIBB } from './FichaSeccionIIBB'
 import { FichaHistorialCategorias } from './FichaHistorialCategorias'
 import { FichaAuditoria } from './FichaAuditoria'
 import { FichaSeccionNotificaciones } from './FichaSeccionNotificaciones'
@@ -813,40 +814,12 @@ export function FichaCliente({ clientId }) {
       </FichaSeccion>
 
       {/* Ingresos Brutos */}
-      <FichaSeccion
-        titulo="Ingresos Brutos"
-        icono={FileText}
-        iconColor="text-teal-600"
-        defaultOpen={true}
-        editable
-        editing={editingSection === 'iibb'}
-        onEdit={() => startEditing('iibb', {
-          regimen_iibb: cliente.regimen_iibb,
-          numero_iibb: cliente.numero_iibb
-        })}
-        onSave={() => handleSave('iibb')}
-        onCancel={cancelEditing}
+      <FichaSeccionIIBB
+        cliente={cliente}
+        onUpdate={refetch}
         saving={saving}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-          <FichaCampo
-            label="Regimen"
-            value={REGIMENES_IIBB.find(r => r.value === cliente.regimen_iibb)?.label || cliente.regimen_iibb}
-            editValue={editData.regimen_iibb}
-            onChange={(v) => setEditData(p => ({ ...p, regimen_iibb: v }))}
-            editing={editingSection === 'iibb'}
-            type="select"
-            options={REGIMENES_IIBB}
-          />
-          <FichaCampo
-            label="Numero IIBB"
-            value={cliente.numero_iibb}
-            editValue={editData.numero_iibb}
-            onChange={(v) => setEditData(p => ({ ...p, numero_iibb: v }))}
-            editing={editingSection === 'iibb'}
-          />
-        </div>
-      </FichaSeccion>
+        userId={perfil?.id}
+      />
 
       {/* Notas internas */}
       {cliente.notas_internas_fiscales && (

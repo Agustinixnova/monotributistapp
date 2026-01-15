@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Clock, User, FileEdit } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { obtenerHistorialCambios } from '../../services/historialCambiosService'
 
 /**
  * Componente para mostrar el historial de cambios de un cliente
- * Lee de la tabla client_audit_log
+ * Lee de la tabla historial_cambios_cliente
  */
 export function HistorialCambiosCliente({ userId, clientFiscalDataId }) {
   const [cambios, setCambios] = useState([])
@@ -16,36 +16,10 @@ export function HistorialCambiosCliente({ userId, clientFiscalDataId }) {
       try {
         setLoading(true)
 
-        // Obtener desde client_audit_log
-        const { data: auditData, error: auditError } = await supabase
-          .from('client_audit_log')
-          .select(`
-            *,
-            modified_by_profile:profiles!modified_by(nombre, apellido)
-          `)
-          .eq('client_id', clientFiscalDataId)
-          .order('modified_at', { ascending: false })
-          .limit(50)
+        // Usar el servicio que ya maneja el join correctamente
+        const data = await obtenerHistorialCambios(clientFiscalDataId, { limit: 50 })
 
-        if (auditError) {
-          throw auditError
-        }
-
-        // Mapear datos de client_audit_log al formato esperado
-        const cambiosMapeados = (auditData || []).map(item => ({
-          id: item.id,
-          tipo_cambio: 'OTROS',
-          campo: item.campo || 'Campo desconocido',
-          valor_anterior: item.valor_anterior,
-          valor_nuevo: item.valor_nuevo,
-          realizado_por: item.modified_by,
-          realizado_por_nombre: item.modified_by_profile?.nombre,
-          realizado_por_apellido: item.modified_by_profile?.apellido,
-          created_at: item.modified_at,
-          metadata: item.motivo ? { motivo: item.motivo, origen: item.origen } : { origen: item.origen }
-        }))
-
-        setCambios(cambiosMapeados)
+        setCambios(data)
       } catch (err) {
         console.error('Error cargando historial:', err)
         setError(err.message)
@@ -141,9 +115,9 @@ export function HistorialCambiosCliente({ userId, clientFiscalDataId }) {
                     })}
                   </span>
                 </div>
-                {cambio.metadata?.origen && (
-                  <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">
-                    {cambio.metadata.origen}
+                {cambio.tipo_cambio && cambio.tipo_cambio !== 'otros' && (
+                  <span className="px-2 py-0.5 bg-violet-100 text-violet-700 rounded text-xs">
+                    {cambio.tipo_cambio}
                   </span>
                 )}
               </div>

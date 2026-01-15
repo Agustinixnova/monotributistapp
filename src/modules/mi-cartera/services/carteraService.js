@@ -324,13 +324,22 @@ export async function getClienteDetalle(clientId) {
     .select('*')
     .eq('client_id', clientId)
 
+  // Jurisdicciones IIBB
+  const { data: jurisdiccionesIibb } = await supabase
+    .from('client_iibb_jurisdicciones')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('es_sede', { ascending: false }) // Sede primero
+    .order('provincia')
+
   return {
     ...fiscal,
     historialCategorias: historial || [],
     categoriaInfo: categoria,
     sugerenciasPendientes: sugerencias || [],
     locales: locales || [],
-    grupoFamiliar: grupoFamiliar || []
+    grupoFamiliar: grupoFamiliar || [],
+    jurisdiccionesIibb: jurisdiccionesIibb || []
   }
 }
 
@@ -427,22 +436,34 @@ export async function actualizarCamposCliente(clientId, cambios, valoresAnterior
 
 /**
  * Obtener historial de auditoria de un cliente
- * @param {string} clientId - ID del cliente
+ * @param {string} clientId - ID del cliente (client_fiscal_data.id)
  * @param {number} limit - Cantidad maxima de registros
  */
 export async function getAuditoriaCliente(clientId, limit = 50) {
   const { data, error } = await supabase
-    .from('client_audit_log')
+    .from('historial_cambios_cliente')
     .select(`
       *,
-      modified_by_profile:profiles!modified_by(nombre, apellido)
+      realizado_por_profile:profiles!realizado_por(nombre, apellido)
     `)
-    .eq('client_id', clientId)
-    .order('modified_at', { ascending: false })
+    .eq('client_fiscal_data_id', clientId)
+    .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) throw error
-  return data || []
+
+  // Mapear a formato compatible con componentes existentes
+  return (data || []).map(item => ({
+    id: item.id,
+    campo: item.campo,
+    valor_anterior: item.valor_anterior,
+    valor_nuevo: item.valor_nuevo,
+    modified_at: item.created_at,
+    modified_by: item.realizado_por,
+    modified_by_profile: item.realizado_por_profile,
+    tipo_cambio: item.tipo_cambio,
+    metadata: item.metadata
+  }))
 }
 
 /**
@@ -505,5 +526,39 @@ export async function guardarGrupoFamiliar(clientId, grupo) {
 
       if (error) throw error
     }
+  }
+}
+
+/**
+ * Guardar jurisdicciones IIBB de un cliente
+ * @param {string} clientId - ID del cliente
+ * @param {Array} jurisdicciones - Array de jurisdicciones
+ * @param {string} userId - ID del usuario que guarda (para auditoría)
+ */
+export async function guardarJurisdiccionesIibb(clientId, jurisdicciones, userId) {
+  // Eliminar jurisdicciones existentes
+  await supabase
+    .from('client_iibb_jurisdicciones')
+    .delete()
+    .eq('client_id', clientId)
+
+  // Insertar nuevas jurisdicciones
+  if (jurisdicciones && jurisdicciones.length > 0) {
+    const data = jurisdicciones.map(j => ({
+      client_id: clientId,
+      provincia: j.provincia,
+      numero_inscripcion: j.numeroInscripcion || j.numero_inscripcion || null,
+      coeficiente: j.coeficiente !== undefined ? j.coeficiente : 100.00,
+      alicuota: j.alicuota !== undefined ? j.alicuota : null,
+      es_sede: j.esSede || j.es_sede || false,
+      notas: j.notas || null,
+      created_by: userId
+    }))
+
+    const { error } = await supabase
+      .from('client_iibb_jurisdicciones')
+      .insert(data)
+
+    if (error) throw error
   }
 }
