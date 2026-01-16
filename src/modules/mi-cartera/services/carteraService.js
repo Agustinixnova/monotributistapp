@@ -198,6 +198,24 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
   // Obtener IDs de clientes para buscar facturación (filtrar nulls de clientes sin datos fiscales)
   const clienteIds = clientesRaw.map(c => c.id).filter(Boolean)
 
+  // Obtener año de vigencia IIBB de cada cliente (para alertas)
+  let iibbVigenciaMap = {}
+  if (clienteIds.length > 0) {
+    const { data: jurisdicciones } = await supabase
+      .from('client_iibb_jurisdicciones')
+      .select('client_id, anio_vigencia')
+      .in('client_id', clienteIds)
+
+    if (jurisdicciones) {
+      // Agrupar por client_id y obtener el año de vigencia (debería ser el mismo para todas las jurisdicciones)
+      jurisdicciones.forEach(j => {
+        if (!iibbVigenciaMap[j.client_id] || j.anio_vigencia < iibbVigenciaMap[j.client_id]) {
+          iibbVigenciaMap[j.client_id] = j.anio_vigencia
+        }
+      })
+    }
+  }
+
   // Obtener facturación de los últimos 12 meses para cada cliente
   let facturacionMap = {}
   if (clienteIds.length > 0) {
@@ -248,6 +266,7 @@ export async function getCarteraClientes(userId, userRole, filters = {}) {
       trabaja_relacion_dependencia: c.trabaja_relacion_dependencia,
       tiene_local: c.tiene_local,
       regimen_iibb: c.regimen_iibb,
+      iibb_anio_vigencia: iibbVigenciaMap[c.id] || null,
       facturacion_12_meses: facturacionMap[c.id] || null,
       contador_nombre: c.user?.contador?.nombre,
       contador_apellido: c.user?.contador?.apellido,
@@ -552,6 +571,7 @@ export async function guardarJurisdiccionesIibb(clientId, jurisdicciones, userId
       alicuota: j.alicuota !== undefined ? j.alicuota : null,
       es_sede: j.esSede || j.es_sede || false,
       notas: j.notas || null,
+      anio_vigencia: j.anioVigencia || j.anio_vigencia || new Date().getFullYear(),
       created_by: userId
     }))
 

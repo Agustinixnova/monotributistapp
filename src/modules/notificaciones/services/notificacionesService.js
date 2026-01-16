@@ -59,3 +59,14 @@ export function suscribirseNotificaciones(userId, callback) {
 
   return () => subscription.unsubscribe()
 }
+
+/**
+ * Genera notificaciones para clientes con coeficientes IIBB desactualizados
+ * Llama a la función SQL que verifica y crea las notificaciones
+ * @returns {Promise<number>} Cantidad de notificaciones creadas
+ */
+export async function verificarIibbDesactualizados() {
+  const { data, error } = await supabase.rpc('generar_notificaciones_iibb')
+  if (error) throw error
+  return data || 0
+}

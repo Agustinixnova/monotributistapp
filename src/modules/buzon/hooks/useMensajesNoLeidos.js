@@ -55,8 +55,14 @@ export function useMensajesNoLeidos() {
       )
       .subscribe()
 
+    // Polling cada 2 minutos como fallback
+    const pollInterval = setInterval(() => {
+      fetchCount()
+    }, 2 * 60 * 1000)
+
     return () => {
       supabase.removeChannel(channel)
+      clearInterval(pollInterval)
     }
   }, [user?.id])
 

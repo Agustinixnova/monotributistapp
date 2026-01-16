@@ -11,13 +11,18 @@ import { AlertModal } from '../../../components/ui/Modal'
 export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState({
-    jurisdicciones: []
+    jurisdicciones: [],
+    anioVigencia: new Date().getFullYear()
   })
   const [modalError, setModalError] = useState({ isOpen: false, message: '' })
 
   const regimen = cliente?.regimen_iibb
   const numeroIibb = cliente?.numero_iibb
   const jurisdicciones = cliente?.jurisdiccionesIibb || []
+
+  // Año de vigencia actual (tomar de la primera jurisdicción)
+  const anioVigenciaActual = jurisdicciones.length > 0 ? jurisdicciones[0].anio_vigencia : null
+  const currentYear = new Date().getFullYear()
 
   // Iniciar edición
   const handleEdit = () => {
@@ -29,8 +34,10 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
         coeficiente: j.coeficiente,
         alicuota: j.alicuota,
         esSede: j.es_sede,
-        notas: j.notas
-      }))
+        notas: j.notas,
+        anioVigencia: j.anio_vigencia
+      })),
+      anioVigencia: anioVigenciaActual || currentYear
     })
     setEditing(true)
   }
@@ -83,7 +90,8 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
           coeficiente: regimen === 'convenio_multilateral' ? 0 : 100.00,
           alicuota: null,
           esSede: false,
-          notas: null
+          notas: null,
+          anioVigencia: editData.anioVigencia
         }
       ]
     })
@@ -253,9 +261,25 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm font-medium text-gray-700">
-                  {regimen === 'convenio_multilateral' ? 'Jurisdicciones:' : 'Jurisdicción:'}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700">
+                    {regimen === 'convenio_multilateral'
+                      ? `Jurisdicciones ${anioVigenciaActual ? `(Coeficientes ${anioVigenciaActual})` : ''}`
+                      : 'Jurisdicción:'
+                    }
+                  </p>
+                </div>
+
+                {/* Alerta de año desactualizado (solo CM) */}
+                {regimen === 'convenio_multilateral' && anioVigenciaActual && anioVigenciaActual < currentYear && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-700 text-sm">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                      Los coeficientes son del {anioVigenciaActual}. Verificar si corresponde actualizarlos para {currentYear}.
+                    </span>
+                  </div>
+                )}
+
                 {jurisdicciones.map((j, idx) => (
                   <div
                     key={idx}
@@ -292,6 +316,40 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
         {/* Modo edición */}
         {editing && (
           <>
+            {/* Selector de año de vigencia (solo para CM) */}
+            {regimen === 'convenio_multilateral' && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-blue-900">
+                    Año vigencia coeficientes:
+                  </label>
+                  <select
+                    value={editData.anioVigencia}
+                    onChange={(e) => {
+                      const nuevoAnio = Number(e.target.value)
+                      setEditData({
+                        ...editData,
+                        anioVigencia: nuevoAnio,
+                        // Actualizar todas las jurisdicciones con el nuevo año
+                        jurisdicciones: editData.jurisdicciones.map(j => ({
+                          ...j,
+                          anioVigencia: nuevoAnio
+                        }))
+                      })
+                    }}
+                    className="px-3 py-1.5 border border-blue-300 rounded-lg text-sm font-medium text-blue-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {[currentYear - 1, currentYear, currentYear + 1].map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-blue-700 mt-2">
+                  Los coeficientes de Convenio Multilateral se calculan anualmente. Seleccione el año fiscal correspondiente.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-3">
               {editData.jurisdicciones.length === 0 ? (
                 <div className="text-center py-4 text-gray-500 text-sm">

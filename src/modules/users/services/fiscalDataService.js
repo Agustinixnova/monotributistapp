@@ -199,3 +199,100 @@ export async function getMonotributoCategorias() {
   if (error) throw error
   return data
 }
+
+// ============================================
+// JURISDICCIONES IIBB
+// ============================================
+
+/**
+ * Obtener jurisdicciones IIBB de un cliente
+ * @param {string} clientId - ID del client_fiscal_data
+ * @returns {Promise<Array>} - Array de jurisdicciones
+ */
+export async function getJurisdiccionesIibb(clientId) {
+  const { data, error } = await supabase
+    .from('client_iibb_jurisdicciones')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('es_sede', { ascending: false }) // Sede primero
+    .order('provincia')
+
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Guardar jurisdicciones IIBB (reemplaza las existentes)
+ * @param {string} clientId - ID del client_fiscal_data
+ * @param {Array} jurisdicciones - Array de jurisdicciones
+ * @param {string} userId - ID del usuario que guarda (para auditoría)
+ * @returns {Promise<void>}
+ */
+export async function guardarJurisdiccionesIibb(clientId, jurisdicciones, userId) {
+  // 1. Eliminar jurisdicciones existentes
+  const { error: deleteError } = await supabase
+    .from('client_iibb_jurisdicciones')
+    .delete()
+    .eq('client_id', clientId)
+
+  if (deleteError) throw deleteError
+
+  // 2. Insertar nuevas jurisdicciones
+  if (jurisdicciones && jurisdicciones.length > 0) {
+    const data = jurisdicciones.map(j => ({
+      client_id: clientId,
+      provincia: j.provincia,
+      numero_inscripcion: j.numeroInscripcion || j.numero_inscripcion || null,
+      coeficiente: j.coeficiente !== undefined ? j.coeficiente : 100.00,
+      alicuota: j.alicuota !== undefined ? j.alicuota : null,
+      es_sede: j.esSede || j.es_sede || false,
+      notas: j.notas || null,
+      created_by: userId
+    }))
+
+    const { error: insertError } = await supabase
+      .from('client_iibb_jurisdicciones')
+      .insert(data)
+
+    if (insertError) throw insertError
+  }
+}
+
+/**
+ * Actualizar una jurisdicción específica (para editar alícuota/coeficiente)
+ * @param {string} jurisdiccionId - ID de la jurisdicción
+ * @param {Object} datos - Datos a actualizar
+ * @returns {Promise<Object>}
+ */
+export async function actualizarJurisdiccionIibb(jurisdiccionId, datos) {
+  const updateData = {}
+  if (datos.alicuota !== undefined) updateData.alicuota = datos.alicuota
+  if (datos.coeficiente !== undefined) updateData.coeficiente = datos.coeficiente
+  if (datos.numeroInscripcion !== undefined) updateData.numero_inscripcion = datos.numeroInscripcion
+  if (datos.esSede !== undefined) updateData.es_sede = datos.esSede
+  if (datos.notas !== undefined) updateData.notas = datos.notas
+
+  const { data, error } = await supabase
+    .from('client_iibb_jurisdicciones')
+    .update(updateData)
+    .eq('id', jurisdiccionId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+/**
+ * Eliminar una jurisdicción
+ * @param {string} jurisdiccionId - ID de la jurisdicción
+ * @returns {Promise<void>}
+ */
+export async function eliminarJurisdiccionIibb(jurisdiccionId) {
+  const { error } = await supabase
+    .from('client_iibb_jurisdicciones')
+    .delete()
+    .eq('id', jurisdiccionId)
+
+  if (error) throw error
+}

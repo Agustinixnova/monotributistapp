@@ -1,11 +1,24 @@
+import { useEffect, useRef } from 'react'
 import { Layout } from '../../../components/layout'
 import { useCartera } from '../hooks/useCartera'
 import { ListaCartera } from '../components/ListaCartera'
 import { Users, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { verificarIibbDesactualizados } from '../../notificaciones/services/notificacionesService'
 
 export function MiCarteraPage() {
-  const { clientes, loading, error, filters, stats, updateFilters } = useCartera()
+  const { clientes, loading, error, filters, stats, updateFilters, refetch } = useCartera()
+  const verificacionRealizada = useRef(false)
+
+  // Verificar IIBB desactualizados una vez al cargar la página
+  useEffect(() => {
+    if (!verificacionRealizada.current && !loading && clientes.length > 0) {
+      verificacionRealizada.current = true
+      verificarIibbDesactualizados().catch(err => {
+        console.error('Error verificando IIBB:', err)
+      })
+    }
+  }, [loading, clientes])
 
   return (
     <Layout>
@@ -45,6 +58,7 @@ export function MiCarteraPage() {
           filters={filters}
           onFilterChange={updateFilters}
           stats={stats}
+          onRefresh={refetch}
         />
       </div>
     </Layout>

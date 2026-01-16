@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { X, ArrowRight, AlertTriangle, CheckCircle, TrendingUp, Loader2, Scale } from 'lucide-react'
+import { X, ArrowRight, AlertTriangle, CheckCircle, TrendingUp, Loader2, Scale, History, Clock, User } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { calcularMontoCuota } from '../services/cuotaService'
 import { getAcumulado12Meses } from '../services/resumenService'
 import { formatearMoneda } from '../utils/formatters'
-import { registrarCambio, TIPO_CAMBIO } from '../../../services/historialCambiosService'
+import { registrarCambio, TIPO_CAMBIO, obtenerHistorialCambios } from '../../../services/historialCambiosService'
 import { escalasService } from '../../configuracion/escalas/services/escalasService'
 import { getCategoriaColor } from '../../../utils/categoriaColors'
 
@@ -22,6 +22,11 @@ export function ModalCambiarCategoria({ cliente, onClose, onSuccess }) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [acumulado, setAcumulado] = useState(0)
   const [categoriaActualData, setCategoriaActualData] = useState(null)
+
+  // Estados para historial
+  const [showHistorial, setShowHistorial] = useState(false)
+  const [historial, setHistorial] = useState([])
+  const [loadingHistorial, setLoadingHistorial] = useState(false)
 
   // Cargar categorias y datos del cliente
   useEffect(() => {
@@ -91,6 +96,21 @@ export function ModalCambiarCategoria({ cliente, onClose, onSuccess }) {
   const estaEnZonaRiesgo = () => {
     const porcentaje = topeActual > 0 ? (acumulado / topeActual) * 100 : 0
     return porcentaje >= 85 && porcentaje < 100
+  }
+
+  // Cargar historial de cambios de categoría
+  const handleOpenHistorial = async () => {
+    setShowHistorial(true)
+    setLoadingHistorial(true)
+    try {
+      const clientId = cliente.id || cliente.client_id
+      const data = await obtenerHistorialCambios(clientId, { tipoCambio: 'categoria' })
+      setHistorial(data)
+    } catch (err) {
+      console.error('Error cargando historial:', err)
+    } finally {
+      setLoadingHistorial(false)
+    }
   }
 
   // Manejar seleccion de categoria
@@ -178,9 +198,18 @@ export function ModalCambiarCategoria({ cliente, onClose, onSuccess }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenHistorial}
+              className="p-2 hover:bg-violet-100 rounded-lg transition-colors"
+              title="Ver historial de cambios"
+            >
+              <History className="w-5 h-5 text-violet-600" />
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -428,6 +457,116 @@ export function ModalCambiarCategoria({ cliente, onClose, onSuccess }) {
           </div>
         )}
       </div>
+
+      {/* Modal de Historial de Cambios */}
+      {showHistorial && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowHistorial(false)}
+        >
+          <div
+            className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-4 py-3 border-b flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-violet-600" />
+                <h3 className="font-semibold text-gray-900">Historial de Categoria</h3>
+              </div>
+              <button
+                onClick={() => setShowHistorial(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingHistorial ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-violet-600" />
+                </div>
+              ) : historial.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No hay cambios registrados</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historial.map((cambio, index) => (
+                    <div
+                      key={cambio.id || index}
+                      className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                    >
+                      {/* Cambio de categoría */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded-lg text-sm font-bold ${getCategoriaColor(cambio.valor_anterior)}`}>
+                          {cambio.valor_anterior || '?'}
+                        </span>
+                        <ArrowRight className="w-4 h-4 text-gray-400" />
+                        <span className={`px-2 py-1 rounded-lg text-sm font-bold ${getCategoriaColor(cambio.valor_nuevo)}`}>
+                          {cambio.valor_nuevo || '?'}
+                        </span>
+                      </div>
+
+                      {/* Metadata */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>
+                            {new Date(cambio.created_at).toLocaleDateString('es-AR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
+                            {' - '}
+                            {new Date(cambio.created_at).toLocaleTimeString('es-AR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          <span>
+                            {cambio.realizado_por_nombre && cambio.realizado_por_apellido
+                              ? `${cambio.realizado_por_nombre} ${cambio.realizado_por_apellido}`
+                              : 'Sistema'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Info adicional si hay metadata */}
+                      {cambio.metadata?.facturacion_al_momento && (
+                        <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
+                          Facturacion al momento: {formatearMoneda(cambio.metadata.facturacion_al_momento)}
+                          {cambio.metadata.porcentaje_tope_nuevo && (
+                            <span className="ml-2">
+                              ({cambio.metadata.porcentaje_tope_nuevo}% del tope)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t bg-gray-50 flex-shrink-0">
+              <button
+                onClick={() => setShowHistorial(false)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

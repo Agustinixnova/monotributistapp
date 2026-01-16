@@ -239,9 +239,9 @@ export function ModalEnviarMensaje({
     setError(null)
 
     try {
-      // Subir adjuntos primero si hay (usar timestamp como ID temporal)
+      // Subir adjuntos primero si hay (usar UUID temporal)
       const adjuntosData = []
-      const tempId = Date.now().toString()
+      const tempId = crypto.randomUUID() // Generar UUID temporal válido
 
       if (adjuntos.length > 0) {
         for (const adjunto of adjuntos) {

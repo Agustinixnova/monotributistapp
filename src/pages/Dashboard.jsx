@@ -15,6 +15,7 @@ import { useAuth } from '../auth/hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { ResumenFacturacionDashboard } from '../modules/facturacion/components/ResumenFacturacionDashboard'
 import { CardCuotaMonotributo } from '../modules/facturacion/components/CardCuotaMonotributo'
+import { CardInstruccionesPago } from '../modules/facturacion/components/CardInstruccionesPago'
 import { ModalRecordatorioVencimiento } from '../modules/facturacion/components/ModalRecordatorioVencimiento'
 import {
   getCuotaMesActual,
@@ -190,10 +191,8 @@ export function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CardCuotaMonotributo />
 
-            {/* Card vacia para futuro uso */}
-            <div className="bg-white rounded-xl border border-gray-200 border-dashed p-4 sm:p-6 flex items-center justify-center min-h-[200px]">
-              <p className="text-gray-400 text-sm">Proximamente...</p>
-            </div>
+            {/* Card de instrucciones de pago */}
+            <CardInstruccionesPago />
           </div>
         </div>
       )}

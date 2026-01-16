@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Users, AlertCircle, Building2, Briefcase, ChevronRight, Phone } from 'lucide-react'
+import { Search, Users, AlertCircle, Building2, Briefcase, ChevronRight, Phone, AlertTriangle, CreditCard } from 'lucide-react'
 import { FiltrosCartera } from './FiltrosCartera'
 import { TarjetaCliente } from './TarjetaCliente'
 import { getCategoriaColor } from '../../../utils/categoriaColors'
 import { BadgeCategoria } from '../../facturacion/components/BadgeCategoria'
+import { ModalEditarIIBB } from './ModalEditarIIBB'
+import { ModalGenerarInstruccionesPago } from './ModalGenerarInstruccionesPago'
+
+const currentYear = new Date().getFullYear()
 
 const ESTADO_PAGO_COLORS = {
   al_dia: 'bg-green-100 text-green-700',
@@ -16,8 +20,11 @@ const ESTADO_PAGO_COLORS = {
 /**
  * Lista de clientes con tabla desktop y cards mobile
  */
-export function ListaCartera({ clientes, loading, filters, onFilterChange, stats }) {
+export function ListaCartera({ clientes, loading, filters, onFilterChange, stats, onRefresh }) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [modalIibbOpen, setModalIibbOpen] = useState(false)
+  const [modalInstruccionesOpen, setModalInstruccionesOpen] = useState(false)
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
 
   // Filtrar por busqueda local
   const clientesFiltrados = searchTerm
@@ -31,6 +38,38 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
   const formatCuit = (cuit) => {
     if (!cuit) return '-'
     return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`
+  }
+
+  const handleOpenModalIIBB = (e, cliente) => {
+    e.stopPropagation() // Evitar navegación
+    e.preventDefault()
+    setClienteSeleccionado(cliente.client_id)
+    setModalIibbOpen(true)
+  }
+
+  const handleCloseModalIIBB = () => {
+    setModalIibbOpen(false)
+    setClienteSeleccionado(null)
+  }
+
+  const handleSaveModalIIBB = async () => {
+    if (onRefresh) await onRefresh()
+  }
+
+  const handleOpenModalInstrucciones = (e, cliente) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setClienteSeleccionado(cliente.client_id)
+    setModalInstruccionesOpen(true)
+  }
+
+  const handleCloseModalInstrucciones = () => {
+    setModalInstruccionesOpen(false)
+    setClienteSeleccionado(null)
+  }
+
+  const handleSaveModalInstrucciones = async () => {
+    if (onRefresh) await onRefresh()
   }
 
   // Categorias unicas
@@ -209,19 +248,43 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                         </span>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <span className={`px-2 py-0.5 text-xs rounded ${
-                          cliente.regimen_iibb === 'simplificado' ? 'bg-blue-100 text-blue-700' :
-                          cliente.regimen_iibb === 'local' ? 'bg-purple-100 text-purple-700' :
-                          cliente.regimen_iibb === 'convenio_multilateral' ? 'bg-orange-100 text-orange-700' :
-                          cliente.regimen_iibb === 'exento' ? 'bg-green-100 text-green-700' :
-                          'bg-gray-100 text-gray-500'
-                        }`}>
-                          {cliente.regimen_iibb === 'simplificado' ? 'Simplif.' :
-                           cliente.regimen_iibb === 'local' ? 'Local' :
-                           cliente.regimen_iibb === 'convenio_multilateral' ? 'C.M.' :
-                           cliente.regimen_iibb === 'exento' ? 'Exento' :
-                           cliente.regimen_iibb === 'no_inscripto' ? 'No insc.' : '-'}
-                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          {cliente.client_id ? (
+                            <button
+                              onClick={(e) => handleOpenModalIIBB(e, cliente)}
+                              className={`px-2 py-0.5 text-xs rounded hover:opacity-80 transition-opacity ${
+                                cliente.regimen_iibb === 'simplificado' ? 'bg-blue-100 text-blue-700' :
+                                cliente.regimen_iibb === 'local' ? 'bg-purple-100 text-purple-700' :
+                                cliente.regimen_iibb === 'convenio_multilateral' ? 'bg-orange-100 text-orange-700' :
+                                cliente.regimen_iibb === 'exento' ? 'bg-green-100 text-green-700' :
+                                cliente.regimen_iibb === 'no_inscripto' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-500'
+                              }`}
+                              title="Click para editar jurisdicciones IIBB"
+                            >
+                              {cliente.regimen_iibb === 'simplificado' ? 'Simplif.' :
+                               cliente.regimen_iibb === 'local' ? 'Local' :
+                               cliente.regimen_iibb === 'convenio_multilateral' ? 'C.M.' :
+                               cliente.regimen_iibb === 'exento' ? 'Exento' :
+                               cliente.regimen_iibb === 'no_inscripto' ? 'No insc.' : '-'}
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-500">-</span>
+                          )}
+                          {/* Alert si IIBB desactualizado (solo Local y CM) */}
+                          {(cliente.regimen_iibb === 'local' || cliente.regimen_iibb === 'convenio_multilateral') &&
+                           (!cliente.iibb_anio_vigencia || cliente.iibb_anio_vigencia < currentYear) && (
+                            <span
+                              className="p-0.5 text-amber-600"
+                              title={cliente.iibb_anio_vigencia
+                                ? `Coeficientes del ${cliente.iibb_anio_vigencia} - Actualizar para ${currentYear}`
+                                : 'Sin jurisdicciones configuradas'
+                              }
+                            >
+                              <AlertTriangle className="w-4 h-4" />
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4 text-right">
                         <span className="text-sm font-medium text-gray-900">
@@ -255,12 +318,21 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                           : '-'}
                       </td>
                       <td className="px-4 py-4">
-                        <Link
-                          to={`/mi-cartera/${cliente.client_id}`}
-                          className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </Link>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => handleOpenModalInstrucciones(e, cliente)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Instrucciones de pago"
+                          >
+                            <CreditCard className="w-5 h-5" />
+                          </button>
+                          <Link
+                            to={`/mi-cartera/${cliente.client_id}`}
+                            className="p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -275,6 +347,22 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
           </p>
         </>
       )}
+
+      {/* Modal editar IIBB */}
+      <ModalEditarIIBB
+        isOpen={modalIibbOpen}
+        onClose={handleCloseModalIIBB}
+        clientId={clienteSeleccionado}
+        onSave={handleSaveModalIIBB}
+      />
+
+      {/* Modal instrucciones de pago */}
+      <ModalGenerarInstruccionesPago
+        isOpen={modalInstruccionesOpen}
+        onClose={handleCloseModalInstrucciones}
+        clientId={clienteSeleccionado}
+        onSave={handleSaveModalInstrucciones}
+      />
     </div>
   )
 }

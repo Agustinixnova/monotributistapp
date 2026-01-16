@@ -1,4 +1,4 @@
-import { AlertTriangle, AlertCircle, Calendar, Clock, FileText, MessageSquare, File, Info } from 'lucide-react'
+import { AlertTriangle, AlertCircle, Calendar, Clock, FileText, MessageSquare, File, Info, Receipt } from 'lucide-react'
 
 export const TIPOS_NOTIFICACION = {
   riesgo_exclusion: { icono: AlertTriangle, bgColor: 'bg-red-100', textColor: 'text-red-600' },
@@ -9,6 +9,7 @@ export const TIPOS_NOTIFICACION = {
   facturacion_pendiente: { icono: FileText, bgColor: 'bg-orange-100', textColor: 'text-orange-600' },
   mensaje_nuevo: { icono: MessageSquare, bgColor: 'bg-green-100', textColor: 'text-green-600' },
   documento_nuevo: { icono: File, bgColor: 'bg-blue-100', textColor: 'text-blue-600' },
+  iibb_desactualizado: { icono: Receipt, bgColor: 'bg-amber-100', textColor: 'text-amber-600' },
   sistema: { icono: Info, bgColor: 'bg-gray-100', textColor: 'text-gray-600' }
 }
 

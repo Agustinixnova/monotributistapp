@@ -21,12 +21,14 @@ export async function crearConversacion(userId, asunto, contenido, origen = 'gen
 /**
  * Responde a una conversacion existente
  */
-export async function responderConversacion(conversacionId, userId, contenido) {
+export async function responderConversacion(conversacionId, userId, contenido, adjuntos = [], respuestaA = null) {
   const { data, error } = await supabase
     .rpc('responder_conversacion', {
       p_conversacion_id: conversacionId,
       p_user_id: userId,
-      p_contenido: contenido
+      p_contenido: contenido,
+      p_adjuntos: adjuntos,
+      p_respuesta_a: respuestaA
     })
 
   if (error) throw error
@@ -104,7 +106,7 @@ export async function getConversacion(conversacionId) {
 
   if (errorConv) throw errorConv
 
-  // Obtener mensajes
+  // Obtener mensajes con información del mensaje respondido
   const { data: mensajes, error: errorMsg } = await supabase
     .from('buzon_mensajes')
     .select(`
@@ -115,6 +117,16 @@ export async function getConversacion(conversacionId) {
         apellido,
         email,
         roles (name)
+      ),
+      mensaje_respondido:buzon_mensajes!respuesta_a (
+        id,
+        contenido,
+        enviado_por,
+        profiles!buzon_mensajes_enviado_por_fkey (
+          id,
+          nombre,
+          apellido
+        )
       )
     `)
     .eq('conversacion_id', conversacionId)
@@ -127,7 +139,11 @@ export async function getConversacion(conversacionId) {
     iniciadoPor: conversacion.profiles,
     mensajes: mensajes.map(m => ({
       ...m,
-      enviadoPor: m.profiles
+      enviadoPor: m.profiles,
+      mensajeRespondido: m.mensaje_respondido ? {
+        ...m.mensaje_respondido,
+        enviadoPor: m.mensaje_respondido.profiles
+      } : null
     }))
   }
 }

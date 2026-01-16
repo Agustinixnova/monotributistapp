@@ -28,7 +28,7 @@ export function PanelNotasInternas({ clientId, mesActivo = null }) {
   } = useNotasInternas(clientId)
 
   const [mostrarForm, setMostrarForm] = useState(false)
-  const [expandido, setExpandido] = useState(true)
+  const [expandido, setExpandido] = useState(false)
 
   const handleAgregar = async (data) => {
     await agregar({
