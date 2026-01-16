@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Settings, BookOpen, Loader2, AlertCircle, Filter } from 'lucide-react'
+import { Plus, Settings, BookOpen, Loader2, AlertCircle, Filter, ArrowLeft } from 'lucide-react'
 import { SortableArticleList } from './SortableArticleList'
 import { CategoriasList } from './CategoriasList'
 import { useArticulos } from '../hooks/useArticulos'
@@ -66,9 +66,20 @@ export function ArticulosManager() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Educacion Impositiva</h1>
-          <p className="text-gray-600 mt-1">Administra articulos y categorias</p>
+        <div className="flex items-center gap-3">
+          {/* Botón Volver */}
+          <Link
+            to="/educacion"
+            className="flex items-center justify-center w-10 h-10 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            title="Volver a Educación Impositiva"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </Link>
+
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Educacion Impositiva</h1>
+            <p className="text-gray-600 mt-1">Administra articulos y categorias</p>
+          </div>
         </div>
 
         <Link

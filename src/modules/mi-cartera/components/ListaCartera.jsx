@@ -7,15 +7,9 @@ import { getCategoriaColor } from '../../../utils/categoriaColors'
 import { BadgeCategoria } from '../../facturacion/components/BadgeCategoria'
 import { ModalEditarIIBB } from './ModalEditarIIBB'
 import { ModalGenerarInstruccionesPago } from './ModalGenerarInstruccionesPago'
+import { ModalEditarDeuda } from './ModalEditarDeuda'
 
 const currentYear = new Date().getFullYear()
-
-const ESTADO_PAGO_COLORS = {
-  al_dia: 'bg-green-100 text-green-700',
-  debe_1_cuota: 'bg-yellow-100 text-yellow-700',
-  debe_2_mas: 'bg-red-100 text-red-700',
-  desconocido: 'bg-gray-100 text-gray-600'
-}
 
 /**
  * Lista de clientes con tabla desktop y cards mobile
@@ -24,7 +18,9 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
   const [searchTerm, setSearchTerm] = useState('')
   const [modalIibbOpen, setModalIibbOpen] = useState(false)
   const [modalInstruccionesOpen, setModalInstruccionesOpen] = useState(false)
+  const [modalDeudaOpen, setModalDeudaOpen] = useState(false)
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
+  const [clienteNombreSeleccionado, setClienteNombreSeleccionado] = useState('')
 
   // Filtrar por busqueda local
   const clientesFiltrados = searchTerm
@@ -69,6 +65,24 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
   }
 
   const handleSaveModalInstrucciones = async () => {
+    if (onRefresh) await onRefresh()
+  }
+
+  const handleOpenModalDeuda = (e, cliente) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setClienteSeleccionado(cliente.client_id)
+    setClienteNombreSeleccionado(cliente.full_name || cliente.razon_social || 'Cliente')
+    setModalDeudaOpen(true)
+  }
+
+  const handleCloseModalDeuda = () => {
+    setModalDeudaOpen(false)
+    setClienteSeleccionado(null)
+    setClienteNombreSeleccionado('')
+  }
+
+  const handleSaveModalDeuda = async () => {
     if (onRefresh) await onRefresh()
   }
 
@@ -239,13 +253,22 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
                         )}
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          ESTADO_PAGO_COLORS[cliente.estado_pago_monotributo] || ESTADO_PAGO_COLORS.desconocido
-                        }`}>
+                        <button
+                          onClick={(e) => handleOpenModalDeuda(e, cliente)}
+                          className={`px-2 py-1 text-xs rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
+                            cliente.estado_pago_monotributo === 'al_dia'
+                              ? 'bg-green-100 text-green-700'
+                              : cliente.estado_pago_monotributo === 'con_deuda'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-600'
+                          }`}
+                          title="Click para editar estado de pago"
+                        >
                           {cliente.estado_pago_monotributo === 'al_dia' ? 'Al dia' :
-                           cliente.estado_pago_monotributo === 'debe_1_cuota' ? '1 cuota' :
-                           cliente.estado_pago_monotributo === 'debe_2_mas' ? '2+ cuotas' : '-'}
-                        </span>
+                           cliente.estado_pago_monotributo === 'con_deuda' && cliente.cuotas_adeudadas_monotributo
+                             ? `${cliente.cuotas_adeudadas_monotributo} ${cliente.cuotas_adeudadas_monotributo === 1 ? 'mes' : 'meses'}`
+                             : cliente.estado_pago_monotributo === 'con_deuda' ? 'Con deuda' : '-'}
+                        </button>
                       </td>
                       <td className="px-4 py-4 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -362,6 +385,15 @@ export function ListaCartera({ clientes, loading, filters, onFilterChange, stats
         onClose={handleCloseModalInstrucciones}
         clientId={clienteSeleccionado}
         onSave={handleSaveModalInstrucciones}
+      />
+
+      {/* Modal editar deuda */}
+      <ModalEditarDeuda
+        isOpen={modalDeudaOpen}
+        onClose={handleCloseModalDeuda}
+        clientId={clienteSeleccionado}
+        clienteNombre={clienteNombreSeleccionado}
+        onSave={handleSaveModalDeuda}
       />
     </div>
   )

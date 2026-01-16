@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase'
 import { ResumenFacturacionDashboard } from '../modules/facturacion/components/ResumenFacturacionDashboard'
 import { CardCuotaMonotributo } from '../modules/facturacion/components/CardCuotaMonotributo'
 import { CardInstruccionesPago } from '../modules/facturacion/components/CardInstruccionesPago'
+import { CardAlertaDeuda } from '../modules/facturacion/components/CardAlertaDeuda'
 import { ModalRecordatorioVencimiento } from '../modules/facturacion/components/ModalRecordatorioVencimiento'
 import {
   getCuotaMesActual,
@@ -186,6 +187,9 @@ export function Dashboard() {
       {esCliente && (
         <div className="space-y-4 mb-6">
           <ResumenFacturacionDashboard />
+
+          {/* Alerta de deuda de monotributo - ancho completo debajo de facturacion */}
+          <CardAlertaDeuda />
 
           {/* Cards de cuota y proxima (2 columnas en desktop) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -26,11 +26,10 @@ const METODOS_PAGO = [
   { value: 'otro', label: 'Otro' }
 ]
 
+// Estados de pago simplificados
 const ESTADOS_PAGO = [
   { value: 'al_dia', label: 'Al dia', color: 'green' },
-  { value: 'debe_1_cuota', label: 'Debe 1 cuota', color: 'yellow' },
-  { value: 'debe_2_mas', label: 'Debe 2+ cuotas', color: 'red' },
-  { value: 'desconocido', label: 'No se', color: 'gray' }
+  { value: 'con_deuda', label: 'Con deuda', color: 'red' }
 ]
 
 const PARENTESCOS = [
@@ -798,18 +797,23 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Estado de pago
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {ESTADOS_PAGO.map(estado => (
                 <button
                   key={estado.value}
                   type="button"
-                  onClick={() => handleChange('estadoPagoMonotributo', estado.value)}
-                  className={`p-2 rounded-lg border-2 text-center text-sm transition-colors ${
+                  onClick={() => {
+                    handleChange('estadoPagoMonotributo', estado.value)
+                    // Si cambia a "al_dia", limpiar los campos de deuda
+                    if (estado.value === 'al_dia') {
+                      handleChange('montoDeudaMonotributo', null)
+                      handleChange('cuotasAdeudadasMonotributo', null)
+                    }
+                  }}
+                  className={`p-3 rounded-lg border-2 text-center text-sm font-medium transition-colors ${
                     data.estadoPagoMonotributo === estado.value
                       ? estado.color === 'green' ? 'border-green-500 bg-green-50 text-green-700'
-                      : estado.color === 'yellow' ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
-                      : estado.color === 'red' ? 'border-red-500 bg-red-50 text-red-700'
-                      : 'border-gray-500 bg-gray-50 text-gray-700'
+                      : 'border-red-500 bg-red-50 text-red-700'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -817,6 +821,49 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
                 </button>
               ))}
             </div>
+
+            {/* Campos de deuda (solo si tiene deuda) */}
+            {data.estadoPagoMonotributo === 'con_deuda' && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                <p className="text-sm text-red-700 font-medium">Detalle de la deuda</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-red-600 mb-1">
+                      Monto adeudado ($)
+                    </label>
+                    <input
+                      type="number"
+                      value={data.montoDeudaMonotributo || ''}
+                      onChange={(e) => handleChange('montoDeudaMonotributo', e.target.value ? parseFloat(e.target.value) : null)}
+                      placeholder="Ej: 50000"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-red-600 mb-1">
+                      Cuotas adeudadas
+                    </label>
+                    <input
+                      type="number"
+                      value={data.cuotasAdeudadasMonotributo || ''}
+                      onChange={(e) => handleChange('cuotasAdeudadasMonotributo', e.target.value ? parseInt(e.target.value) : null)}
+                      placeholder="Ej: 3"
+                      min="1"
+                      max="120"
+                      className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs text-red-600">
+                  Esta informacion se mostrara al cliente en su dashboard para que regularice su situacion.
+                </p>
+              </div>
+            )}
           </div>
         </SeccionColapsable>
       )}

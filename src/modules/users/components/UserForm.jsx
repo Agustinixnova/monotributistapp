@@ -76,6 +76,8 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       metodoPagoMonotributo: user?.fiscal_data?.metodo_pago_monotributo || '',
       estadoPagoMonotributo: user?.fiscal_data?.estado_pago_monotributo || 'al_dia',
       cbuDebito: user?.fiscal_data?.cbu_debito || '',
+      montoDeudaMonotributo: user?.fiscal_data?.monto_deuda_monotributo || null,
+      cuotasAdeudadasMonotributo: user?.fiscal_data?.cuotas_adeudadas_monotributo || null,
       // Pago IIBB
       metodoPagoIibb: user?.fiscal_data?.metodo_pago_iibb || '',
       // Accesos ARCA
@@ -451,7 +453,7 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                DNI
+                DNI *
               </label>
               <input
                 type="text"

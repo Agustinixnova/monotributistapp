@@ -158,7 +158,10 @@ export function validateUserForm(userData, isNewUser = true) {
     errors.whatsapp = 'WhatsApp inválido'
   }
 
-  if (userData.dni && !validateDNI(userData.dni)) {
+  // DNI es obligatorio
+  if (!validateRequired(userData.dni)) {
+    errors.dni = 'El DNI es requerido'
+  } else if (!validateDNI(userData.dni)) {
     errors.dni = 'DNI inválido'
   }
 

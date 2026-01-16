@@ -45,9 +45,30 @@ export function TipTapToolbar({ editor, articuloId }) {
   const setLink = useCallback(() => {
     if (!linkUrl) {
       editor.chain().focus().unsetLink().run()
-    } else {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run()
+      setShowLinkInput(false)
+      setLinkUrl('')
+      return
     }
+
+    // Asegurar que la URL tenga protocolo
+    let finalUrl = linkUrl.trim()
+    if (!/^https?:\/\//i.test(finalUrl)) {
+      finalUrl = 'https://' + finalUrl
+    }
+
+    // Si hay texto seleccionado, aplicar link
+    const { from, to } = editor.state.selection
+    if (from !== to) {
+      editor.chain().focus().setLink({ href: finalUrl }).run()
+    } else {
+      // Si no hay selección, insertar el URL como texto con link
+      editor.chain().focus().insertContent({
+        type: 'text',
+        text: linkUrl,
+        marks: [{ type: 'link', attrs: { href: finalUrl } }]
+      }).run()
+    }
+
     setShowLinkInput(false)
     setLinkUrl('')
   }, [editor, linkUrl])
@@ -185,9 +206,20 @@ export function TipTapToolbar({ editor, articuloId }) {
 
         {/* Links */}
         <ToolButton
-          onClick={() => setShowLinkInput(!showLinkInput)}
+          onClick={() => {
+            if (editor.isActive('link')) {
+              editor.chain().focus().unsetLink().run()
+            } else {
+              setShowLinkInput(!showLinkInput)
+              // Pre-llenar con URL existente si hay
+              const { href } = editor.getAttributes('link')
+              if (href) {
+                setLinkUrl(href)
+              }
+            }
+          }}
           active={editor.isActive('link') || showLinkInput}
-          title="Insertar enlace"
+          title={editor.isActive('link') ? 'Quitar enlace' : 'Insertar enlace'}
         >
           <LinkIcon className="w-4 h-4" />
         </ToolButton>
@@ -213,29 +245,40 @@ export function TipTapToolbar({ editor, articuloId }) {
 
       {/* Input para links */}
       {showLinkInput && (
-        <div className="mt-2 flex items-center gap-2">
-          <input
-            type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://ejemplo.com"
-            className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm"
-            onKeyDown={(e) => e.key === 'Enter' && setLink()}
-          />
-          <button
-            type="button"
-            onClick={setLink}
-            className="px-3 py-1.5 bg-violet-600 text-white rounded text-sm hover:bg-violet-700"
-          >
-            {linkUrl ? 'Aplicar' : 'Quitar'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setShowLinkInput(false); setLinkUrl(''); }}
-            className="p-1.5 text-gray-500 hover:text-gray-700"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <div className="mt-2 p-3 bg-violet-50 rounded border border-violet-200">
+          <p className="text-xs text-violet-700 mb-2">
+            {editor.state.selection.empty
+              ? 'Ingresá la URL y se insertará como texto con link'
+              : 'Ingresá la URL para aplicar al texto seleccionado'
+            }
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="ejemplo.com o https://ejemplo.com"
+              className="flex-1 px-3 py-2 border border-violet-300 rounded text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+              onKeyDown={(e) => e.key === 'Enter' && setLink()}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={setLink}
+              disabled={!linkUrl.trim()}
+              className="px-4 py-2 bg-violet-600 text-white rounded text-sm hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Aplicar
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowLinkInput(false); setLinkUrl(''); }}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded hover:bg-white transition-colors"
+              title="Cancelar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 

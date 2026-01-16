@@ -336,6 +336,8 @@ export async function updateUser(id, userData) {
           metodo_pago_monotributo: fiscalData.metodoPagoMonotributo || null,
           estado_pago_monotributo: fiscalData.estadoPagoMonotributo || 'al_dia',
           cbu_debito: fiscalData.cbuDebito || null,
+          monto_deuda_monotributo: fiscalData.montoDeudaMonotributo || null,
+          cuotas_adeudadas_monotributo: fiscalData.cuotasAdeudadasMonotributo || null,
           // Accesos ARCA
           nivel_clave_fiscal: fiscalData.nivelClaveFiscal || null,
           servicios_delegados: fiscalData.serviciosDelegados || false,
