@@ -454,26 +454,31 @@ export function ModalGenerarInstruccionesPago({ isOpen, onClose, clientId, onSav
       setDatosMonotributo(nuevosMonotributo)
 
       // Datos IIBB
+      // SIEMPRE usar el método preferido del cliente de su ficha (si existe)
+      const metodoDefaultIibb = clienteData.metodo_pago_iibb || 'vep'
+
       if (instrucciones.iibb) {
         setDatosIibb({
-          metodo_pago: instrucciones.iibb.metodo_pago || 'vep',
+          metodo_pago: metodoDefaultIibb, // SIEMPRE el de la ficha
           vep_numero: instrucciones.iibb.vep_numero || '',
           vep_monto: instrucciones.iibb.vep_monto || null,
           vep_vencimiento: instrucciones.iibb.vep_vencimiento || null,
           mercadopago_numero: instrucciones.iibb.mercadopago_numero || '',
+          mercadopago_vencimiento: instrucciones.iibb.mercadopago_vencimiento || null,
           cpe_codigo: instrucciones.iibb.cpe_codigo || '',
           efectivo_boleta_url: instrucciones.iibb.efectivo_boleta_url || null,
           efectivo_boleta_nombre: null,
           notas: instrucciones.iibb.notas || ''
         })
       } else if (tieneIibbActivo) {
-        // Si no hay instrucciones previas pero sí tiene IIBB, pre-llenar con monto calculado
+        // Si no hay instrucciones previas pero sí tiene IIBB, pre-llenar con método preferido y monto calculado
         setDatosIibb({
-          metodo_pago: 'vep',
+          metodo_pago: metodoDefaultIibb,
           vep_numero: '',
           vep_monto: montoIibb > 0 ? montoIibb : null,
           vep_vencimiento: null,
           mercadopago_numero: '',
+          mercadopago_vencimiento: null,
           cpe_codigo: '',
           efectivo_boleta_url: null,
           efectivo_boleta_nombre: null,

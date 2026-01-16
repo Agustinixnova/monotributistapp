@@ -1,8 +1,16 @@
 import { useState } from 'react'
-import { FileText, Edit2, X, Plus, CheckCircle, AlertTriangle, Home } from 'lucide-react'
+import { FileText, Edit2, X, Plus, CheckCircle, AlertTriangle, Home, CreditCard } from 'lucide-react'
 import { PROVINCIAS_ARGENTINA, REGIMENES_IIBB, getRegimenIibbLabel } from '../../../constants/fiscales'
-import { guardarJurisdiccionesIibb } from '../services/carteraService'
+import { guardarJurisdiccionesIibb, actualizarCamposCliente } from '../services/carteraService'
 import { AlertModal } from '../../../components/ui/Modal'
+
+const METODOS_PAGO = [
+  { value: 'debito_automatico', label: 'Débito automático' },
+  { value: 'vep', label: 'VEP' },
+  { value: 'mercadopago', label: 'Mercado Pago' },
+  { value: 'efectivo', label: 'Efectivo / Rapipago / PagoFacil' },
+  { value: 'otro', label: 'Otro' }
+]
 
 /**
  * Componente para mostrar y editar jurisdicciones IIBB
@@ -12,12 +20,14 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState({
     jurisdicciones: [],
-    anioVigencia: new Date().getFullYear()
+    anioVigencia: new Date().getFullYear(),
+    metodo_pago_iibb: null
   })
   const [modalError, setModalError] = useState({ isOpen: false, message: '' })
 
   const regimen = cliente?.regimen_iibb
   const numeroIibb = cliente?.numero_iibb
+  const metodoPagoIibb = cliente?.metodo_pago_iibb
   const jurisdicciones = cliente?.jurisdiccionesIibb || []
 
   // Año de vigencia actual (tomar de la primera jurisdicción)
@@ -37,7 +47,8 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
         notas: j.notas,
         anioVigencia: j.anio_vigencia
       })),
-      anioVigencia: anioVigenciaActual || currentYear
+      anioVigencia: anioVigenciaActual || currentYear,
+      metodo_pago_iibb: metodoPagoIibb
     })
     setEditing(true)
   }
@@ -51,18 +62,32 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
   // Guardar cambios
   const handleSave = async () => {
     try {
+      const clientId = cliente.id || cliente.client_id
+
+      // Guardar jurisdicciones
       await guardarJurisdiccionesIibb(
-        cliente.id || cliente.client_id,
+        clientId,
         editData.jurisdicciones,
         userId
       )
+
+      // Guardar método de pago si cambió
+      if (editData.metodo_pago_iibb !== metodoPagoIibb) {
+        await actualizarCamposCliente(
+          clientId,
+          { metodo_pago_iibb: editData.metodo_pago_iibb },
+          { metodo_pago_iibb: metodoPagoIibb },
+          userId
+        )
+      }
+
       setEditing(false)
       if (onUpdate) await onUpdate()
     } catch (error) {
-      console.error('Error guardando jurisdicciones:', error)
+      console.error('Error guardando datos IIBB:', error)
       setModalError({
         isOpen: true,
-        message: error.message || 'Ocurrió un error al guardar las jurisdicciones'
+        message: error.message || 'Ocurrió un error al guardar los datos de IIBB'
       })
     }
   }
@@ -231,8 +256,8 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
 
       {/* Content */}
       <div className="p-6 space-y-4">
-        {/* Régimen y número */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Régimen, número y método de pago */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <span className="text-sm text-gray-500">Régimen</span>
             <p className="font-medium text-gray-900">{getRegimenIibbLabel(regimen)}</p>
@@ -242,6 +267,25 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
               {regimen === 'convenio_multilateral' ? 'Nº CM' : 'Nº Inscripción IIBB'}
             </span>
             <p className="font-medium text-gray-900">{numeroIibb || '-'}</p>
+          </div>
+          <div>
+            <span className="text-sm text-gray-500">Método de pago</span>
+            {!editing ? (
+              <p className="font-medium text-gray-900">
+                {METODOS_PAGO.find(m => m.value === metodoPagoIibb)?.label || '-'}
+              </p>
+            ) : (
+              <select
+                value={editData.metodo_pago_iibb || ''}
+                onChange={(e) => setEditData(p => ({ ...p, metodo_pago_iibb: e.target.value || null }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+              >
+                <option value="">Seleccionar...</option>
+                {METODOS_PAGO.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
