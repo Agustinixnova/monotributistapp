@@ -49,15 +49,33 @@ export async function getClientNotifications(clientId, options = {}) {
  */
 export async function createNotification(notificationData) {
   try {
+    // Calcular expires_at: por defecto 30 días desde ahora
+    const expiresAt = notificationData.fechaVencimiento
+      ? new Date(notificationData.fechaVencimiento).toISOString()
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+    // Construir mensaje completo con título si existe
+    const fullMessage = notificationData.titulo
+      ? `${notificationData.titulo}\n\n${notificationData.mensaje}`
+      : notificationData.mensaje
+
+    // Mapear prioridad al enum correcto
+    const priorityMap = {
+      'alta': 'urgent',
+      'urgent': 'urgent',
+      'importante': 'important',
+      'important': 'important',
+      'normal': 'normal'
+    }
+    const priority = priorityMap[notificationData.prioridad?.toLowerCase()] || 'normal'
+
     const { data, error } = await supabase
       .from('client_notifications')
       .insert({
         client_id: notificationData.clientId,
-        tipo: notificationData.tipo || 'info',
-        titulo: notificationData.titulo,
-        mensaje: notificationData.mensaje,
-        prioridad: notificationData.prioridad || 'normal',
-        fecha_vencimiento: notificationData.fechaVencimiento || null,
+        message: fullMessage,
+        priority: priority,
+        expires_at: expiresAt,
         is_active: true,
         created_by: notificationData.createdBy
       })
