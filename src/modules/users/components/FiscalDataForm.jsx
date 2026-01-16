@@ -998,6 +998,33 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
             />
           </div>
         )}
+
+        {/* Metodo de pago IIBB - Solo para local o convenio multilateral */}
+        {(data.regimenIibb === 'local' || data.regimenIibb === 'convenio_multilateral') && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Metodo de pago predeterminado para IIBB
+            </label>
+            <div className="relative">
+              <select
+                value={data.metodoPagoIibb || ''}
+                onChange={(e) => handleChange('metodoPagoIibb', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg appearance-none bg-white focus:ring-2 focus:ring-violet-500"
+              >
+                <option value="">Seleccionar metodo...</option>
+                {METODOS_PAGO.map(metodo => (
+                  <option key={metodo.value} value={metodo.value}>
+                    {metodo.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Este metodo se usara por defecto al generar instrucciones de pago de IIBB
+            </p>
+          </div>
+        )}
       </SeccionColapsable>
 
       {/* SECCION 8: NOTAS INTERNAS */}

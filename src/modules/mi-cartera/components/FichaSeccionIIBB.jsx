@@ -256,8 +256,8 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
 
       {/* Content */}
       <div className="p-6 space-y-4">
-        {/* Régimen, número y método de pago */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Régimen y número */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <span className="text-sm text-gray-500">Régimen</span>
             <p className="font-medium text-gray-900">{getRegimenIibbLabel(regimen)}</p>
@@ -268,26 +268,39 @@ export function FichaSeccionIIBB({ cliente, onUpdate, saving, userId }) {
             </span>
             <p className="font-medium text-gray-900">{numeroIibb || '-'}</p>
           </div>
-          <div>
-            <span className="text-sm text-gray-500">Método de pago</span>
-            {!editing ? (
-              <p className="font-medium text-gray-900">
-                {METODOS_PAGO.find(m => m.value === metodoPagoIibb)?.label || '-'}
-              </p>
-            ) : (
-              <select
-                value={editData.metodo_pago_iibb || ''}
-                onChange={(e) => setEditData(p => ({ ...p, metodo_pago_iibb: e.target.value || null }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
-              >
-                <option value="">Seleccionar...</option>
-                {METODOS_PAGO.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            )}
-          </div>
         </div>
+
+        {/* Método de pago - siempre visible en modo edición */}
+        {editing && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Método de pago predeterminado para IIBB
+            </label>
+            <select
+              value={editData.metodo_pago_iibb || ''}
+              onChange={(e) => setEditData(p => ({ ...p, metodo_pago_iibb: e.target.value || null }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+            >
+              <option value="">Seleccionar método...</option>
+              {METODOS_PAGO.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Este método se usará por defecto al generar instrucciones de pago
+            </p>
+          </div>
+        )}
+
+        {/* Mostrar método en modo visualización si existe */}
+        {!editing && metodoPagoIibb && (
+          <div>
+            <span className="text-sm text-gray-500">Método de pago predeterminado</span>
+            <p className="font-medium text-gray-900">
+              {METODOS_PAGO.find(m => m.value === metodoPagoIibb)?.label}
+            </p>
+          </div>
+        )}
 
         {/* Modo visualización */}
         {!editing && (

@@ -76,6 +76,8 @@ export function UserForm({ user, onSubmit, onCancel, loading }) {
       metodoPagoMonotributo: user?.fiscal_data?.metodo_pago_monotributo || '',
       estadoPagoMonotributo: user?.fiscal_data?.estado_pago_monotributo || 'al_dia',
       cbuDebito: user?.fiscal_data?.cbu_debito || '',
+      // Pago IIBB
+      metodoPagoIibb: user?.fiscal_data?.metodo_pago_iibb || '',
       // Accesos ARCA
       nivelClaveFiscal: user?.fiscal_data?.nivel_clave_fiscal || null,
       serviciosDelegados: user?.fiscal_data?.servicios_delegados || false,

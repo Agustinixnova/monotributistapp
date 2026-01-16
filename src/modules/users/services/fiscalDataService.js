@@ -81,6 +81,8 @@ export async function updateFiscalData(userId, fiscalData) {
     metodoPagoMonotributo,
     estadoPagoMonotributo,
     cbuDebito,
+    // Pago IIBB
+    metodoPagoIibb,
     // Accesos ARCA
     nivelClaveFiscal,
     serviciosDelegados,
@@ -133,6 +135,8 @@ export async function updateFiscalData(userId, fiscalData) {
   if (metodoPagoMonotributo !== undefined) updateData.metodo_pago_monotributo = metodoPagoMonotributo || null
   if (estadoPagoMonotributo !== undefined) updateData.estado_pago_monotributo = estadoPagoMonotributo || 'al_dia'
   if (cbuDebito !== undefined) updateData.cbu_debito = cbuDebito || null
+  // Pago IIBB
+  if (metodoPagoIibb !== undefined) updateData.metodo_pago_iibb = metodoPagoIibb || null
   // Accesos ARCA
   if (nivelClaveFiscal !== undefined) updateData.nivel_clave_fiscal = nivelClaveFiscal || null
   if (serviciosDelegados !== undefined) updateData.servicios_delegados = serviciosDelegados
