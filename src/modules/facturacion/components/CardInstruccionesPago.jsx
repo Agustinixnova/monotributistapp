@@ -278,26 +278,26 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
 
       case 'vep':
         return (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {instrucciones.vep_monto && (
-              <div className="p-3 bg-white/60 rounded-lg">
+              <div className="p-2 bg-white/60 rounded-lg">
                 <p className="text-xs text-gray-500">Monto a pagar</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-lg font-bold text-gray-900">
                   {formatearMoneda(instrucciones.vep_monto)}
                 </p>
               </div>
             )}
             {instrucciones.vep_numero && (
-              <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1.5">
                 <div>
                   <p className="text-xs text-gray-500">Numero de VEP</p>
-                  <p className="font-mono font-semibold text-gray-900 tracking-wider">
+                  <p className="font-mono text-sm font-semibold text-gray-900 tracking-wider">
                     {instrucciones.vep_numero}
                   </p>
                 </div>
                 <button
                   onClick={() => copiarAlPortapapeles(instrucciones.vep_numero, 'vep')}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   {copiado === 'vep' ? (
                     <Check className="w-4 h-4 text-green-600" />
@@ -308,7 +308,7 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
               </div>
             )}
             {instrucciones.vep_vencimiento && (
-              <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 p-1.5 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-xs text-red-600 font-medium">Vencimiento</p>
@@ -323,18 +323,18 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
 
       case 'mercado_pago':
         return (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {instrucciones.mercadopago_numero && (
-              <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1.5">
                 <div>
                   <p className="text-xs text-gray-500">Numero de Mercado Pago</p>
-                  <p className="font-mono font-semibold text-gray-900 tracking-wider">
+                  <p className="font-mono text-sm font-semibold text-gray-900 tracking-wider">
                     {instrucciones.mercadopago_numero}
                   </p>
                 </div>
                 <button
                   onClick={() => copiarAlPortapapeles(instrucciones.mercadopago_numero, 'mp')}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   {copiado === 'mp' ? (
                     <Check className="w-4 h-4 text-green-600" />
@@ -345,7 +345,7 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
               </div>
             )}
             {instrucciones.mercadopago_vencimiento && (
-              <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 p-1.5 bg-red-50 border border-red-200 rounded-lg">
                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-xs text-red-600 font-medium">Vencimiento</p>
@@ -360,21 +360,21 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
 
       case 'efectivo':
         return (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-600">
+          <div className="space-y-2">
+            <p className="text-xs text-gray-600">
               Paga en Rapipago, PagoFacil u otros puntos de pago:
             </p>
             {instrucciones.cpe_codigo && (
-              <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between bg-white/60 rounded-lg px-2 py-1.5">
                 <div>
                   <p className="text-xs text-gray-500">Codigo de pago</p>
-                  <p className="font-mono font-semibold text-gray-900">
+                  <p className="font-mono text-sm font-semibold text-gray-900">
                     {instrucciones.cpe_codigo}
                   </p>
                 </div>
                 <button
                   onClick={() => copiarAlPortapapeles(instrucciones.cpe_codigo, 'cpe')}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                   {copiado === 'cpe' ? (
                     <Check className="w-4 h-4 text-green-600" />
@@ -389,9 +389,9 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
             {instrucciones.efectivo_boleta_url && (
               <button
                 onClick={() => setModalBoletaOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                <Eye className="w-4 h-4" />
+                <Eye className="w-3.5 h-3.5" />
                 Ver boleta de pago
               </button>
             )}
@@ -405,8 +405,8 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
 
   return (
     <>
-      <div className={`rounded-lg border p-4 ${colores}`}>
-        <div className="flex items-center gap-2 mb-3">
+      <div className={`rounded-lg border p-3 ${colores}`}>
+        <div className="flex items-center gap-2 mb-2">
           {tipo === 'iibb' ? (
             <Receipt className="w-4 h-4" />
           ) : (
@@ -419,7 +419,7 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
         </div>
         {renderContenido()}
         {instrucciones.notas && (
-          <div className="mt-3 pt-3 border-t border-current/10">
+          <div className="mt-2 pt-2 border-t border-current/10">
             <p className="text-xs text-current/80 flex items-start gap-1">
               <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
               {instrucciones.notas}
@@ -428,12 +428,12 @@ function SeccionPago({ titulo, instrucciones, tipo }) {
         )}
 
         {/* Botón reportar problema */}
-        <div className="mt-3 pt-3 border-t border-current/10">
+        <div className="mt-2 pt-2 border-t border-current/10">
           <button
             onClick={() => setModalReporteOpen(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white/80 hover:bg-white border border-current/20 rounded-lg text-sm font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-2 py-1.5 bg-white/80 hover:bg-white border border-current/20 rounded-lg text-xs font-medium transition-colors"
           >
-            <MessageSquareWarning className="w-4 h-4" />
+            <MessageSquareWarning className="w-3.5 h-3.5" />
             Reportar problema o cambio
           </button>
         </div>
@@ -495,7 +495,7 @@ export function CardInstruccionesPago() {
             Instrucciones de pago - {mesActual.charAt(0).toUpperCase() + mesActual.slice(1)}
           </h3>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {instrucciones.monotributo && (
               <SeccionPago
                 titulo="Monotributo"
