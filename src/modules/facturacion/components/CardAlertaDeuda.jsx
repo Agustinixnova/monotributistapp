@@ -85,30 +85,30 @@ export function CardAlertaDeuda() {
   }
 
   return (
-    <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-5 text-white shadow-lg">
+    <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-4 text-white shadow-lg">
       {/* Header con icono de alerta */}
-      <div className="flex items-start gap-3 mb-4">
-        <div className="p-2 bg-white/20 rounded-lg">
-          <AlertTriangle className="w-6 h-6" />
+      <div className="flex items-start gap-2 mb-3">
+        <div className="p-1.5 bg-white/20 rounded-lg">
+          <AlertTriangle className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="font-bold text-lg">Deuda de Monotributo</h3>
-          <p className="text-red-100 text-sm">
+          <h3 className="font-bold text-base">Deuda de Monotributo</h3>
+          <p className="text-red-100 text-xs">
             Tenes una deuda pendiente que debes regularizar
           </p>
         </div>
       </div>
 
       {/* Detalles de la deuda */}
-      <div className="bg-white/10 rounded-lg p-4 space-y-3">
+      <div className="bg-white/10 rounded-lg p-3 space-y-2">
         {/* Monto */}
         {deuda.monto && (
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <DollarSign className="w-4 h-4 text-red-200" />
-              <span className="text-sm text-red-100">Monto adeudado</span>
+              <span className="text-xs text-red-100">Monto adeudado</span>
             </div>
-            <span className="font-bold text-xl">
+            <span className="font-bold text-lg">
               {formatearMoneda(deuda.monto)}
             </span>
           </div>
@@ -117,11 +117,11 @@ export function CardAlertaDeuda() {
         {/* Cuotas */}
         {deuda.cuotas && (
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-red-200" />
-              <span className="text-sm text-red-100">Cuotas adeudadas</span>
+              <span className="text-xs text-red-100">Cuotas adeudadas</span>
             </div>
-            <span className="font-bold text-lg">
+            <span className="font-bold text-base">
               {deuda.cuotas} {deuda.cuotas === 1 ? 'cuota' : 'cuotas'}
             </span>
           </div>
@@ -129,8 +129,8 @@ export function CardAlertaDeuda() {
       </div>
 
       {/* Mensaje de ayuda */}
-      <div className="mt-4 pt-4 border-t border-white/20">
-        <p className="text-sm text-red-100 mb-3">
+      <div className="mt-3 pt-3 border-t border-white/20">
+        <p className="text-xs text-red-100 mb-2">
           El monto incluye intereses calculados. Regulariza tu situacion para evitar inconvenientes con ARCA.
         </p>
 
@@ -141,32 +141,32 @@ export function CardAlertaDeuda() {
             href="https://auth.afip.gob.ar/contribuyente_/login.xhtml"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-red-600 rounded-lg font-medium text-sm hover:bg-red-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-red-600 rounded-lg font-medium text-xs hover:bg-red-50 transition-colors"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-3.5 h-3.5" />
             Ir a ARCA
           </a>
 
           {/* Botón para notificar que regularizó */}
           {enviado ? (
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-medium text-sm">
-              <CheckCircle className="w-4 h-4" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-lg font-medium text-xs">
+              <CheckCircle className="w-3.5 h-3.5" />
               Notificación enviada
             </div>
           ) : (
             <button
               onClick={handleRegularice}
               disabled={enviando}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-lg font-medium text-sm hover:bg-white/30 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/20 text-white rounded-lg font-medium text-xs hover:bg-white/30 transition-colors disabled:opacity-50"
             >
               {enviando ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   Enviando...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-3.5 h-3.5" />
                   Ya regularicé mi deuda
                 </>
               )}

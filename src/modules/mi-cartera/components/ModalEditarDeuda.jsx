@@ -88,25 +88,42 @@ export function ModalEditarDeuda({ isOpen, onClose, clientId, clienteNombre, onS
       if (error) throw error
 
       // Registrar en historial de cambios
-      if (datosAnteriores?.estado_pago_monotributo !== datos.estadoPagoMonotributo ||
+      if (user?.id && (datosAnteriores?.estado_pago_monotributo !== datos.estadoPagoMonotributo ||
           datosAnteriores?.monto_deuda_monotributo != updateData.monto_deuda_monotributo ||
-          datosAnteriores?.cuotas_adeudadas_monotributo != updateData.cuotas_adeudadas_monotributo) {
+          datosAnteriores?.cuotas_adeudadas_monotributo != updateData.cuotas_adeudadas_monotributo)) {
 
-        await registrarCambio({
-          clientId,
-          tipoCambio: 'actualizacion_deuda',
-          valorAnterior: {
-            estado: datosAnteriores?.estado_pago_monotributo,
-            monto: datosAnteriores?.monto_deuda_monotributo,
-            cuotas: datosAnteriores?.cuotas_adeudadas_monotributo
-          },
-          valorNuevo: {
-            estado: datos.estadoPagoMonotributo,
-            monto: updateData.monto_deuda_monotributo,
-            cuotas: updateData.cuotas_adeudadas_monotributo
-          },
-          userId: user?.id
-        })
+        try {
+          // Obtener el user_id del cliente
+          const { data: clientData } = await supabase
+            .from('client_fiscal_data')
+            .select('user_id')
+            .eq('id', clientId)
+            .single()
+
+          const valorAnteriorStr = `${datosAnteriores?.estado_pago_monotributo || 'al_dia'} - Monto: $${datosAnteriores?.monto_deuda_monotributo || 0} - Cuotas: ${datosAnteriores?.cuotas_adeudadas_monotributo || 0}`
+          const valorNuevoStr = `${datos.estadoPagoMonotributo} - Monto: $${updateData.monto_deuda_monotributo || 0} - Cuotas: ${updateData.cuotas_adeudadas_monotributo || 0}`
+
+          await registrarCambio({
+            userId: clientData?.user_id,
+            clientFiscalDataId: clientId,
+            tipoCambio: 'pago',
+            campo: 'Estado de pago monotributo',
+            valorAnterior: valorAnteriorStr,
+            valorNuevo: valorNuevoStr,
+            metadata: {
+              estadoAnterior: datosAnteriores?.estado_pago_monotributo,
+              estadoNuevo: datos.estadoPagoMonotributo,
+              montoAnterior: datosAnteriores?.monto_deuda_monotributo,
+              montoNuevo: updateData.monto_deuda_monotributo,
+              cuotasAnterior: datosAnteriores?.cuotas_adeudadas_monotributo,
+              cuotasNuevo: updateData.cuotas_adeudadas_monotributo
+            },
+            realizadoPor: user.id
+          })
+        } catch (historialError) {
+          // No fallar si el historial da error, solo logear
+          console.error('Error registrando en historial (no crítico):', historialError)
+        }
       }
 
       if (onSave) await onSave()

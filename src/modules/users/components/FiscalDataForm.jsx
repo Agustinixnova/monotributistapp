@@ -803,11 +803,16 @@ export function FiscalDataForm({ data, onChange, errors = {}, roleName }) {
                   key={estado.value}
                   type="button"
                   onClick={() => {
-                    handleChange('estadoPagoMonotributo', estado.value)
-                    // Si cambia a "al_dia", limpiar los campos de deuda
+                    // Si cambia a "al_dia", limpiar los campos de deuda en una sola llamada
                     if (estado.value === 'al_dia') {
-                      handleChange('montoDeudaMonotributo', null)
-                      handleChange('cuotasAdeudadasMonotributo', null)
+                      onChange({
+                        ...data,
+                        estadoPagoMonotributo: 'al_dia',
+                        montoDeudaMonotributo: null,
+                        cuotasAdeudadasMonotributo: null
+                      })
+                    } else {
+                      handleChange('estadoPagoMonotributo', estado.value)
                     }
                   }}
                   className={`p-3 rounded-lg border-2 text-center text-sm font-medium transition-colors ${
