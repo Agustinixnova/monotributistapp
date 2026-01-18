@@ -681,7 +681,7 @@ export function ModalGenerarInstruccionesPago({ isOpen, onClose, clientId, onSav
         isOpen={isOpen}
         onClose={onClose}
         title="Instrucciones de pago"
-        size="lg"
+        size="3xl"
         variant="info"
       >
         {loading ? (
@@ -701,22 +701,24 @@ export function ModalGenerarInstruccionesPago({ isOpen, onClose, clientId, onSav
               </p>
             </div>
 
-            {/* Sección Monotributo */}
-            <SeccionInstrucciones
-              tipo="monotributo"
-              titulo="Monotributo"
-              icono={CreditCard}
-              datos={datosMonotributo}
-              onChange={setDatosMonotributo}
-              onCambioMetodo={handleCambioMetodoMonotributo}
-              regimen={cliente?.regimen_iibb}
-              clientId={clientId}
-              montoCalculado={montoMonotributo}
-            />
-
-            {/* Sección IIBB */}
-            {tieneIibb && (
+            {/* Grid de secciones - dos columnas */}
+            <div className={`grid ${tieneIibb ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+              {/* Sección Monotributo */}
               <SeccionInstrucciones
+                tipo="monotributo"
+                titulo="Monotributo"
+                icono={CreditCard}
+                datos={datosMonotributo}
+                onChange={setDatosMonotributo}
+                onCambioMetodo={handleCambioMetodoMonotributo}
+                regimen={cliente?.regimen_iibb}
+                clientId={clientId}
+                montoCalculado={montoMonotributo}
+              />
+
+              {/* Sección IIBB */}
+              {tieneIibb && (
+                <SeccionInstrucciones
                 tipo="iibb"
                 titulo="Ingresos Brutos"
                 icono={Receipt}
@@ -726,7 +728,8 @@ export function ModalGenerarInstruccionesPago({ isOpen, onClose, clientId, onSav
                 clientId={clientId}
                 montoCalculado={montoIibb}
               />
-            )}
+              )}
+            </div>
 
             {/* Checkbox notificación */}
             <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">

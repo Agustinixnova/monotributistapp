@@ -15,6 +15,9 @@ import { NotificacionesPage } from './modules/notificaciones/components'
 import { MiCarteraPage, ClienteDetallePage } from './modules/mi-cartera/pages'
 import { EducacionPage, EducacionArticuloPage, EducacionAdminPage, EducacionEditorPage } from './modules/educacion-impositiva/pages'
 import { BuzonPage } from './modules/buzon/components/BuzonPage'
+import { MisFinanzasPage } from './modules/finanzas-personales/components'
+import { PanelEconomicoPage } from './modules/panel-economico/components'
+import CajaDiariaPage from './modules/caja-diaria/components/CajaDiariaPage'
 import { PWAInstallPrompt, PWAUpdatePrompt } from './pwa'
 
 function App() {
@@ -152,6 +155,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <PlaceholderPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/herramientas/mis-finanzas"
+            element={
+              <ProtectedRoute>
+                <MisFinanzasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/herramientas/panel-economico"
+            element={
+              <ProtectedRoute>
+                <PanelEconomicoPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/herramientas/caja-diaria"
+            element={
+              <ProtectedRoute>
+                <CajaDiariaPage />
               </ProtectedRoute>
             }
           />

@@ -9,8 +9,11 @@ import {
   AlertCircle,
   Calendar,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  PlusCircle,
+  Wallet
 } from 'lucide-react'
+import ModalGastoRapido from '../modules/finanzas-personales/components/ModalGastoRapido'
 import { useAuth } from '../auth/hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { ResumenFacturacionDashboard } from '../modules/facturacion/components/ResumenFacturacionDashboard'
@@ -78,6 +81,7 @@ export function Dashboard() {
   const [loadingRole, setLoadingRole] = useState(true)
   const [showRecordatorio, setShowRecordatorio] = useState(false)
   const [datosRecordatorio, setDatosRecordatorio] = useState(null)
+  const [showGastoRapido, setShowGastoRapido] = useState(false)
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -176,10 +180,19 @@ export function Dashboard() {
     <Layout title="Dashboard">
       {/* Welcome section para clientes - arriba de todo */}
       {esCliente && (
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-gray-900">
             Bienvenido{nombreUsuario ? `, ${nombreUsuario}` : ''}
           </h2>
+          {/* Boton gasto rapido */}
+          <button
+            onClick={() => setShowGastoRapido(true)}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl font-medium text-sm transition-colors shadow-lg shadow-violet-200 active:scale-95"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Registrar gasto</span>
+            <span className="sm:hidden">Gasto</span>
+          </button>
         </div>
       )}
 
@@ -271,6 +284,14 @@ export function Dashboard() {
           mesNombre={datosRecordatorio.mesNombre}
           diasRestantes={datosRecordatorio.diasRestantes}
           onClose={handleCerrarRecordatorio}
+        />
+      )}
+
+      {/* Modal de gasto rapido */}
+      {showGastoRapido && (
+        <ModalGastoRapido
+          onClose={() => setShowGastoRapido(false)}
+          onGastoRegistrado={() => setShowGastoRapido(false)}
         />
       )}
     </Layout>

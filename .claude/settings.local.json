@@ -45,7 +45,15 @@
       "Bash(ls:*)",
       "Bash(psql:*)",
       "Bash(pkill:*)",
-      "Bash(supabase db push:*)"
+      "Bash(supabase db push:*)",
+      "Bash(python -c:*)",
+      "Bash(powershell -Command \"& {$excel = New-Object -ComObject Excel.Application; $excel.Visible = $false; $workbook = $excel.Workbooks.Open\\(''C:\\\\Users\\\\Agus\\\\Downloads\\\\Mis Comprobantes Recibidos - CUIT 27246193342.xlsx''\\); $worksheet = $workbook.Worksheets.Item\\(1\\); $range = $worksheet.UsedRange; $rowCount = $range.Rows.Count; if \\($rowCount -gt 20\\) { $rowCount = 20 }; for \\($i = 1; $i -le $rowCount; $i++\\) { $row = @\\(\\); for \\($j = 1; $j -le $range.Columns.Count; $j++\\) { $cell = $worksheet.Cells.Item\\($i, $j\\).Text; $row += $cell }; Write-Output \\($row -join ''|''\\) }; $workbook.Close\\($false\\); $excel.Quit\\(\\); [System.Runtime.Interopservices.Marshal]::ReleaseComObject\\($excel\\) | Out-Null }\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Agus\\\\Monotributistapp\\\\tmpclaude-read-excel.ps1\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Agus\\\\Monotributistapp\\\\tmpclaude-read-tabla.ps1\")",
+      "Bash(python -m pip install:*)",
+      "Bash(git pull:*)",
+      "Bash(curl:*)",
+      "Bash(del nul)"
     ]
   }
 }
