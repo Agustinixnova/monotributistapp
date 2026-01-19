@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { PublicRedirect } from './components/PublicRedirect'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
@@ -35,13 +36,13 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
 
-          {/* Rutas protegidas */}
+          {/* Ruta principal - redirige a registro si no está autenticado */}
           <Route
             path="/"
             element={
-              <ProtectedRoute>
+              <PublicRedirect>
                 <Dashboard />
-              </ProtectedRoute>
+              </PublicRedirect>
             }
           />
           <Route

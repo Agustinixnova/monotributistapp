@@ -43,10 +43,10 @@ serve(async (req) => {
       )
     }
 
-    const { email, password, nombre, apellido, whatsapp, origen, origenDetalle } = requestBody
+    const { email, password, nombre, apellido, whatsapp, origen, origen_detalle, role_name } = requestBody
 
     // Log para debugging
-    console.log('Received request:', { email, nombre, apellido, hasPassword: !!password })
+    console.log('Received request:', { email, nombre, apellido, role_name, hasPassword: !!password })
 
     // Validaciones básicas
     if (!email || !password || !nombre || !apellido) {
@@ -78,8 +78,9 @@ serve(async (req) => {
         apellido,
         whatsapp: whatsapp || '',
         origen: origen || 'otros',
-        origen_detalle: origenDetalle || null,
-        tipo_usuario: 'free'
+        origen_detalle: origen_detalle || null,
+        tipo_usuario: 'free',
+        role_name: role_name || 'operador_gastos' // Rol por defecto o especificado
       }
     })
 
@@ -111,6 +112,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         user: userData.user,
+        userId: userData.user.id, // Para uso en creación de empleados
         session: null,
         message: 'Cuenta creada exitosamente. Por favor inicia sesión.',
         needsManualLogin: true

@@ -3,19 +3,22 @@
  */
 
 import { supabase } from '../../../lib/supabase'
+import { getEffectiveUserId } from './empleadosService'
+import { getTimestampArgentina } from '../utils/dateUtils'
 
 /**
- * Obtener configuración del usuario
+ * Obtener configuración del usuario (o del dueño si es empleado)
  */
 export async function getConfiguracion() {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    // Obtener el user_id efectivo (dueño o propio)
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
     const { data, error } = await supabase
       .from('caja_configuracion')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle()
 
     if (error) throw error
@@ -39,18 +42,25 @@ export async function getConfiguracion() {
 
 /**
  * Guardar configuración (crear o actualizar)
+ * Solo el dueño puede guardar configuración
  * @param {object} config - { nombre_negocio }
  */
 export async function guardarConfiguracion(config) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    // Obtener el user_id efectivo y verificar permisos
+    const { userId, esDuenio, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Solo el dueño puede modificar la configuración
+    if (!esDuenio) {
+      throw new Error('No tienes permisos para modificar la configuración')
+    }
 
     // Intentar actualizar primero
     const { data: existing } = await supabase
       .from('caja_configuracion')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle()
 
     let data, error
@@ -61,9 +71,9 @@ export async function guardarConfiguracion(config) {
         .from('caja_configuracion')
         .update({
           ...config,
-          updated_at: new Date().toISOString()
+          updated_at: getTimestampArgentina()
         })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select()
         .single()
 
@@ -74,7 +84,7 @@ export async function guardarConfiguracion(config) {
       const result = await supabase
         .from('caja_configuracion')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           ...config
         })
         .select()

@@ -5,7 +5,7 @@
 import { Clock } from 'lucide-react'
 import MovimientoItem from './MovimientoItem'
 
-export default function ListaMovimientos({ movimientos, loading, onAnular }) {
+export default function ListaMovimientos({ movimientos, loading, onAnular, onEditarComentario }) {
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -50,6 +50,7 @@ export default function ListaMovimientos({ movimientos, loading, onAnular }) {
             key={movimiento.id}
             movimiento={movimiento}
             onAnular={onAnular}
+            onEditarComentario={onEditarComentario}
           />
         ))}
       </div>

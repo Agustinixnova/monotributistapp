@@ -322,3 +322,5 @@ supabase functions serve
 
 App desarrollada para estudio contable.  
 Clientes: Monotributistas y Responsables Inscriptos de Argentina.
+
+NUNCA USES ALERTS, siempre modales!

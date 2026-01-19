@@ -3,6 +3,8 @@
  */
 
 import { supabase } from '../../../lib/supabase'
+import { getEffectiveUserId } from './empleadosService'
+import { getFechaHoyArgentina, getTimestampArgentina, getHoraArgentina } from '../utils/dateUtils'
 
 /**
  * Obtener movimientos de una fecha
@@ -10,8 +12,8 @@ import { supabase } from '../../../lib/supabase'
  */
 export async function getMovimientosByFecha(fecha) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
     const { data, error } = await supabase
       .from('caja_movimientos')
@@ -24,12 +26,32 @@ export async function getMovimientosByFecha(fecha) {
           metodo:caja_metodos_pago(id, nombre, icono, es_efectivo)
         )
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('fecha', fecha)
       .eq('anulado', false)
       .order('hora', { ascending: false })
 
     if (error) throw error
+
+    // Obtener perfiles de creadores para cada movimiento usando función RPC
+    if (data && data.length > 0) {
+      const creadorIds = [...new Set(data.map(m => m.created_by_id).filter(Boolean))]
+
+      if (creadorIds.length > 0) {
+        const { data: perfiles } = await supabase
+          .rpc('get_users_names', { user_ids: creadorIds })
+
+        if (perfiles) {
+          const perfilesMap = Object.fromEntries(perfiles.map(p => [p.id, p]))
+          data.forEach(movimiento => {
+            if (movimiento.created_by_id && perfilesMap[movimiento.created_by_id]) {
+              movimiento.creador = perfilesMap[movimiento.created_by_id]
+            }
+          })
+        }
+      }
+    }
+
     return { data, error: null }
   } catch (error) {
     console.error('Error fetching movimientos:', error)
@@ -43,8 +65,12 @@ export async function getMovimientosByFecha(fecha) {
  */
 export async function createMovimiento({ tipo, categoria_id, descripcion, fecha, pagos }) {
   try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Obtener el ID del usuario autenticado (puede ser diferente de userId si es empleado)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const createdById = user?.id || userId
 
     // Calcular monto total
     const monto_total = pagos.reduce((sum, p) => sum + parseFloat(p.monto), 0)
@@ -57,11 +83,13 @@ export async function createMovimiento({ tipo, categoria_id, descripcion, fecha,
     const { data: movimiento, error: errorMovimiento } = await supabase
       .from('caja_movimientos')
       .insert({
-        user_id: user.id,
+        user_id: userId,
+        created_by_id: createdById,
         tipo,
         categoria_id,
         descripcion,
-        fecha: fecha || new Date().toISOString().split('T')[0],
+        fecha: fecha || getFechaHoyArgentina(),
+        hora: getHoraArgentina(),
         monto_total,
         anulado: false
       })
@@ -96,17 +124,27 @@ export async function createMovimiento({ tipo, categoria_id, descripcion, fecha,
 
 /**
  * Anular movimiento (no se borra, se marca como anulado)
+ * Requiere permiso anular_movimientos si es empleado
  */
 export async function anularMovimiento(id, motivo = '') {
   try {
+    const { userId, permisos, esDuenio, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Verificar permiso si es empleado
+    if (!esDuenio && !permisos?.anular_movimientos) {
+      throw new Error('No tienes permisos para anular movimientos')
+    }
+
     const { data, error } = await supabase
       .from('caja_movimientos')
       .update({
         anulado: true,
-        anulado_at: new Date().toISOString(),
+        anulado_at: getTimestampArgentina(),
         anulado_motivo: motivo
       })
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single()
 
@@ -119,18 +157,44 @@ export async function anularMovimiento(id, motivo = '') {
 }
 
 /**
+ * Actualizar comentario/descripción de un movimiento
+ * @param {string} id - ID del movimiento
+ * @param {string} descripcion - Nueva descripción/comentario
+ */
+export async function actualizarComentario(id, descripcion) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    const { data, error } = await supabase
+      .from('caja_movimientos')
+      .update({ descripcion: descripcion?.trim() || null })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error actualizando comentario:', error)
+    return { data: null, error }
+  }
+}
+
+/**
  * Obtener resumen del día usando función RPC
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  */
 export async function getResumenDia(fecha) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
     const { data, error } = await supabase
       .rpc('caja_resumen_dia', {
-        p_user_id: user.id,
-        p_fecha: fecha || new Date().toISOString().split('T')[0]
+        p_user_id: userId,
+        p_fecha: fecha || getFechaHoyArgentina()
       })
 
     if (error) throw error
@@ -147,19 +211,44 @@ export async function getResumenDia(fecha) {
  */
 export async function getTotalesPorMetodo(fecha) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
     const { data, error } = await supabase
       .rpc('caja_totales_por_metodo', {
-        p_user_id: user.id,
-        p_fecha: fecha || new Date().toISOString().split('T')[0]
+        p_user_id: userId,
+        p_fecha: fecha || getFechaHoyArgentina()
       })
 
     if (error) throw error
     return { data, error: null }
   } catch (error) {
     console.error('Error fetching totales por método:', error)
+    return { data: null, error }
+  }
+}
+
+/**
+ * Obtener reporte de totales por método de pago en un período
+ * @param {string} fechaDesde - Fecha inicio en formato YYYY-MM-DD
+ * @param {string} fechaHasta - Fecha fin en formato YYYY-MM-DD
+ */
+export async function getReportePeriodo(fechaDesde, fechaHasta) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    const { data, error } = await supabase
+      .rpc('caja_reporte_periodo', {
+        p_user_id: userId,
+        p_fecha_desde: fechaDesde,
+        p_fecha_hasta: fechaHasta
+      })
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error fetching reporte período:', error)
     return { data: null, error }
   }
 }

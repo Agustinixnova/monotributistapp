@@ -2,21 +2,23 @@
  * Modal de configuración para gestionar categorías, métodos de pago, empleados y configuración general
  */
 
-import { useState, useEffect } from 'react'
-import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck, QrCode, CreditCard, Upload, Image } from 'lucide-react'
 import IconoDinamico from './IconoDinamico'
 import ModalCategoria from './ModalCategoria'
 import ModalMetodoPago from './ModalMetodoPago'
 import ModalEmpleado from './ModalEmpleado'
 import ModalPermisos from './ModalPermisos'
+import ModalConfirmacion from './ModalConfirmacion'
 import { useCategorias } from '../hooks/useCategorias'
 import { useMetodosPago } from '../hooks/useMetodosPago'
 import { useConfiguracion } from '../hooks/useConfiguracion'
 import { useEmpleados } from '../hooks/useEmpleados'
 import { usePermisosCaja } from '../hooks/usePermisosCaja'
+import { useAliasPago } from '../hooks/useAliasPago'
 
 export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) {
-  const [tab, setTab] = useState('general') // 'general' | 'categorias' | 'metodos' | 'empleados'
+  const [tab, setTab] = useState('general') // 'general' | 'categorias' | 'metodos' | 'empleados' | 'pagos'
   const [modalCategoria, setModalCategoria] = useState(false)
   const [modalMetodoPago, setModalMetodoPago] = useState(false)
   const [modalEmpleado, setModalEmpleado] = useState(false)
@@ -25,8 +27,20 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const [metodoEditar, setMetodoEditar] = useState(null)
   const [empleadoPermisos, setEmpleadoPermisos] = useState(null)
 
+  // Estados para alias
+  const [nuevoAlias, setNuevoAlias] = useState({ nombre: '', alias: '', banco: '' })
+  const [aliasEditando, setAliasEditando] = useState(null)
+  const [guardandoAlias, setGuardandoAlias] = useState(false)
+  const [subiendoQR, setSubiendoQR] = useState(false)
+  const [confirmEliminarQR, setConfirmEliminarQR] = useState(false)
+  const [eliminandoQR, setEliminandoQR] = useState(false)
+  const fileInputRef = useRef(null)
+
   // Configuración general
-  const { configuracion, nombreNegocio, actualizarNombreNegocio, loading: loadingConfig } = useConfiguracion()
+  const { configuracion, nombreNegocio, qrUrl, actualizarNombreNegocio, refresh: refreshConfig, loading: loadingConfig } = useConfiguracion()
+
+  // Alias de pago
+  const { alias: aliasPago, crear: crearAlias, actualizar: actualizarAlias, eliminar: eliminarAlias, subirQR, eliminarQR } = useAliasPago()
 
   // Empleados (solo se carga si el usuario es dueño)
   const { empleados, crear: crearEmpleado, actualizarPermisos, toggleActivo, eliminar: eliminarEmpleado, loading: loadingEmpleados } = useEmpleados()
@@ -164,6 +178,18 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 >
                   Métodos
                 </button>
+                {esDuenio && (
+                  <button
+                    onClick={() => setTab('pagos')}
+                    className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                      tab === 'pagos'
+                        ? 'text-violet-600 border-b-2 border-violet-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    QR/Alias
+                  </button>
+                )}
                 {esDuenio && (
                   <button
                     onClick={() => setTab('empleados')}
@@ -373,6 +399,255 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 </div>
               )}
 
+              {/* Tab Pagos QR */}
+              {tab === 'pagos' && esDuenio && (
+                <div className="space-y-6">
+                  {/* Sección QR */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <QrCode className="w-5 h-5 text-violet-600" />
+                      Código QR de pago
+                    </h4>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Subí una imagen o PDF de tu QR para que los clientes puedan escanearlo
+                    </p>
+
+                    {qrUrl ? (
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50">
+                          {qrUrl.toLowerCase().endsWith('.pdf') || qrUrl.includes('.pdf?') ? (
+                            <div className="w-48 h-48 flex flex-col items-center justify-center gap-3">
+                              <Image className="w-12 h-12 text-gray-400" />
+                              <span className="text-sm text-gray-600">PDF cargado</span>
+                              <a
+                                href={qrUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-violet-600 hover:underline"
+                              >
+                                Ver archivo
+                              </a>
+                            </div>
+                          ) : (
+                            <img
+                              src={qrUrl}
+                              alt="QR de pago"
+                              className="w-48 h-48 object-contain"
+                            />
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-4 py-2 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg text-sm font-medium"
+                          >
+                            Cambiar archivo
+                          </button>
+                          <button
+                            onClick={() => setConfirmEliminarQR(true)}
+                            className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={subiendoQR}
+                        className="w-full flex flex-col items-center gap-3 p-8 border-2 border-dashed border-gray-300 rounded-xl hover:border-violet-400 hover:bg-violet-50 transition-colors"
+                      >
+                        {subiendoQR ? (
+                          <div className="animate-spin h-8 w-8 border-2 border-violet-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <>
+                            <Upload className="w-10 h-10 text-gray-400" />
+                            <span className="text-gray-600 font-medium">
+                              Subir QR (imagen o PDF)
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              PNG, JPG o PDF hasta 10MB
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf,application/pdf"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          if (file.size > 10 * 1024 * 1024) {
+                            alert('El archivo no puede superar 10MB')
+                            return
+                          }
+                          setSubiendoQR(true)
+                          const result = await subirQR(file)
+                          setSubiendoQR(false)
+                          if (result.data) {
+                            await refreshConfig()
+                          } else if (result.error) {
+                            alert('Error al subir imagen: ' + result.error.message)
+                          }
+                        }
+                        e.target.value = ''
+                      }}
+                    />
+                  </div>
+
+                  {/* Separador */}
+                  <div className="border-t border-gray-200" />
+
+                  {/* Sección Alias */}
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-violet-600" />
+                      Alias de pago
+                    </h4>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Agregá tus alias de Mercado Pago, banco, etc. para que los clientes puedan transferirte
+                    </p>
+
+                    {/* Lista de alias existentes */}
+                    {aliasPago.length > 0 && (
+                      <div className="space-y-2 mb-4">
+                        {aliasPago.map(a => (
+                          <div
+                            key={a.id}
+                            className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-violet-300"
+                          >
+                            <CreditCard className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900">{a.nombre}</div>
+                              <div className="text-sm text-violet-600 font-mono truncate">{a.alias}</div>
+                              {a.banco && <div className="text-xs text-gray-500">{a.banco}</div>}
+                            </div>
+                            <button
+                              onClick={() => setAliasEditando(a)}
+                              className="p-2 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm('¿Eliminar este alias?')) {
+                                  await eliminarAlias(a.id)
+                                }
+                              }}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Formulario para nuevo alias */}
+                    {aliasEditando ? (
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                        <h5 className="font-medium text-gray-700">Editar alias</h5>
+                        <input
+                          type="text"
+                          placeholder="Nombre (ej: Mercado Pago)"
+                          value={aliasEditando.nombre}
+                          onChange={(e) => setAliasEditando({ ...aliasEditando, nombre: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Alias (ej: mi.negocio.mp)"
+                          value={aliasEditando.alias}
+                          onChange={(e) => setAliasEditando({ ...aliasEditando, alias: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Banco (opcional)"
+                          value={aliasEditando.banco || ''}
+                          onChange={(e) => setAliasEditando({ ...aliasEditando, banco: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setAliasEditando(null)}
+                            className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!aliasEditando.nombre || !aliasEditando.alias) return
+                              setGuardandoAlias(true)
+                              await actualizarAlias(aliasEditando.id, aliasEditando)
+                              setGuardandoAlias(false)
+                              setAliasEditando(null)
+                            }}
+                            disabled={guardandoAlias || !aliasEditando.nombre || !aliasEditando.alias}
+                            className="flex-1 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg disabled:bg-violet-400"
+                          >
+                            {guardandoAlias ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                        <h5 className="font-medium text-gray-700">Agregar nuevo alias</h5>
+                        <input
+                          type="text"
+                          placeholder="Nombre (ej: Mercado Pago)"
+                          value={nuevoAlias.nombre}
+                          onChange={(e) => setNuevoAlias({ ...nuevoAlias, nombre: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Alias (ej: mi.negocio.mp)"
+                          value={nuevoAlias.alias}
+                          onChange={(e) => setNuevoAlias({ ...nuevoAlias, alias: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Banco (opcional)"
+                          value={nuevoAlias.banco}
+                          onChange={(e) => setNuevoAlias({ ...nuevoAlias, banco: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        />
+                        <button
+                          onClick={async () => {
+                            if (!nuevoAlias.nombre || !nuevoAlias.alias) return
+                            setGuardandoAlias(true)
+                            await crearAlias(nuevoAlias)
+                            setGuardandoAlias(false)
+                            setNuevoAlias({ nombre: '', alias: '', banco: '' })
+                          }}
+                          disabled={guardandoAlias || !nuevoAlias.nombre || !nuevoAlias.alias}
+                          className="w-full px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg disabled:bg-violet-400 flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          {guardandoAlias ? 'Agregando...' : 'Agregar alias'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-700">
+                    <p className="font-medium mb-1">Sobre QR y Alias:</p>
+                    <ul className="list-disc list-inside space-y-1 text-blue-600">
+                      <li>El QR y alias se muestran con el botón de pago en la caja</li>
+                      <li>Ideal para mostrar a clientes que quieren transferir</li>
+                      <li>Podés agregar varios alias si tenés múltiples cuentas</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
               {/* Tab Empleados */}
               {tab === 'empleados' && esDuenio && (
                 <div className="space-y-4">
@@ -527,6 +802,24 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         }}
         empleado={empleadoPermisos}
         onGuardar={actualizarPermisos}
+      />
+
+      {/* Modal Confirmación - Eliminar QR */}
+      <ModalConfirmacion
+        isOpen={confirmEliminarQR}
+        onClose={() => setConfirmEliminarQR(false)}
+        onConfirm={async () => {
+          setEliminandoQR(true)
+          await eliminarQR()
+          await refreshConfig()
+          setEliminandoQR(false)
+          setConfirmEliminarQR(false)
+        }}
+        titulo="¿Eliminar QR?"
+        mensaje="Se eliminará el código QR de pago. Podrás subir uno nuevo en cualquier momento."
+        textoConfirmar="Eliminar"
+        variante="danger"
+        loading={eliminandoQR}
       />
     </>
   )

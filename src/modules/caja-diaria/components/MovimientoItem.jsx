@@ -2,12 +2,12 @@
  * Item individual de movimiento en la lista
  */
 
-import { ArrowUpCircle, ArrowDownCircle, Trash2 } from 'lucide-react'
+import { ArrowUpCircle, ArrowDownCircle, Trash2, MessageSquare } from 'lucide-react'
 import { formatearMonto, formatearHora } from '../utils/formatters'
 import DetalleMetodosPago from './DetalleMetodosPago'
 import IconoDinamico from './IconoDinamico'
 
-export default function MovimientoItem({ movimiento, onAnular }) {
+export default function MovimientoItem({ movimiento, onAnular, onEditarComentario }) {
   const esEntrada = movimiento.tipo === 'entrada'
   const Icon = esEntrada ? ArrowUpCircle : ArrowDownCircle
   const colorIcon = esEntrada ? 'text-emerald-600' : 'text-red-600'
@@ -36,6 +36,18 @@ export default function MovimientoItem({ movimiento, onAnular }) {
             </span>
           </div>
 
+          {/* Nombre del creador */}
+          {movimiento.creador && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              Por: {movimiento.creador.nombre_completo?.trim() || movimiento.creador.nombre || movimiento.creador.email?.split('@')[0] || 'Usuario'}
+            </div>
+          )}
+          {movimiento.created_by_id && !movimiento.creador && (
+            <div className="text-xs text-gray-500 mt-0.5">
+              Por: Usuario
+            </div>
+          )}
+
           {/* Descripción (si existe) */}
           {movimiento.descripcion && (
             <p className="text-sm text-gray-600 mt-0.5">
@@ -52,16 +64,32 @@ export default function MovimientoItem({ movimiento, onAnular }) {
           <DetalleMetodosPago pagos={movimiento.pagos} />
         </div>
 
-        {/* Botón anular */}
-        {onAnular && (
-          <button
-            onClick={() => onAnular(movimiento.id)}
-            className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-600"
-            title="Anular movimiento"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
+        {/* Botones de acción */}
+        <div className="flex flex-col gap-1">
+          {/* Botón comentario */}
+          {onEditarComentario && (
+            <button
+              onClick={() => onEditarComentario(movimiento)}
+              className={`p-2 hover:bg-violet-50 rounded-lg transition-colors ${
+                movimiento.descripcion ? 'text-violet-500' : 'text-gray-400'
+              } hover:text-violet-600`}
+              title={movimiento.descripcion ? 'Editar comentario' : 'Agregar comentario'}
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Botón anular */}
+          {onAnular && (
+            <button
+              onClick={() => onAnular(movimiento.id)}
+              className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-600"
+              title="Anular movimiento"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

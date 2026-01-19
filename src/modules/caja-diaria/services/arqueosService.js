@@ -3,6 +3,8 @@
  */
 
 import { supabase } from '../../../lib/supabase'
+import { getEffectiveUserId } from './empleadosService'
+import { getFechaHoyArgentina, getHoraArgentina } from '../utils/dateUtils'
 
 /**
  * Obtener efectivo esperado actual
@@ -10,13 +12,13 @@ import { supabase } from '../../../lib/supabase'
  */
 export async function getEfectivoEsperado(fecha) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
     const { data, error } = await supabase
       .rpc('caja_efectivo_esperado_actual', {
-        p_user_id: user.id,
-        p_fecha: fecha || new Date().toISOString().split('T')[0]
+        p_user_id: userId,
+        p_fecha: fecha || getFechaHoyArgentina()
       })
 
     if (error) throw error
@@ -33,13 +35,13 @@ export async function getEfectivoEsperado(fecha) {
  */
 export async function getArqueosByFecha(fecha) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
     const { data, error } = await supabase
       .rpc('caja_arqueos_del_dia', {
-        p_user_id: user.id,
-        p_fecha: fecha || new Date().toISOString().split('T')[0]
+        p_user_id: userId,
+        p_fecha: fecha || getFechaHoyArgentina()
       })
 
     if (error) throw error
@@ -56,13 +58,19 @@ export async function getArqueosByFecha(fecha) {
  */
 export async function createArqueo(arqueo) {
   try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Obtener el ID del usuario autenticado (puede ser diferente de userId si es empleado)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const createdById = user?.id || userId
 
     const { data, error } = await supabase
       .from('caja_arqueos')
       .insert({
-        user_id: user.id,
+        user_id: userId,
+        created_by_id: createdById,
+        hora: getHoraArgentina(),
         ...arqueo
       })
       .select()
@@ -78,14 +86,24 @@ export async function createArqueo(arqueo) {
 
 /**
  * Eliminar un arqueo
+ * Requiere permiso eliminar_arqueos si es empleado
  * @param {string} id - ID del arqueo
  */
 export async function deleteArqueo(id) {
   try {
+    const { userId, esDuenio, permisos, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Verificar permiso si es empleado
+    if (!esDuenio && !permisos?.eliminar_arqueos) {
+      throw new Error('No tienes permisos para eliminar arqueos')
+    }
+
     const { error } = await supabase
       .from('caja_arqueos')
       .delete()
       .eq('id', id)
+      .eq('user_id', userId)
 
     if (error) throw error
     return { success: true, error: null }

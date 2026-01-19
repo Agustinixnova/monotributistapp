@@ -63,6 +63,13 @@ export default function ListaArqueos({
                     )}
                   </div>
 
+                  {/* Nombre del creador */}
+                  {arqueo.creador_nombre && (
+                    <div className="text-xs text-gray-500 mb-2">
+                      Por: {arqueo.creador_nombre}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
                       <span className="text-gray-500 text-xs">Esperado</span>

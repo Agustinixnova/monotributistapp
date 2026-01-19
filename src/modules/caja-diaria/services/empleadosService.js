@@ -5,13 +5,14 @@
 import { supabase } from '../../../lib/supabase'
 
 // Permisos por defecto para nuevos empleados
+// editar_cierre en true porque es operación normal de fin de turno
 const PERMISOS_DEFAULT = {
   anular_movimientos: false,
   eliminar_arqueos: false,
   editar_saldo_inicial: false,
   agregar_categorias: false,
   agregar_metodos_pago: false,
-  editar_cierre: false,
+  editar_cierre: true,
   reabrir_dia: false
 }
 
@@ -23,38 +24,52 @@ export async function getEmpleados() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Usuario no autenticado')
 
-    const { data, error } = await supabase
+    // Primero obtener los empleados
+    const { data: empleadosData, error: empleadosError } = await supabase
       .from('caja_empleados')
-      .select(`
-        id,
-        empleado_id,
-        permisos,
-        activo,
-        created_at,
-        usuarios_free!caja_empleados_empleado_id_fkey (
-          nombre,
-          apellido,
-          email,
-          whatsapp
-        )
-      `)
+      .select('id, empleado_id, permisos, activo, created_at')
       .eq('duenio_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (empleadosError) throw empleadosError
+
+    if (!empleadosData || empleadosData.length === 0) {
+      return { data: [], error: null }
+    }
+
+    // Obtener los datos de usuarios_free para cada empleado
+    const empleadoIds = empleadosData.map(e => e.empleado_id)
+    const { data: usuariosData, error: usuariosError } = await supabase
+      .from('usuarios_free')
+      .select('id, nombre, apellido, email, whatsapp')
+      .in('id', empleadoIds)
+
+    if (usuariosError) {
+      console.error('Error fetching usuarios_free:', usuariosError)
+      // Continuar sin los datos de usuario
+    }
+
+    // Crear un mapa para acceso rápido
+    const usuariosMap = new Map()
+    if (usuariosData) {
+      usuariosData.forEach(u => usuariosMap.set(u.id, u))
+    }
 
     // Formatear datos
-    const empleados = data.map(emp => ({
-      id: emp.id,
-      empleado_id: emp.empleado_id,
-      nombre: emp.usuarios_free?.nombre || '',
-      apellido: emp.usuarios_free?.apellido || '',
-      email: emp.usuarios_free?.email || '',
-      whatsapp: emp.usuarios_free?.whatsapp || '',
-      permisos: emp.permisos,
-      activo: emp.activo,
-      created_at: emp.created_at
-    }))
+    const empleados = empleadosData.map(emp => {
+      const usuario = usuariosMap.get(emp.empleado_id)
+      return {
+        id: emp.id,
+        empleado_id: emp.empleado_id,
+        nombre: usuario?.nombre || '',
+        apellido: usuario?.apellido || '',
+        email: usuario?.email || '',
+        whatsapp: usuario?.whatsapp || '',
+        permisos: emp.permisos,
+        activo: emp.activo,
+        created_at: emp.created_at
+      }
+    })
 
     return { data: empleados, error: null }
   } catch (error) {
@@ -75,75 +90,43 @@ export async function getEmpleados() {
  */
 export async function crearEmpleado(empleadoData) {
   try {
-    // Guardar la sesión actual del dueño antes de crear el empleado
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
-    if (!currentSession) throw new Error('Usuario no autenticado')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
 
-    const user = currentSession.user
     const { email, password, nombre, apellido, whatsapp, permisos } = empleadoData
 
-    // 1. Crear usuario en auth.users
-    // Nota: signUp crea una nueva sesión, pero la restauraremos después
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          nombre,
-          apellido,
-          tipo_usuario: 'empleado'
-        }
-      }
-    })
-
-    if (authError) {
-      if (authError.message?.includes('already registered')) {
-        throw new Error('Este email ya está registrado')
-      }
-      throw authError
-    }
-
-    if (!authData.user) {
-      throw new Error('Error al crear el usuario')
-    }
-
-    // Restaurar la sesión del dueño inmediatamente
-    await supabase.auth.setSession({
-      access_token: currentSession.access_token,
-      refresh_token: currentSession.refresh_token
-    })
-
-    // 2. Obtener el rol operador_gastos_empleado
-    const { data: rolData, error: rolError } = await supabase
-      .from('roles')
-      .select('id')
-      .eq('name', 'operador_gastos_empleado')
-      .single()
-
-    if (rolError) throw new Error('No se encontró el rol de empleado')
-
-    // 3. Insertar en usuarios_free
-    const { error: userFreeError } = await supabase
-      .from('usuarios_free')
-      .insert({
-        id: authData.user.id,
+    // 1. Crear usuario usando la Edge Function (Admin API)
+    // Esto evita problemas de sesiones y usa el SERVICE_ROLE_KEY
+    const { data: empleadoCreado, error: createError } = await supabase.functions.invoke('register-free-user', {
+      body: {
         email,
+        password,
         nombre,
         apellido,
         whatsapp,
-        role_id: rolData.id,
-        origen: 'recomendacion', // Los empleados vienen por recomendación del dueño
-        origen_detalle: `Empleado de ${user.email}`
-      })
+        origen: 'recomendacion',
+        origen_detalle: `Empleado de ${user.email}`,
+        role_name: 'operador_gastos_empleado' // Rol específico para empleados
+      }
+    })
 
-    if (userFreeError) throw userFreeError
+    if (createError) {
+      if (createError.message?.includes('already registered') || createError.message?.includes('User already registered')) {
+        throw new Error('Este email ya está registrado')
+      }
+      throw createError
+    }
 
-    // 4. Crear la relación en caja_empleados
+    if (!empleadoCreado || !empleadoCreado.userId) {
+      throw new Error('Error al crear el empleado')
+    }
+
+    // 2. Crear la relación en caja_empleados
     const { data: empleadoRelacion, error: relacionError } = await supabase
       .from('caja_empleados')
       .insert({
         duenio_id: user.id,
-        empleado_id: authData.user.id,
+        empleado_id: empleadoCreado.userId,
         permisos: permisos || PERMISOS_DEFAULT,
         activo: true
       })
@@ -155,7 +138,7 @@ export async function crearEmpleado(empleadoData) {
     return {
       data: {
         id: empleadoRelacion.id,
-        empleado_id: authData.user.id,
+        empleado_id: empleadoCreado.userId,
         nombre,
         apellido,
         email,
@@ -277,6 +260,58 @@ export async function verificarSiEsEmpleado() {
   } catch (error) {
     console.error('Error verificando si es empleado:', error)
     return { esEmpleado: false, duenio: null, permisos: null }
+  }
+}
+
+/**
+ * Obtiene el user_id efectivo para operaciones de caja
+ * - Si es dueño: retorna su propio user.id
+ * - Si es empleado: retorna el duenio_id
+ * Esto permite que los empleados vean/operen la caja del dueño
+ */
+export async function getEffectiveUserId() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { userId: null, esDuenio: false, permisos: null, error: new Error('No autenticado') }
+
+    // Verificar si es empleado
+    const { data, error } = await supabase
+      .from('caja_empleados')
+      .select('duenio_id, permisos')
+      .eq('empleado_id', user.id)
+      .eq('activo', true)
+      .maybeSingle()
+
+    if (error) throw error
+
+    // Si es empleado, usar el ID del dueño
+    if (data) {
+      return {
+        userId: data.duenio_id,
+        esDuenio: false,
+        permisos: data.permisos,
+        error: null
+      }
+    }
+
+    // Si no es empleado, es dueño - usar su propio ID
+    return {
+      userId: user.id,
+      esDuenio: true,
+      permisos: {
+        anular_movimientos: true,
+        eliminar_arqueos: true,
+        editar_saldo_inicial: true,
+        agregar_categorias: true,
+        agregar_metodos_pago: true,
+        editar_cierre: true,
+        reabrir_dia: true
+      },
+      error: null
+    }
+  } catch (error) {
+    console.error('Error obteniendo effective user id:', error)
+    return { userId: null, esDuenio: false, permisos: null, error }
   }
 }
 

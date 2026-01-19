@@ -1,14 +1,16 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { RegisterForm } from '../auth/components/RegisterForm'
+import { LoginForm } from '../auth/components/LoginForm'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useEffect, useState } from 'react'
-import { ChartNoAxesCombined, CheckCircle2, Gift, Mail } from 'lucide-react'
+import { ChartNoAxesCombined, CheckCircle2, Gift, Mail, Sparkles, LogIn, X } from 'lucide-react'
 
 export function Register() {
   const navigate = useNavigate()
   const { isAuthenticated, loading } = useAuth()
   const [showConfirmationMessage, setShowConfirmationMessage] = useState(false)
   const [confirmationText, setConfirmationText] = useState('')
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -28,6 +30,11 @@ export function Register() {
       // Login automático exitoso
       navigate('/', { replace: true })
     }
+  }
+
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false)
+    navigate('/', { replace: true })
   }
 
   if (loading) {
@@ -51,7 +58,7 @@ export function Register() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] bg-gradient-to-br from-violet-600 via-violet-700 to-purple-800 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-full h-full"
@@ -63,18 +70,27 @@ export function Register() {
 
         {/* Decorative circles */}
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-teal-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-3xl" />
 
         {/* Content */}
         <div className="relative z-10">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <ChartNoAxesCombined className="w-6 h-6 text-white" strokeWidth={2} />
+          {/* Logo y Botón Próximamente */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <ChartNoAxesCombined className="w-6 h-6 text-white" strokeWidth={2} />
+              </div>
+              <span className="text-xl font-bold tracking-tight font-heading">
+                <span className="text-violet-300">Mi</span><span className="text-white">monotributo</span>
+              </span>
             </div>
-            <span className="text-xl font-bold tracking-tight font-heading">
-              <span className="text-emerald-300">Mi</span><span className="text-white">monotributo</span>
-            </span>
+            <Link
+              to="/login"
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-white text-sm font-medium transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Próximamente</span>
+            </Link>
           </div>
         </div>
 
@@ -82,14 +98,14 @@ export function Register() {
           {/* Headline */}
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
-              <Gift className="w-5 h-5 text-emerald-300" />
+              <Gift className="w-5 h-5 text-violet-300" />
               <span className="text-white font-medium">100% Gratis</span>
             </div>
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
               Herramientas<br />
               para tu negocio
             </h1>
-            <p className="text-lg text-emerald-100/80 max-w-md">
+            <p className="text-lg text-violet-100/80 max-w-md">
               Registrate gratis y accedé a herramientas que te van a simplificar
               el día a día de tu emprendimiento.
             </p>
@@ -98,8 +114,8 @@ export function Register() {
           {/* Features */}
           <ul className="space-y-3">
             {beneficios.map((beneficio, index) => (
-              <li key={index} className="flex items-center gap-3 text-emerald-100/90">
-                <CheckCircle2 size={20} className="text-emerald-300 flex-shrink-0" />
+              <li key={index} className="flex items-center gap-3 text-violet-100/90">
+                <CheckCircle2 size={20} className="text-violet-300 flex-shrink-0" />
                 <span>{beneficio}</span>
               </li>
             ))}
@@ -108,7 +124,7 @@ export function Register() {
 
         {/* Footer */}
         <div className="relative z-10">
-          <p className="text-emerald-200/60 text-sm">
+          <p className="text-violet-200/60 text-sm">
             © 2026 Mimonotributo. Todos los derechos reservados.
           </p>
         </div>
@@ -116,15 +132,35 @@ export function Register() {
 
       {/* Right Panel - Register Form */}
       <div className="flex-1 flex flex-col bg-white">
+        {/* Desktop Header - Botón Iniciar sesión */}
+        <div className="hidden lg:flex justify-end p-6 pb-0">
+          <button
+            onClick={() => setShowLoginModal(true)}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-colors shadow-lg shadow-violet-200"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Iniciar sesión</span>
+          </button>
+        </div>
+
         {/* Mobile Header */}
         <div className="lg:hidden p-6 pb-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center">
-              <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center">
+                <ChartNoAxesCombined className="w-5 h-5 text-white" strokeWidth={2} />
+              </div>
+              <span className="text-lg font-bold tracking-tight font-heading">
+                <span className="text-violet-600">Mi</span><span className="text-gray-900">monotributo</span>
+              </span>
             </div>
-            <span className="text-lg font-bold tracking-tight font-heading">
-              <span className="text-violet-600">Mi</span><span className="text-gray-900">monotributo</span>
-            </span>
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Iniciar sesión</span>
+            </button>
           </div>
         </div>
 
@@ -146,11 +182,11 @@ export function Register() {
               <div className="space-y-6">
                 {/* Success Icon */}
                 <div className="flex justify-center">
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center">
                     {confirmationText.includes('inicia sesión') ? (
-                      <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                      <CheckCircle2 className="w-8 h-8 text-violet-600" />
                     ) : (
-                      <Mail className="w-8 h-8 text-emerald-600" />
+                      <Mail className="w-8 h-8 text-violet-600" />
                     )}
                   </div>
                 </div>
@@ -172,12 +208,12 @@ export function Register() {
 
                 {/* Action */}
                 <div className="space-y-3">
-                  <Link
-                    to="/login"
-                    className="block w-full h-[52px] rounded-xl font-semibold text-white bg-violet-600 hover:bg-violet-700 transition-colors flex items-center justify-center"
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="w-full h-[52px] rounded-xl font-semibold text-white bg-violet-600 hover:bg-violet-700 transition-colors flex items-center justify-center"
                   >
-                    Ir a iniciar sesión
-                  </Link>
+                    Iniciar sesión
+                  </button>
 
                   {!confirmationText.includes('inicia sesión') && (
                     <p className="text-xs text-center text-gray-500">
@@ -194,9 +230,12 @@ export function Register() {
             {!showConfirmationMessage && (
               <p className="mt-6 text-center text-gray-600">
                 ¿Ya tenés cuenta?{' '}
-                <Link to="/login" className="text-violet-600 hover:text-violet-700 font-medium hover:underline">
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="text-violet-600 hover:text-violet-700 font-medium hover:underline"
+                >
                   Iniciar sesión
-                </Link>
+                </button>
               </p>
             )}
           </div>
@@ -209,6 +248,39 @@ export function Register() {
           </p>
         </div>
       </div>
+
+      {/* Modal de Login */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowLoginModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-[420px] max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 pb-0">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Iniciar sesión</h2>
+                <p className="text-gray-500 text-sm mt-1">Ingresá tus credenciales</p>
+              </div>
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-6">
+              <LoginForm onSuccess={handleLoginSuccess} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

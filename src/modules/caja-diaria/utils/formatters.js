@@ -2,6 +2,10 @@
  * Funciones de formateo para Caja Diaria
  */
 
+import { getFechaHoyArgentina, parseFechaArgentina } from './dateUtils'
+
+const TIMEZONE = 'America/Argentina/Buenos_Aires'
+
 /**
  * Formatea número como moneda argentina
  * 1000 → $1.000
@@ -65,8 +69,12 @@ export const formatearHora = (hora) => {
  */
 export const formatearFechaCorta = (fecha) => {
   if (!fecha) return ''
-  const date = new Date(fecha + 'T00:00:00')
-  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+  const date = parseFechaArgentina(fecha)
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: TIMEZONE,
+    day: '2-digit',
+    month: '2-digit'
+  }).format(date)
 }
 
 /**
@@ -75,19 +83,21 @@ export const formatearFechaCorta = (fecha) => {
  */
 export const formatearFechaLarga = (fecha) => {
   if (!fecha) return ''
-  const date = new Date(fecha + 'T00:00:00')
-  return date.toLocaleDateString('es-AR', {
+  const date = parseFechaArgentina(fecha)
+  return new Intl.DateTimeFormat('es-AR', {
+    timeZone: TIMEZONE,
     weekday: 'long',
     day: 'numeric',
     month: 'long'
-  })
+  }).format(date)
 }
 
 /**
  * Obtener fecha actual en formato YYYY-MM-DD
+ * @deprecated Usar getFechaHoyArgentina de dateUtils.js en su lugar
  */
 export const getFechaHoy = () => {
-  return new Date().toISOString().split('T')[0]
+  return getFechaHoyArgentina()
 }
 
 /**

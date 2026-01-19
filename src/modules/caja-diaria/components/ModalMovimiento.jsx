@@ -18,7 +18,8 @@ export default function ModalMovimiento({
   tipo,
   categorias,
   metodosPago,
-  onGuardar
+  onGuardar,
+  montoInicial = 0
 }) {
   // Estado del flujo
   const [etapa, setEtapa] = useState(1)
@@ -38,7 +39,7 @@ export default function ModalMovimiento({
   useEffect(() => {
     if (isOpen) {
       setEtapa(1)
-      setMonto(0)
+      setMonto(montoInicial || 0)
       setDescripcion('')
       setCategoriaId(null)
       setPagos([])
@@ -46,7 +47,7 @@ export default function ModalMovimiento({
       // Focus en el input de monto
       setTimeout(() => montoInputRef.current?.focus(), 100)
     }
-  }, [isOpen])
+  }, [isOpen, montoInicial])
 
   // Pasar a etapa 2
   const handleSiguiente = () => {

@@ -7,6 +7,7 @@ import { X, Lock, CheckCircle, AlertCircle, FileDown, Printer } from 'lucide-rea
 import InputMonto from './InputMonto'
 import IconoDinamico from './IconoDinamico'
 import { formatearMonto } from '../utils/formatters'
+import { getFechaHoyArgentina } from '../utils/dateUtils'
 import { calcularEfectivoEsperado, calcularDiferenciaCierre } from '../utils/calculosCaja'
 import { getColorDiferencia } from '../utils/coloresConfig'
 import { descargarPDFCierreCaja, abrirPDFCierreCaja } from '../utils/pdfCierreCaja'
@@ -17,6 +18,7 @@ export default function ModalCierreCaja({
   saldoInicial,
   resumen,
   totalesPorMetodo,
+  movimientos = [], // Movimientos del día para incluir en PDF
   onGuardar,
   cierreExistente = null, // Para modo edición
   fecha = null, // Fecha del cierre
@@ -76,7 +78,7 @@ export default function ModalCierreCaja({
 
   // Preparar datos para el PDF
   const datosPDF = {
-    fecha: fecha || new Date().toISOString().split('T')[0],
+    fecha: fecha || getFechaHoyArgentina(),
     saldoInicial,
     resumen,
     cierre: cierreExistente || {
@@ -85,6 +87,7 @@ export default function ModalCierreCaja({
       motivo_diferencia: motivoDiferencia
     },
     totalesPorMetodo,
+    movimientos, // Incluir movimientos para la segunda página del PDF
     nombreNegocio
   }
 
@@ -118,9 +121,16 @@ export default function ModalCierreCaja({
           {/* Header */}
           <div className="bg-gradient-to-r from-violet-500 to-violet-600 px-5 py-4 text-white">
             <div className="flex items-center justify-between">
-              <h3 className="font-heading font-semibold text-lg">
-                {modoEdicion ? 'Editar Cierre de Caja' : 'Cierre de Caja'}
-              </h3>
+              <div>
+                <h3 className="font-heading font-semibold text-lg">
+                  {modoEdicion ? 'Editar Cierre de Caja' : 'Cierre de Caja'}
+                </h3>
+                {modoEdicion && cierreExistente?.creador && (
+                  <p className="text-sm text-violet-100 mt-0.5">
+                    Cerrado por: {cierreExistente.creador.nombre_completo || cierreExistente.creador.email?.split('@')[0] || 'Usuario'}
+                  </p>
+                )}
+              </div>
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-white/20 rounded-lg transition-colors"

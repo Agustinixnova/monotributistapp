@@ -3,17 +3,23 @@
  */
 
 import { supabase } from '../../../lib/supabase'
+import { getEffectiveUserId } from './empleadosService'
 
 /**
- * Obtener todas las categorías (sistema + personalizadas del usuario)
+ * Obtener todas las categorías (sistema + personalizadas del usuario/dueño)
  * @param {string} tipo - 'entrada', 'salida', 'ambos' o null para todas
  */
 export async function getCategorias(tipo = null) {
   try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Obtener categorías del sistema (user_id IS NULL) y del dueño
     let query = supabase
       .from('caja_categorias')
       .select('*')
       .eq('activo', true)
+      .or(`user_id.is.null,user_id.eq.${userId}`)
 
     if (tipo) {
       query = query.or(`tipo.eq.${tipo},tipo.eq.ambos`)
@@ -31,16 +37,22 @@ export async function getCategorias(tipo = null) {
 
 /**
  * Crear categoría personalizada
+ * Requiere permiso agregar_categorias si es empleado
  */
 export async function createCategoria({ nombre, icono, tipo }) {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    const { userId, esDuenio, permisos, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Verificar permiso si es empleado
+    if (!esDuenio && !permisos?.agregar_categorias) {
+      throw new Error('No tienes permisos para agregar categorías')
+    }
 
     const { data, error } = await supabase
       .from('caja_categorias')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         nombre,
         icono,
         tipo,

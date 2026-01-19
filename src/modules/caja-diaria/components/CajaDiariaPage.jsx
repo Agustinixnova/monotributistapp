@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
 import { usePermisosCaja } from '../hooks/usePermisosCaja'
@@ -19,6 +19,13 @@ import ModalCierreCaja from './ModalCierreCaja'
 import ModalArqueo from './ModalArqueo'
 import ModalConfiguracion from './ModalConfiguracion'
 import ModalConfirmacion from './ModalConfirmacion'
+import ModalVisualizadorQR from './ModalVisualizadorQR'
+import ModalComentario from './ModalComentario'
+import ModalCalculadora from './ModalCalculadora'
+import ModalDetalleResumen from './ModalDetalleResumen'
+import ModalReportePeriodo from './ModalReportePeriodo'
+import { useAliasPago } from '../hooks/useAliasPago'
+import { actualizarComentario } from '../services/movimientosService'
 
 export default function CajaDiariaPage() {
   const {
@@ -40,16 +47,26 @@ export default function CajaDiariaPage() {
   // Permisos del usuario (empleado o dueño)
   const { puede, esDuenio } = usePermisosCaja()
 
-  const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null })
+  // Alias de pago para el visualizador QR
+  const { alias: aliasPago } = useAliasPago()
+
+  const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null, montoInicial: 0 })
   const [modalCierre, setModalCierre] = useState(false)
   const [modalArqueo, setModalArqueo] = useState(false)
   const [modalConfiguracion, setModalConfiguracion] = useState(false)
+  const [modalQR, setModalQR] = useState(false)
+  const [modalCalculadora, setModalCalculadora] = useState(false)
+  const [modalDetalleResumen, setModalDetalleResumen] = useState(false)
+  const [modalReportePeriodo, setModalReportePeriodo] = useState(false)
 
   // Estados para modales de confirmación
   const [confirmAnular, setConfirmAnular] = useState({ isOpen: false, id: null })
   const [confirmEliminarArqueo, setConfirmEliminarArqueo] = useState({ isOpen: false, id: null })
   const [confirmReabrir, setConfirmReabrir] = useState(false)
   const [procesando, setProcesando] = useState(false)
+
+  // Estado para modal de comentario
+  const [modalComentario, setModalComentario] = useState({ isOpen: false, movimiento: null })
 
   // Verificar si es el día actual
   const esHoy = fecha === getFechaHoy()
@@ -60,12 +77,17 @@ export default function CajaDiariaPage() {
   // Handlers
   const handleNuevaEntrada = () => {
     if (estaCerrado) return
-    setModalMovimiento({ isOpen: true, tipo: 'entrada' })
+    setModalMovimiento({ isOpen: true, tipo: 'entrada', montoInicial: 0 })
   }
 
   const handleNuevaSalida = () => {
     if (estaCerrado) return
-    setModalMovimiento({ isOpen: true, tipo: 'salida' })
+    setModalMovimiento({ isOpen: true, tipo: 'salida', montoInicial: 0 })
+  }
+
+  // Handler para cobrar desde calculadora
+  const handleCobrar = (total) => {
+    setModalMovimiento({ isOpen: true, tipo: 'entrada', montoInicial: total })
   }
 
   const handleGuardarMovimiento = async (movimientoData) => {
@@ -132,6 +154,7 @@ export default function CajaDiariaPage() {
       resumen: resumen.resumen,
       cierre: cierre.cierre,
       totalesPorMetodo: resumen.totalesPorMetodo,
+      movimientos: movimientos.movimientos,
       nombreNegocio: configuracion.nombreNegocio
     })
   }
@@ -146,6 +169,18 @@ export default function CajaDiariaPage() {
 
   const handleEliminarArqueo = (id) => {
     setConfirmEliminarArqueo({ isOpen: true, id })
+  }
+
+  const handleEditarComentario = (movimiento) => {
+    setModalComentario({ isOpen: true, movimiento })
+  }
+
+  const handleGuardarComentario = async (comentario) => {
+    if (!modalComentario.movimiento) return
+    const { error } = await actualizarComentario(modalComentario.movimiento.id, comentario)
+    if (!error) {
+      await refreshAll()
+    }
   }
 
   const confirmarEliminarArqueo = async () => {
@@ -178,6 +213,24 @@ export default function CajaDiariaPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Botón Calculadora */}
+            <button
+              onClick={() => setModalCalculadora(true)}
+              className="p-2 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
+              title="Calculadora"
+            >
+              <Calculator className="w-5 h-5 text-amber-600" />
+            </button>
+
+            {/* Botón Reporte por Período */}
+            <button
+              onClick={() => setModalReportePeriodo(true)}
+              className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
+              title="Reporte por Período"
+            >
+              <FileText className="w-5 h-5 text-indigo-600" />
+            </button>
+
             {/* Botón Configuración */}
             <button
               onClick={() => setModalConfiguracion(true)}
@@ -243,7 +296,10 @@ export default function CajaDiariaPage() {
           onEditarSaldoInicial={puede.editarSaldoInicial ? handleEditarSaldoInicial : null}
           estaCerrado={estaCerrado}
         />
-        <ResumenDia resumen={resumen.resumen} />
+        <ResumenDia
+          resumen={resumen.resumen}
+          onClick={() => setModalDetalleResumen(true)}
+        />
       </div>
 
       {/* Botones de acción */}
@@ -254,6 +310,19 @@ export default function CajaDiariaPage() {
           disabled={estaCerrado}
         />
       </div>
+
+      {/* Botón QR/Alias - Acceso rápido para clientes */}
+      {(configuracion.qrUrl || aliasPago.length > 0) && (
+        <div className="mb-6">
+          <button
+            onClick={() => setModalQR(true)}
+            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold py-4 rounded-xl shadow-lg transition-all hover:shadow-xl"
+          >
+            <QrCode className="w-6 h-6" />
+            <span className="text-lg">Mostrar QR/Alias al Cliente</span>
+          </button>
+        </div>
+      )}
 
       {/* Botón de arqueo rápido */}
       {!estaCerrado && (
@@ -285,6 +354,7 @@ export default function CajaDiariaPage() {
           movimientos={movimientos.movimientos}
           loading={movimientos.loading}
           onAnular={estaCerrado || !puede.anularMovimientos ? null : handleAnularMovimiento}
+          onEditarComentario={handleEditarComentario}
         />
       </div>
 
@@ -341,11 +411,12 @@ export default function CajaDiariaPage() {
       {/* Modal Nuevo Movimiento */}
       <ModalMovimiento
         isOpen={modalMovimiento.isOpen}
-        onClose={() => setModalMovimiento({ isOpen: false, tipo: null })}
+        onClose={() => setModalMovimiento({ isOpen: false, tipo: null, montoInicial: 0 })}
         tipo={modalMovimiento.tipo}
         categorias={categorias.categorias}
         metodosPago={metodosPago.metodos}
         onGuardar={handleGuardarMovimiento}
+        montoInicial={modalMovimiento.montoInicial}
       />
 
       {/* Modal Cierre de Caja */}
@@ -355,6 +426,7 @@ export default function CajaDiariaPage() {
         saldoInicial={cierre.saldoInicial}
         resumen={resumen.resumen}
         totalesPorMetodo={resumen.totalesPorMetodo}
+        movimientos={movimientos.movimientos}
         onGuardar={handleCerrarCaja}
         cierreExistente={estaCerrado ? cierre.cierre : null}
         fecha={fecha}
@@ -372,7 +444,11 @@ export default function CajaDiariaPage() {
       {/* Modal Configuración */}
       <ModalConfiguracion
         isOpen={modalConfiguracion}
-        onClose={() => setModalConfiguracion(false)}
+        onClose={() => {
+          setModalConfiguracion(false)
+          // Refrescar configuración para ver cambios de QR/Alias
+          refreshAll()
+        }}
       />
 
       {/* Modal Confirmación - Anular Movimiento */}
@@ -409,6 +485,45 @@ export default function CajaDiariaPage() {
         textoConfirmar="Reabrir"
         variante="warning"
         loading={procesando}
+      />
+
+      {/* Modal Visualizador QR para clientes */}
+      <ModalVisualizadorQR
+        isOpen={modalQR}
+        onClose={() => setModalQR(false)}
+        qrUrl={configuracion.qrUrl}
+        alias={aliasPago}
+        nombreNegocio={configuracion.nombreNegocio}
+      />
+
+      {/* Modal Comentario */}
+      <ModalComentario
+        isOpen={modalComentario.isOpen}
+        onClose={() => setModalComentario({ isOpen: false, movimiento: null })}
+        comentarioActual={modalComentario.movimiento?.descripcion || ''}
+        onGuardar={handleGuardarComentario}
+      />
+
+      {/* Modal Calculadora */}
+      <ModalCalculadora
+        isOpen={modalCalculadora}
+        onClose={() => setModalCalculadora(false)}
+        onCobrar={handleCobrar}
+      />
+
+      {/* Modal Detalle Resumen */}
+      <ModalDetalleResumen
+        isOpen={modalDetalleResumen}
+        onClose={() => setModalDetalleResumen(false)}
+        totalesPorMetodo={resumen.totalesPorMetodo}
+        fecha={fecha}
+      />
+
+      {/* Modal Reporte por Período */}
+      <ModalReportePeriodo
+        isOpen={modalReportePeriodo}
+        onClose={() => setModalReportePeriodo(false)}
+        nombreNegocio={configuracion.nombreNegocio}
       />
       </div>
     </Layout>

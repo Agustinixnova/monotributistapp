@@ -5,14 +5,17 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { formatearMonto } from '../utils/formatters'
 
-export default function ResumenDia({ resumen }) {
+export default function ResumenDia({ resumen, onClick }) {
   if (!resumen) return null
 
   const saldo = parseFloat(resumen.saldo || 0)
   const esPositivo = saldo >= 0
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl border border-gray-200 p-5 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+    >
       <h3 className="font-heading font-semibold text-gray-900 mb-4">
         Total del Día
       </h3>

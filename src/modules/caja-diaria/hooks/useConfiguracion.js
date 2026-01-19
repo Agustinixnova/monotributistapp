@@ -50,13 +50,20 @@ export function useConfiguracion() {
     return guardar({ nombre_negocio: nombre })
   }
 
+  // Actualizar URL del QR
+  const actualizarQrUrl = async (qrUrl) => {
+    return guardar({ qr_url: qrUrl })
+  }
+
   return {
     configuracion,
     nombreNegocio: configuracion?.nombre_negocio || 'Mi Negocio',
+    qrUrl: configuracion?.qr_url || null,
     loading,
     error,
     refresh: fetchConfiguracion,
     guardar,
-    actualizarNombreNegocio
+    actualizarNombreNegocio,
+    actualizarQrUrl
   }
 }
