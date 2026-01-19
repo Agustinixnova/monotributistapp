@@ -9,6 +9,7 @@ import { useResumenDia } from './useResumenDia'
 import { useCierreCaja } from './useCierreCaja'
 import { useMetodosPago } from './useMetodosPago'
 import { useCategorias } from './useCategorias'
+import { useArqueos } from './useArqueos'
 import { getFechaHoy } from '../utils/formatters'
 
 export function useCajaDiaria() {
@@ -20,6 +21,7 @@ export function useCajaDiaria() {
   const cierre = useCierreCaja(fecha)
   const metodosPago = useMetodosPago()
   const categorias = useCategorias()
+  const arqueos = useArqueos(fecha)
 
   // Cambiar fecha
   const cambiarFecha = (nuevaFecha) => {
@@ -38,7 +40,8 @@ export function useCajaDiaria() {
       resumen.refresh(),
       cierre.refresh(),
       metodosPago.refresh(),
-      categorias.refresh()
+      categorias.refresh(),
+      arqueos.refresh()
     ])
   }
 
@@ -57,6 +60,7 @@ export function useCajaDiaria() {
     cierre,
     metodosPago,
     categorias,
+    arqueos,
     loading,
     error,
     refreshAll

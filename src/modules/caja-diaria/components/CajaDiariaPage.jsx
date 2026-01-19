@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
 import { formatearFechaLarga, getFechaHoy } from '../utils/formatters'
@@ -12,8 +12,10 @@ import ResumenEfectivo from './ResumenEfectivo'
 import ResumenDia from './ResumenDia'
 import BotonesAccion from './BotonesAccion'
 import ListaMovimientos from './ListaMovimientos'
+import ListaArqueos from './ListaArqueos'
 import ModalMovimiento from './ModalMovimiento'
 import ModalCierreCaja from './ModalCierreCaja'
+import ModalArqueo from './ModalArqueo'
 import ModalConfiguracion from './ModalConfiguracion'
 
 export default function CajaDiariaPage() {
@@ -26,6 +28,7 @@ export default function CajaDiariaPage() {
     cierre,
     metodosPago,
     categorias,
+    arqueos,
     loading,
     error,
     refreshAll
@@ -33,6 +36,7 @@ export default function CajaDiariaPage() {
 
   const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null })
   const [modalCierre, setModalCierre] = useState(false)
+  const [modalArqueo, setModalArqueo] = useState(false)
   const [modalConfiguracion, setModalConfiguracion] = useState(false)
 
   // Verificar si es el día actual
@@ -106,6 +110,23 @@ export default function CajaDiariaPage() {
       cierre: cierre.cierre,
       totalesPorMetodo: resumen.totalesPorMetodo
     })
+  }
+
+  const handleGuardarArqueo = async (arqueoData) => {
+    const result = await arqueos.crear(arqueoData)
+    if (result.success) {
+      await refreshAll()
+    }
+    return result
+  }
+
+  const handleEliminarArqueo = async (id) => {
+    if (!confirm('¿Estás seguro que querés eliminar este arqueo?')) return
+
+    const result = await arqueos.eliminar(id)
+    if (result.success) {
+      await refreshAll()
+    }
   }
 
   return (
@@ -204,6 +225,30 @@ export default function CajaDiariaPage() {
         />
       </div>
 
+      {/* Botón de arqueo rápido */}
+      {!estaCerrado && (
+        <div className="mb-6">
+          <button
+            onClick={() => setModalArqueo(true)}
+            className="w-full flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium py-3 rounded-lg border border-amber-200 transition-colors"
+          >
+            <Calculator className="w-5 h-5" />
+            Arqueo Rápido
+          </button>
+        </div>
+      )}
+
+      {/* Lista de arqueos del día */}
+      {arqueos.arqueos.length > 0 && (
+        <div className="mb-6">
+          <ListaArqueos
+            arqueos={arqueos.arqueos}
+            loading={arqueos.loading}
+            onEliminar={estaCerrado ? null : handleEliminarArqueo}
+          />
+        </div>
+      )}
+
       {/* Lista de movimientos */}
       <div className="mb-6">
         <ListaMovimientos
@@ -277,6 +322,14 @@ export default function CajaDiariaPage() {
         onGuardar={handleCerrarCaja}
         cierreExistente={estaCerrado ? cierre.cierre : null}
         fecha={fecha}
+      />
+
+      {/* Modal Arqueo */}
+      <ModalArqueo
+        isOpen={modalArqueo}
+        onClose={() => setModalArqueo(false)}
+        efectivoEsperado={arqueos.efectivoEsperado}
+        onGuardar={handleGuardarArqueo}
       />
 
       {/* Modal Configuración */}
