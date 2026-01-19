@@ -123,6 +123,7 @@ export default function ModalEmpleado({ isOpen, onClose, onGuardar }) {
                     value={formData.nombre}
                     onChange={handleChange}
                     placeholder="Juan"
+                    required
                     className="flex-1 outline-none text-sm"
                     disabled={guardando}
                   />
@@ -140,6 +141,7 @@ export default function ModalEmpleado({ isOpen, onClose, onGuardar }) {
                     value={formData.apellido}
                     onChange={handleChange}
                     placeholder="Pérez"
+                    required
                     className="flex-1 outline-none text-sm"
                     disabled={guardando}
                   />
@@ -161,6 +163,7 @@ export default function ModalEmpleado({ isOpen, onClose, onGuardar }) {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="empleado@email.com"
+                  required
                   className="flex-1 outline-none text-sm"
                   disabled={guardando}
                 />
@@ -181,6 +184,7 @@ export default function ModalEmpleado({ isOpen, onClose, onGuardar }) {
                   value={formData.whatsapp}
                   onChange={handleChange}
                   placeholder="+54 11 1234-5678"
+                  required
                   className="flex-1 outline-none text-sm"
                   disabled={guardando}
                 />
@@ -201,6 +205,8 @@ export default function ModalEmpleado({ isOpen, onClose, onGuardar }) {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Mínimo 6 caracteres"
+                  required
+                  minLength={6}
                   className="flex-1 outline-none text-sm"
                   disabled={guardando}
                 />
@@ -228,6 +234,8 @@ export default function ModalEmpleado({ isOpen, onClose, onGuardar }) {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="Repetir contraseña"
+                  required
+                  minLength={6}
                   className="flex-1 outline-none text-sm"
                   disabled={guardando}
                 />

@@ -148,6 +148,7 @@ export function RegisterForm({ onSuccess }) {
               value={formData.nombre}
               onChange={handleChange}
               placeholder="Juan"
+              required
               className="flex-1 bg-transparent outline-none text-gray-900 placeholder:text-gray-400"
               disabled={isLoading}
             />
@@ -167,6 +168,7 @@ export function RegisterForm({ onSuccess }) {
               value={formData.apellido}
               onChange={handleChange}
               placeholder="Pérez"
+              required
               className="flex-1 bg-transparent outline-none text-gray-900 placeholder:text-gray-400"
               disabled={isLoading}
             />
@@ -189,6 +191,7 @@ export function RegisterForm({ onSuccess }) {
             value={formData.whatsapp}
             onChange={handleChange}
             placeholder="+54 11 1234-5678"
+            required
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder:text-gray-400"
             disabled={isLoading}
           />
@@ -210,6 +213,7 @@ export function RegisterForm({ onSuccess }) {
             value={formData.email}
             onChange={handleChange}
             placeholder="tu@email.com"
+            required
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder:text-gray-400"
             disabled={isLoading}
           />
@@ -231,6 +235,8 @@ export function RegisterForm({ onSuccess }) {
             value={formData.password}
             onChange={handleChange}
             placeholder="Mínimo 6 caracteres"
+            required
+            minLength={6}
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder:text-gray-400"
             disabled={isLoading}
           />
@@ -260,6 +266,8 @@ export function RegisterForm({ onSuccess }) {
             value={formData.confirmPassword}
             onChange={handleChange}
             placeholder="Repite tu contraseña"
+            required
+            minLength={6}
             className="flex-1 bg-transparent outline-none text-gray-900 placeholder:text-gray-400"
             disabled={isLoading}
           />
@@ -279,6 +287,7 @@ export function RegisterForm({ onSuccess }) {
             name="origen"
             value={formData.origen}
             onChange={handleChange}
+            required
             className="flex-1 bg-transparent outline-none text-gray-900 cursor-pointer"
             disabled={isLoading}
           >
