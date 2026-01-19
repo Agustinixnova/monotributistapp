@@ -133,14 +133,10 @@ export function Dashboard() {
     fetchRole()
   }, [user?.id])
 
-  // Si es usuario gratuito, mostrar DashboardGratuito
-  if (!loadingRole && (roleName === 'operador_gastos' || roleName === 'operador_gastos_empleado')) {
-    return <DashboardGratuito />
-  }
+  const esUsuarioGratuito = roleName === 'operador_gastos' || roleName === 'operador_gastos_empleado'
+  const esCliente = !loadingRole && !ROLES_CONTADORA.includes(roleName) && !esUsuarioGratuito
 
-  const esCliente = !loadingRole && !ROLES_CONTADORA.includes(roleName)
-
-  // Verificar si debe mostrar recordatorio de vencimiento
+  // Verificar si debe mostrar recordatorio de vencimiento (solo para clientes premium)
   useEffect(() => {
     const verificarRecordatorio = async () => {
       if (!esCliente || !user?.id) return
@@ -212,6 +208,12 @@ export function Dashboard() {
     { title: 'Pendientes', value: '0', icon: Clock, color: 'amber' },
     { title: 'Ingresos', value: '$0', icon: DollarSign, color: 'green' },
   ]
+
+  // Si es usuario gratuito, mostrar DashboardGratuito
+  // IMPORTANTE: Este return debe estar DESPUÉS de todos los hooks
+  if (!loadingRole && esUsuarioGratuito) {
+    return <DashboardGratuito />
+  }
 
   return (
     <Layout title="Dashboard">
