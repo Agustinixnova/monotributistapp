@@ -30,16 +30,23 @@ export function LoginForm({ onSuccess }) {
       const { error } = await signIn(email, password)
 
       if (error) {
+        console.log('Login error:', error)
+
         if (error.message.includes('Invalid login credentials')) {
           setServerError('Email o contraseña incorrectos')
+        } else if (error.message.includes('Email not confirmed')) {
+          setServerError('Debes confirmar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.')
+        } else if (error.message.includes('not confirmed') || error.message.includes('verification')) {
+          setServerError('Tu cuenta aún no está verificada. Revisa tu email para confirmarla.')
         } else {
-          setServerError('Error al iniciar sesión. Intenta nuevamente.')
+          setServerError(error.message || 'Error al iniciar sesión. Intenta nuevamente.')
         }
         return
       }
 
       onSuccess?.()
-    } catch {
+    } catch (err) {
+      console.error('Login catch error:', err)
       setServerError('Error de conexión. Verifica tu internet.')
     } finally {
       setIsLoading(false)
