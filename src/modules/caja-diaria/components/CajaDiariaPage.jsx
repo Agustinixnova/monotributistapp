@@ -17,6 +17,7 @@ import ModalMovimiento from './ModalMovimiento'
 import ModalCierreCaja from './ModalCierreCaja'
 import ModalArqueo from './ModalArqueo'
 import ModalConfiguracion from './ModalConfiguracion'
+import ModalConfirmacion from './ModalConfirmacion'
 
 export default function CajaDiariaPage() {
   const {
@@ -29,6 +30,7 @@ export default function CajaDiariaPage() {
     metodosPago,
     categorias,
     arqueos,
+    configuracion,
     loading,
     error,
     refreshAll
@@ -38,6 +40,12 @@ export default function CajaDiariaPage() {
   const [modalCierre, setModalCierre] = useState(false)
   const [modalArqueo, setModalArqueo] = useState(false)
   const [modalConfiguracion, setModalConfiguracion] = useState(false)
+
+  // Estados para modales de confirmación
+  const [confirmAnular, setConfirmAnular] = useState({ isOpen: false, id: null })
+  const [confirmEliminarArqueo, setConfirmEliminarArqueo] = useState({ isOpen: false, id: null })
+  const [confirmReabrir, setConfirmReabrir] = useState(false)
+  const [procesando, setProcesando] = useState(false)
 
   // Verificar si es el día actual
   const esHoy = fecha === getFechaHoy()
@@ -64,13 +72,19 @@ export default function CajaDiariaPage() {
     return result
   }
 
-  const handleAnularMovimiento = async (id) => {
-    if (!confirm('¿Estás seguro que querés anular este movimiento?')) return
+  const handleAnularMovimiento = (id) => {
+    setConfirmAnular({ isOpen: true, id })
+  }
 
-    const result = await movimientos.anular(id, 'Anulado por el usuario')
+  const confirmarAnularMovimiento = async () => {
+    if (!confirmAnular.id) return
+    setProcesando(true)
+    const result = await movimientos.anular(confirmAnular.id, 'Anulado por el usuario')
     if (result.success) {
       await refreshAll()
     }
+    setProcesando(false)
+    setConfirmAnular({ isOpen: false, id: null })
   }
 
   const handleCerrarCaja = async (cierreData) => {
@@ -93,13 +107,18 @@ export default function CajaDiariaPage() {
     setModalCierre(true)
   }
 
-  const handleReabrirDia = async () => {
-    if (!confirm('¿Estás seguro que querés reabrir este día? Podrás volver a agregar movimientos.')) return
+  const handleReabrirDia = () => {
+    setConfirmReabrir(true)
+  }
 
+  const confirmarReabrirDia = async () => {
+    setProcesando(true)
     const result = await cierre.reabrirDia()
     if (result.success) {
       await refreshAll()
     }
+    setProcesando(false)
+    setConfirmReabrir(false)
   }
 
   const handleDescargarPDF = () => {
@@ -108,7 +127,8 @@ export default function CajaDiariaPage() {
       saldoInicial: cierre.saldoInicial,
       resumen: resumen.resumen,
       cierre: cierre.cierre,
-      totalesPorMetodo: resumen.totalesPorMetodo
+      totalesPorMetodo: resumen.totalesPorMetodo,
+      nombreNegocio: configuracion.nombreNegocio
     })
   }
 
@@ -120,13 +140,19 @@ export default function CajaDiariaPage() {
     return result
   }
 
-  const handleEliminarArqueo = async (id) => {
-    if (!confirm('¿Estás seguro que querés eliminar este arqueo?')) return
+  const handleEliminarArqueo = (id) => {
+    setConfirmEliminarArqueo({ isOpen: true, id })
+  }
 
-    const result = await arqueos.eliminar(id)
+  const confirmarEliminarArqueo = async () => {
+    if (!confirmEliminarArqueo.id) return
+    setProcesando(true)
+    const result = await arqueos.eliminar(confirmEliminarArqueo.id)
     if (result.success) {
       await refreshAll()
     }
+    setProcesando(false)
+    setConfirmEliminarArqueo({ isOpen: false, id: null })
   }
 
   return (
@@ -322,6 +348,7 @@ export default function CajaDiariaPage() {
         onGuardar={handleCerrarCaja}
         cierreExistente={estaCerrado ? cierre.cierre : null}
         fecha={fecha}
+        nombreNegocio={configuracion.nombreNegocio}
       />
 
       {/* Modal Arqueo */}
@@ -336,6 +363,42 @@ export default function CajaDiariaPage() {
       <ModalConfiguracion
         isOpen={modalConfiguracion}
         onClose={() => setModalConfiguracion(false)}
+      />
+
+      {/* Modal Confirmación - Anular Movimiento */}
+      <ModalConfirmacion
+        isOpen={confirmAnular.isOpen}
+        onClose={() => setConfirmAnular({ isOpen: false, id: null })}
+        onConfirm={confirmarAnularMovimiento}
+        titulo="¿Anular movimiento?"
+        mensaje="El movimiento quedará marcado como anulado y no afectará los totales del día."
+        textoConfirmar="Anular"
+        variante="danger"
+        loading={procesando}
+      />
+
+      {/* Modal Confirmación - Eliminar Arqueo */}
+      <ModalConfirmacion
+        isOpen={confirmEliminarArqueo.isOpen}
+        onClose={() => setConfirmEliminarArqueo({ isOpen: false, id: null })}
+        onConfirm={confirmarEliminarArqueo}
+        titulo="¿Eliminar arqueo?"
+        mensaje="Este arqueo será eliminado permanentemente."
+        textoConfirmar="Eliminar"
+        variante="danger"
+        loading={procesando}
+      />
+
+      {/* Modal Confirmación - Reabrir Día */}
+      <ModalConfirmacion
+        isOpen={confirmReabrir}
+        onClose={() => setConfirmReabrir(false)}
+        onConfirm={confirmarReabrirDia}
+        titulo="¿Reabrir día?"
+        mensaje="Podrás volver a agregar movimientos y modificar el cierre."
+        textoConfirmar="Reabrir"
+        variante="warning"
+        loading={procesando}
       />
       </div>
     </Layout>

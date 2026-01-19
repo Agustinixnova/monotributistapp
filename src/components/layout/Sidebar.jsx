@@ -27,7 +27,9 @@ import {
   Ticket,
   ChartNoAxesCombined,
   GraduationCap,
-  Wallet
+  Wallet,
+  Wallet2,
+  TrendingUp
 } from 'lucide-react'
 
 // Mapeo de nombres de iconos a componentes de Lucide
@@ -50,7 +52,9 @@ const iconMap = {
   Bug,
   Ticket,
   GraduationCap,
-  Wallet
+  Wallet,
+  Wallet2,
+  TrendingUp
 }
 
 // Items estáticos como fallback (fuente de verdad para sincronizar)

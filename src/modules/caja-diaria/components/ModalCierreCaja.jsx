@@ -19,7 +19,8 @@ export default function ModalCierreCaja({
   totalesPorMetodo,
   onGuardar,
   cierreExistente = null, // Para modo edición
-  fecha = null // Fecha del cierre
+  fecha = null, // Fecha del cierre
+  nombreNegocio = 'Mi Negocio' // Nombre del negocio para PDF
 }) {
   const [efectivoReal, setEfectivoReal] = useState(0)
   const [motivoDiferencia, setMotivoDiferencia] = useState('')
@@ -83,7 +84,8 @@ export default function ModalCierreCaja({
       diferencia,
       motivo_diferencia: motivoDiferencia
     },
-    totalesPorMetodo
+    totalesPorMetodo,
+    nombreNegocio
   }
 
   const handleDescargarPDF = () => {
