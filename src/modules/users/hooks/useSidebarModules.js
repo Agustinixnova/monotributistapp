@@ -5,9 +5,20 @@ import { useAuth } from '../../../auth/hooks/useAuth'
 // Roles con acceso total (ven todos los módulos)
 const FULL_ACCESS_ROLES = ['admin', 'desarrollo', 'contadora_principal', 'comunicadora']
 
+// Módulos para usuarios gratuitos (operador_gastos)
+const FREE_USER_MODULES = [
+  { id: 'dashboard', name: 'Dashboard', slug: 'dashboard', route: '/', icon: 'LayoutDashboard', order: 1, is_active: true },
+  { id: 'mis-finanzas', name: 'Mis Finanzas', slug: 'mis-finanzas', route: '/herramientas/mis-finanzas', icon: 'Wallet', order: 2, is_active: true },
+  { id: 'panel-economico', name: 'Panel Económico', slug: 'panel-economico', route: '/herramientas/panel-economico', icon: 'TrendingUp', order: 3, is_active: true },
+  { id: 'caja-diaria', name: 'Caja Diaria', slug: 'caja-diaria', route: '/herramientas/caja-diaria', icon: 'Wallet2', order: 4, is_active: true },
+  { id: 'educacion-impositiva', name: 'Educación Impositiva', slug: 'educacion-impositiva', route: '/educacion', icon: 'GraduationCap', order: 5, is_active: true },
+  { id: 'mi-perfil', name: 'Mi Perfil', slug: 'mi-perfil', route: '/mi-perfil', icon: 'UserCircle', order: 6, is_active: true },
+]
+
 /**
  * Hook para obtener los módulos del sidebar del usuario actual
  * - Usuarios con roles de acceso total ven TODOS los módulos
+ * - Usuarios gratuitos (operador_gastos): ven módulos específicos de free
  * - Otros usuarios: módulos por defecto del rol + accesos adicionales
  */
 export function useSidebarModules() {
@@ -27,14 +38,34 @@ export function useSidebarModules() {
       setLoading(true)
       setError(null)
 
-      // 1. Obtener el perfil del usuario con su rol
+      // 1. Primero verificar si es usuario gratuito (usuarios_free)
+      const { data: freeUser, error: freeUserError } = await supabase
+        .from('usuarios_free')
+        .select('role_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      // Si es usuario gratuito, retornar módulos específicos
+      if (freeUser && !freeUserError) {
+        setModules(FREE_USER_MODULES)
+        setLoading(false)
+        return
+      }
+
+      // 2. Si no es usuario gratuito, obtener el perfil premium
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role_id, roles(name)')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
       if (profileError) throw profileError
+      if (!profile) {
+        // Usuario no encontrado en ninguna tabla
+        setModules([])
+        setLoading(false)
+        return
+      }
 
       const roleName = profile.roles?.name
 

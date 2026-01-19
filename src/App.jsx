@@ -19,6 +19,7 @@ import { BuzonPage } from './modules/buzon/components/BuzonPage'
 import { MisFinanzasPage } from './modules/finanzas-personales/components'
 import { PanelEconomicoPage } from './modules/panel-economico/components'
 import CajaDiariaPage from './modules/caja-diaria/components/CajaDiariaPage'
+import { MiPerfil } from './pages/MiPerfil'
 import { PWAInstallPrompt, PWAUpdatePrompt } from './pwa'
 
 function App() {
@@ -197,6 +198,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MiCuentaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mi-perfil"
+            element={
+              <ProtectedRoute>
+                <MiPerfil />
               </ProtectedRoute>
             }
           />
