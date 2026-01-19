@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/layout'
+import { DashboardGratuito } from './DashboardGratuito'
 import {
   Users,
   FileText,
@@ -77,7 +77,6 @@ function EmptyState({ icon: Icon, title, description }) {
 
 export function Dashboard() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [roleName, setRoleName] = useState(null)
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [loadingRole, setLoadingRole] = useState(true)
@@ -119,12 +118,10 @@ export function Dashboard() {
     fetchRole()
   }, [user?.id])
 
-  // Redirigir usuarios gratuitos a Caja Diaria (su herramienta principal)
-  useEffect(() => {
-    if (!loadingRole && (roleName === 'operador_gastos' || roleName === 'operador_gastos_empleado')) {
-      navigate('/herramientas/caja-diaria', { replace: true })
-    }
-  }, [loadingRole, roleName, navigate])
+  // Si es usuario gratuito, mostrar DashboardGratuito
+  if (!loadingRole && (roleName === 'operador_gastos' || roleName === 'operador_gastos_empleado')) {
+    return <DashboardGratuito />
+  }
 
   const esCliente = !loadingRole && !ROLES_CONTADORA.includes(roleName)
 
