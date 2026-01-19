@@ -26,12 +26,38 @@ serve(async (req) => {
     )
 
     // Obtener datos del body
-    const { email, password, nombre, apellido, whatsapp, origen, origenDetalle } = await req.json()
+    let requestBody
+    try {
+      requestBody = await req.json()
+    } catch (parseError) {
+      console.error('Error parsing JSON:', parseError)
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    const { email, password, nombre, apellido, whatsapp, origen, origenDetalle } = requestBody
+
+    // Log para debugging
+    console.log('Received request:', { email, nombre, apellido, hasPassword: !!password })
 
     // Validaciones básicas
     if (!email || !password || !nombre || !apellido) {
+      console.error('Missing required fields:', { email: !!email, password: !!password, nombre: !!nombre, apellido: !!apellido })
       return new Response(
-        JSON.stringify({ error: 'Faltan campos requeridos' }),
+        JSON.stringify({
+          error: 'Faltan campos requeridos',
+          details: {
+            email: !email ? 'requerido' : 'ok',
+            password: !password ? 'requerido' : 'ok',
+            nombre: !nombre ? 'requerido' : 'ok',
+            apellido: !apellido ? 'requerido' : 'ok'
+          }
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

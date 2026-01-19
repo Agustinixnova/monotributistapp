@@ -47,15 +47,22 @@ export const authService = {
         console.error('Edge function error:', error)
         return {
           data: null,
-          error: { message: error.message || 'Error al crear la cuenta' }
+          error: {
+            message: error.message || 'Error al crear la cuenta',
+            details: error
+          }
         }
       }
 
       if (data.error) {
         console.error('Server error:', data.error)
+        console.error('Error details:', data.details)
         return {
           data: null,
-          error: { message: data.error || 'Error al crear la cuenta' }
+          error: {
+            message: data.error || 'Error al crear la cuenta',
+            details: data.details
+          }
         }
       }
 
