@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Layout } from '../components/layout'
 import {
   Users,
@@ -76,6 +77,7 @@ function EmptyState({ icon: Icon, title, description }) {
 
 export function Dashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [roleName, setRoleName] = useState(null)
   const [nombreUsuario, setNombreUsuario] = useState('')
   const [loadingRole, setLoadingRole] = useState(true)
@@ -87,19 +89,42 @@ export function Dashboard() {
     const fetchRole = async () => {
       if (!user?.id) return
 
-      const { data } = await supabase
+      // Primero intentar obtener de profiles (usuarios premium)
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('nombre, apellido, roles(name)')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
-      setRoleName(data?.roles?.name || null)
-      setNombreUsuario(data?.nombre || '')
+      // Si no está en profiles, es usuario gratuito, buscar en usuarios_free
+      if (!profileData) {
+        const { data: freeUserData } = await supabase
+          .from('usuarios_free')
+          .select('nombre, apellido, roles(name)')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (freeUserData) {
+          setRoleName(freeUserData?.roles?.name || 'operador_gastos')
+          setNombreUsuario(freeUserData?.nombre || '')
+        }
+      } else {
+        setRoleName(profileData?.roles?.name || null)
+        setNombreUsuario(profileData?.nombre || '')
+      }
+
       setLoadingRole(false)
     }
 
     fetchRole()
   }, [user?.id])
+
+  // Redirigir usuarios gratuitos a Caja Diaria (su herramienta principal)
+  useEffect(() => {
+    if (!loadingRole && (roleName === 'operador_gastos' || roleName === 'operador_gastos_empleado')) {
+      navigate('/herramientas/caja-diaria', { replace: true })
+    }
+  }, [loadingRole, roleName, navigate])
 
   const esCliente = !loadingRole && !ROLES_CONTADORA.includes(roleName)
 
