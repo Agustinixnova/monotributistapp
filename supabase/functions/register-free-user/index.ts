@@ -104,37 +104,16 @@ serve(async (req) => {
     }
 
     // El trigger on_auth_user_created_free creará el perfil en usuarios_free
+    console.log('Usuario creado exitosamente:', userData.user.id)
 
-    // Crear sesión usando Admin API (evita el error "Email signups are disabled")
-    // Usamos admin.createSession() que funciona incluso con signups deshabilitados
-    const { data, error: sessionError } = await supabaseAdmin.auth.admin.createSession({
-      user_id: userData.user.id
-    })
-
-    if (sessionError || !data?.session) {
-      console.error('Error creando sesión:', sessionError)
-      // Usuario creado exitosamente, pero no pudimos hacer auto-login
-      // El usuario puede loguearse manualmente
-      return new Response(
-        JSON.stringify({
-          user: userData.user,
-          session: null,
-          message: 'Cuenta creada exitosamente. Por favor inicia sesión manualmente.',
-          needsManualLogin: true
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
+    // Usuario creado con éxito - el usuario debe hacer login manualmente
+    // (auto-login no es posible con signups deshabilitados)
     return new Response(
       JSON.stringify({
         user: userData.user,
-        session: data.session,
-        message: 'Cuenta creada exitosamente',
-        needsManualLogin: false
+        session: null,
+        message: 'Cuenta creada exitosamente. Por favor inicia sesión.',
+        needsManualLogin: true
       }),
       {
         status: 200,
