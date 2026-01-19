@@ -35,15 +35,15 @@ const HERRAMIENTAS = [
     titulo: 'Educación Impositiva',
     descripcion: 'Aprendé sobre impuestos y monotributo',
     icono: BookOpen,
-    ruta: '/educacion-impositiva',
+    ruta: '/educacion',
     color: 'amber'
   },
   {
-    id: 'cuenta',
-    titulo: 'Mi Cuenta',
+    id: 'perfil',
+    titulo: 'Mi Perfil',
     descripcion: 'Configurá tu perfil y preferencias',
     icono: User,
-    ruta: '/mi-cuenta',
+    ruta: '/mi-perfil',
     color: 'gray'
   }
 ]
