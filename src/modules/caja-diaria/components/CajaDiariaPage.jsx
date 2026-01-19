@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
+import { usePermisosCaja } from '../hooks/usePermisosCaja'
 import { formatearFechaLarga, getFechaHoy } from '../utils/formatters'
 import { descargarPDFCierreCaja } from '../utils/pdfCierreCaja'
 import ResumenEfectivo from './ResumenEfectivo'
@@ -35,6 +36,9 @@ export default function CajaDiariaPage() {
     error,
     refreshAll
   } = useCajaDiaria()
+
+  // Permisos del usuario (empleado o dueño)
+  const { puede, esDuenio } = usePermisosCaja()
 
   const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null })
   const [modalCierre, setModalCierre] = useState(false)
@@ -236,7 +240,7 @@ export default function CajaDiariaPage() {
         <ResumenEfectivo
           resumen={resumen.resumen}
           saldoInicial={cierre.saldoInicial}
-          onEditarSaldoInicial={handleEditarSaldoInicial}
+          onEditarSaldoInicial={puede.editarSaldoInicial ? handleEditarSaldoInicial : null}
           estaCerrado={estaCerrado}
         />
         <ResumenDia resumen={resumen.resumen} />
@@ -270,7 +274,7 @@ export default function CajaDiariaPage() {
           <ListaArqueos
             arqueos={arqueos.arqueos}
             loading={arqueos.loading}
-            onEliminar={estaCerrado ? null : handleEliminarArqueo}
+            onEliminar={estaCerrado || !puede.eliminarArqueos ? null : handleEliminarArqueo}
           />
         </div>
       )}
@@ -280,7 +284,7 @@ export default function CajaDiariaPage() {
         <ListaMovimientos
           movimientos={movimientos.movimientos}
           loading={movimientos.loading}
-          onAnular={estaCerrado ? null : handleAnularMovimiento}
+          onAnular={estaCerrado || !puede.anularMovimientos ? null : handleAnularMovimiento}
         />
       </div>
 
@@ -308,22 +312,28 @@ export default function CajaDiariaPage() {
             </button>
 
             {/* Botones de edición */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleEditarCierre}
-                className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition-colors"
-              >
-                <Edit2 className="w-5 h-5" />
-                Editar Cierre
-              </button>
-              <button
-                onClick={handleReabrirDia}
-                className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 rounded-lg transition-colors"
-              >
-                <LockOpen className="w-5 h-5" />
-                Reabrir Día
-              </button>
-            </div>
+            {(puede.editarCierre || puede.reabrirDia) && (
+              <div className={`grid gap-3 ${puede.editarCierre && puede.reabrirDia ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {puede.editarCierre && (
+                  <button
+                    onClick={handleEditarCierre}
+                    className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition-colors"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                    Editar Cierre
+                  </button>
+                )}
+                {puede.reabrirDia && (
+                  <button
+                    onClick={handleReabrirDia}
+                    className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 rounded-lg transition-colors"
+                  >
+                    <LockOpen className="w-5 h-5" />
+                    Reabrir Día
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

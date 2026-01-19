@@ -47,12 +47,26 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
+  const signUpFree = async (userData) => {
+    const { data, error } = await authService.signUpFree(userData)
+    if (error) {
+      return { error }
+    }
+    // Después del registro exitoso, el usuario queda logueado
+    if (data?.user) {
+      setUser(data.user)
+      setSession(data.session)
+    }
+    return { data }
+  }
+
   const value = {
     user,
     session,
     loading,
     signIn,
     signOut,
+    signUpFree,
     isAuthenticated: !!user,
   }
 

@@ -53,7 +53,9 @@
       "Bash(python -m pip install:*)",
       "Bash(git pull:*)",
       "Bash(curl:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(taskkill:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

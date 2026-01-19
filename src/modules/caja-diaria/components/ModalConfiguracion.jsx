@@ -1,25 +1,36 @@
 /**
- * Modal de configuración para gestionar categorías, métodos de pago y configuración general
+ * Modal de configuración para gestionar categorías, métodos de pago, empleados y configuración general
  */
 
 import { useState, useEffect } from 'react'
-import { X, Plus, Edit2, Trash2, Settings, Store, Check } from 'lucide-react'
+import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck } from 'lucide-react'
 import IconoDinamico from './IconoDinamico'
 import ModalCategoria from './ModalCategoria'
 import ModalMetodoPago from './ModalMetodoPago'
+import ModalEmpleado from './ModalEmpleado'
+import ModalPermisos from './ModalPermisos'
 import { useCategorias } from '../hooks/useCategorias'
 import { useMetodosPago } from '../hooks/useMetodosPago'
 import { useConfiguracion } from '../hooks/useConfiguracion'
+import { useEmpleados } from '../hooks/useEmpleados'
+import { usePermisosCaja } from '../hooks/usePermisosCaja'
 
 export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) {
-  const [tab, setTab] = useState('general') // 'general' | 'categorias' | 'metodos'
+  const [tab, setTab] = useState('general') // 'general' | 'categorias' | 'metodos' | 'empleados'
   const [modalCategoria, setModalCategoria] = useState(false)
   const [modalMetodoPago, setModalMetodoPago] = useState(false)
+  const [modalEmpleado, setModalEmpleado] = useState(false)
+  const [modalPermisos, setModalPermisos] = useState(false)
   const [categoriaEditar, setCategoriaEditar] = useState(null)
   const [metodoEditar, setMetodoEditar] = useState(null)
+  const [empleadoPermisos, setEmpleadoPermisos] = useState(null)
 
   // Configuración general
   const { configuracion, nombreNegocio, actualizarNombreNegocio, loading: loadingConfig } = useConfiguracion()
+
+  // Empleados (solo se carga si el usuario es dueño)
+  const { empleados, crear: crearEmpleado, actualizarPermisos, toggleActivo, eliminar: eliminarEmpleado, loading: loadingEmpleados } = useEmpleados()
+  const { esDuenio, puede } = usePermisosCaja()
   const [nombreNegocioInput, setNombreNegocioInput] = useState('')
   const [guardandoNombre, setGuardandoNombre] = useState(false)
   const [nombreGuardado, setNombreGuardado] = useState(false)
@@ -153,6 +164,18 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 >
                   Métodos
                 </button>
+                {esDuenio && (
+                  <button
+                    onClick={() => setTab('empleados')}
+                    className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                      tab === 'empleados'
+                        ? 'text-violet-600 border-b-2 border-violet-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Empleados
+                  </button>
+                )}
               </div>
             </div>
 
@@ -162,56 +185,71 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
               {tab === 'general' && (
                 <div className="space-y-6">
                   {/* Nombre del negocio */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre del negocio
-                    </label>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Este nombre aparecerá en los PDF de cierre de caja
-                    </p>
-                    <div className="flex gap-2">
-                      <div className="flex-1 relative">
-                        <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={nombreNegocioInput}
-                          onChange={(e) => setNombreNegocioInput(e.target.value)}
-                          placeholder="Ej: Kiosco Don Pedro"
-                          maxLength={100}
-                          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                        />
+                  {puede.cambiarNombreNegocio ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre del negocio
+                      </label>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Este nombre aparecerá en los PDF de cierre de caja
+                      </p>
+                      <div className="flex gap-2">
+                        <div className="flex-1 relative">
+                          <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <input
+                            type="text"
+                            value={nombreNegocioInput}
+                            onChange={(e) => setNombreNegocioInput(e.target.value)}
+                            placeholder="Ej: Kiosco Don Pedro"
+                            maxLength={100}
+                            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                          />
+                        </div>
+                        <button
+                          onClick={handleGuardarNombre}
+                          disabled={guardandoNombre || nombreNegocioInput === nombreNegocio}
+                          className={`px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                            nombreGuardado
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : nombreNegocioInput === nombreNegocio
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-violet-600 hover:bg-violet-700 text-white'
+                          }`}
+                        >
+                          {nombreGuardado ? (
+                            <>
+                              <Check className="w-4 h-4" />
+                              Guardado
+                            </>
+                          ) : guardandoNombre ? (
+                            'Guardando...'
+                          ) : (
+                            'Guardar'
+                          )}
+                        </button>
                       </div>
-                      <button
-                        onClick={handleGuardarNombre}
-                        disabled={guardandoNombre || nombreNegocioInput === nombreNegocio}
-                        className={`px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                          nombreGuardado
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : nombreNegocioInput === nombreNegocio
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-violet-600 hover:bg-violet-700 text-white'
-                        }`}
-                      >
-                        {nombreGuardado ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            Guardado
-                          </>
-                        ) : guardandoNombre ? (
-                          'Guardando...'
-                        ) : (
-                          'Guardar'
-                        )}
-                      </button>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre del negocio
+                      </label>
+                      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                        <Store className="w-5 h-5 text-gray-400" />
+                        <span className="text-gray-700">{nombreNegocio || 'Sin nombre'}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Solo el dueño puede modificar el nombre del negocio
+                      </p>
+                    </div>
+                  )}
 
                   {/* Info adicional */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-medium text-gray-900 mb-2">Información</h4>
                     <ul className="text-sm text-gray-600 space-y-1">
                       <li>El nombre del negocio se muestra en el encabezado del PDF de cierre</li>
-                      <li>Podés cambiarlo en cualquier momento</li>
+                      {puede.cambiarNombreNegocio && <li>Podés cambiarlo en cualquier momento</li>}
                     </ul>
                   </div>
                 </div>
@@ -224,16 +262,18 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                     <p className="text-sm text-gray-600">
                       Tus categorías personalizadas
                     </p>
-                    <button
-                      onClick={() => {
-                        setCategoriaEditar(null)
-                        setModalCategoria(true)
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Nueva categoría
-                    </button>
+                    {puede.agregarCategorias && (
+                      <button
+                        onClick={() => {
+                          setCategoriaEditar(null)
+                          setModalCategoria(true)
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Nueva categoría
+                      </button>
+                    )}
                   </div>
 
                   {categoriasPersonalizadas.length === 0 ? (
@@ -282,16 +322,18 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                     <p className="text-sm text-gray-600">
                       Tus métodos de pago personalizados
                     </p>
-                    <button
-                      onClick={() => {
-                        setMetodoEditar(null)
-                        setModalMetodoPago(true)
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Nuevo método
-                    </button>
+                    {puede.agregarMetodosPago && (
+                      <button
+                        onClick={() => {
+                          setMetodoEditar(null)
+                          setModalMetodoPago(true)
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Nuevo método
+                      </button>
+                    )}
                   </div>
 
                   {metodosPersonalizados.length === 0 ? (
@@ -330,6 +372,111 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                   )}
                 </div>
               )}
+
+              {/* Tab Empleados */}
+              {tab === 'empleados' && esDuenio && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                      Empleados que acceden a tu caja
+                    </p>
+                    <button
+                      onClick={() => setModalEmpleado(true)}
+                      className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Agregar empleado
+                    </button>
+                  </div>
+
+                  {loadingEmpleados ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin h-6 w-6 border-2 border-violet-600 border-t-transparent rounded-full mx-auto" />
+                    </div>
+                  ) : empleados.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No tenés empleados todavía</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Agregá empleados para que puedan registrar movimientos en tu caja
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {empleados.map(emp => (
+                        <div
+                          key={emp.id}
+                          className={`flex items-center gap-3 p-3 border rounded-lg ${
+                            emp.activo
+                              ? 'border-gray-200 hover:border-violet-300'
+                              : 'border-gray-200 bg-gray-50 opacity-60'
+                          }`}
+                        >
+                          <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span className="text-violet-600 font-medium">
+                              {emp.nombre?.charAt(0)}{emp.apellido?.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">
+                              {emp.nombre} {emp.apellido}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">{emp.email}</div>
+                            <div className="text-xs text-gray-400">{emp.whatsapp}</div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {/* Botón permisos */}
+                            <button
+                              onClick={() => {
+                                setEmpleadoPermisos(emp)
+                                setModalPermisos(true)
+                              }}
+                              className="p-2 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg"
+                              title="Editar permisos"
+                            >
+                              <Shield className="w-4 h-4" />
+                            </button>
+                            {/* Botón activar/desactivar */}
+                            <button
+                              onClick={() => toggleActivo(emp.id, !emp.activo)}
+                              className={`p-2 rounded-lg ${
+                                emp.activo
+                                  ? 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
+                                  : 'text-gray-600 hover:text-emerald-600 hover:bg-emerald-50'
+                              }`}
+                              title={emp.activo ? 'Desactivar' : 'Activar'}
+                            >
+                              {emp.activo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            </button>
+                            {/* Botón eliminar */}
+                            <button
+                              onClick={() => {
+                                if (confirm('¿Eliminar este empleado? Ya no podrá acceder a tu caja.')) {
+                                  eliminarEmpleado(emp.id)
+                                }
+                              }}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-700">
+                    <p className="font-medium mb-1">Sobre los empleados:</p>
+                    <ul className="list-disc list-inside space-y-1 text-blue-600">
+                      <li>Los empleados acceden con su email y contraseña</li>
+                      <li>Ven la misma caja que vos, pero con permisos limitados</li>
+                      <li>Podés configurar qué acciones pueden realizar</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
@@ -364,6 +511,22 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         }}
         onGuardar={handleGuardarMetodo}
         metodo={metodoEditar}
+      />
+
+      <ModalEmpleado
+        isOpen={modalEmpleado}
+        onClose={() => setModalEmpleado(false)}
+        onGuardar={crearEmpleado}
+      />
+
+      <ModalPermisos
+        isOpen={modalPermisos}
+        onClose={() => {
+          setModalPermisos(false)
+          setEmpleadoPermisos(null)
+        }}
+        empleado={empleadoPermisos}
+        onGuardar={actualizarPermisos}
       />
     </>
   )

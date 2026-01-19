@@ -1,10 +1,10 @@
 import { useNavigate, Link } from 'react-router-dom'
-import { LoginForm } from '../auth/components/LoginForm'
+import { RegisterForm } from '../auth/components/RegisterForm'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useEffect } from 'react'
-import { ChartNoAxesCombined, CheckCircle2 } from 'lucide-react'
+import { ChartNoAxesCombined, CheckCircle2, Gift } from 'lucide-react'
 
-export function Login() {
+export function Register() {
   const navigate = useNavigate()
   const { isAuthenticated, loading } = useAuth()
 
@@ -14,7 +14,7 @@ export function Login() {
     }
   }, [isAuthenticated, loading, navigate])
 
-  const handleLoginSuccess = () => {
+  const handleRegisterSuccess = () => {
     navigate('/', { replace: true })
   }
 
@@ -29,20 +29,20 @@ export function Login() {
     )
   }
 
-  const features = [
-    'Control total de tus clientes',
-    'Facturación rápida y sencilla',
-    'Alertas de vencimientos',
-    'Reportes automáticos',
+  const beneficios = [
+    'Caja Diaria para tu negocio',
+    'Control de finanzas personales',
+    'Indicadores económicos en tiempo real',
+    'Educación impositiva gratuita',
   ]
 
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] bg-gradient-to-br from-violet-600 via-violet-700 to-purple-800 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-full h-full" 
+          <div className="absolute top-0 left-0 w-full h-full"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
             }}
@@ -51,7 +51,7 @@ export function Login() {
 
         {/* Decorative circles */}
         <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-teal-500/20 rounded-full blur-3xl" />
 
         {/* Content */}
         <div className="relative z-10">
@@ -61,7 +61,7 @@ export function Login() {
               <ChartNoAxesCombined className="w-6 h-6 text-white" strokeWidth={2} />
             </div>
             <span className="text-xl font-bold tracking-tight font-heading">
-              <span className="text-violet-300">Mi</span><span className="text-white">monotributo</span>
+              <span className="text-emerald-300">Mi</span><span className="text-white">monotributo</span>
             </span>
           </div>
         </div>
@@ -69,22 +69,26 @@ export function Login() {
         <div className="relative z-10 space-y-8">
           {/* Headline */}
           <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
+              <Gift className="w-5 h-5 text-emerald-300" />
+              <span className="text-white font-medium">100% Gratis</span>
+            </div>
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
-              Gestión simple<br />
-              para monotributistas
+              Herramientas<br />
+              para tu negocio
             </h1>
-            <p className="text-lg text-violet-100/80 max-w-md">
-              Administra tus clientes, facturas y gastos en un solo lugar. 
-              Simplifica tu trabajo y ahorra tiempo.
+            <p className="text-lg text-emerald-100/80 max-w-md">
+              Registrate gratis y accedé a herramientas que te van a simplificar
+              el día a día de tu emprendimiento.
             </p>
           </div>
 
           {/* Features */}
           <ul className="space-y-3">
-            {features.map((feature, index) => (
-              <li key={index} className="flex items-center gap-3 text-violet-100/90">
-                <CheckCircle2 size={20} className="text-violet-300 flex-shrink-0" />
-                <span>{feature}</span>
+            {beneficios.map((beneficio, index) => (
+              <li key={index} className="flex items-center gap-3 text-emerald-100/90">
+                <CheckCircle2 size={20} className="text-emerald-300 flex-shrink-0" />
+                <span>{beneficio}</span>
               </li>
             ))}
           </ul>
@@ -92,13 +96,13 @@ export function Login() {
 
         {/* Footer */}
         <div className="relative z-10">
-          <p className="text-violet-200/60 text-sm">
+          <p className="text-emerald-200/60 text-sm">
             © 2026 Mimonotributo. Todos los derechos reservados.
           </p>
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
+      {/* Right Panel - Register Form */}
       <div className="flex-1 flex flex-col bg-white">
         {/* Mobile Header */}
         <div className="lg:hidden p-6 pb-0">
@@ -114,25 +118,25 @@ export function Login() {
 
         {/* Form Container */}
         <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12">
-          <div className="w-full max-w-[400px]">
+          <div className="w-full max-w-[420px]">
             {/* Header */}
-            <div className="mb-8">
+            <div className="mb-6">
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                Iniciar sesión
+                Crear cuenta gratis
               </h2>
               <p className="text-gray-500">
-                Ingresa tus credenciales para continuar
+                Completá tus datos para acceder a las herramientas
               </p>
             </div>
 
             {/* Form */}
-            <LoginForm onSuccess={handleLoginSuccess} />
+            <RegisterForm onSuccess={handleRegisterSuccess} />
 
-            {/* Link to Register */}
+            {/* Link to Login */}
             <p className="mt-6 text-center text-gray-600">
-              ¿No tenés cuenta?{' '}
-              <Link to="/registro" className="text-violet-600 hover:text-violet-700 font-medium hover:underline">
-                Registrate gratis
+              ¿Ya tenés cuenta?{' '}
+              <Link to="/login" className="text-violet-600 hover:text-violet-700 font-medium hover:underline">
+                Iniciar sesión
               </Link>
             </p>
           </div>

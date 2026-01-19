@@ -8,11 +8,12 @@ import { useAuthContext } from '../../context/AuthContext'
  *   loading: boolean,
  *   isAuthenticated: boolean,
  *   signIn: (email: string, password: string) => Promise<{data?: object, error?: object}>,
- *   signOut: () => Promise<{error?: object}>
+ *   signOut: () => Promise<{error?: object}>,
+ *   signUpFree: (userData: object) => Promise<{data?: object, error?: object}>
  * }}
  */
 export function useAuth() {
-  const { user, session, loading, isAuthenticated, signIn, signOut } = useAuthContext()
+  const { user, session, loading, isAuthenticated, signIn, signOut, signUpFree } = useAuthContext()
 
   return {
     user,
@@ -21,5 +22,6 @@ export function useAuth() {
     isAuthenticated,
     signIn,
     signOut,
+    signUpFree,
   }
 }
