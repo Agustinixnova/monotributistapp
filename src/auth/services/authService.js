@@ -29,7 +29,8 @@ export const authService = {
    */
   async signUpFree({ email, password, nombre, apellido, whatsapp, origen, origenDetalle }) {
     try {
-      // 1. Crear usuario en auth.users
+      // 1. Crear usuario en auth.users con todos los datos en metadata
+      // El trigger 'on_auth_user_created_free' se encargará de crear el perfil en usuarios_free
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -37,6 +38,9 @@ export const authService = {
           data: {
             nombre,
             apellido,
+            whatsapp,
+            origen,
+            origen_detalle: origenDetalle || null,
             tipo_usuario: 'free'
           },
           emailRedirectTo: window.location.origin + '/login'
@@ -44,67 +48,33 @@ export const authService = {
       })
 
       if (authError) {
-        console.error('Auth error:', authError)
+        console.error('Auth signup error:', authError)
         return { data: null, error: authError }
       }
 
-      // Si el usuario requiere confirmación de email, authData.user existe pero session puede ser null
       if (!authData.user) {
         return { data: null, error: { message: 'No se pudo crear el usuario' } }
       }
 
-      // 2. Obtener el rol operador_gastos
-      const { data: rolData, error: rolError } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', 'operador_gastos')
-        .single()
-
-      if (rolError) {
-        console.error('Role error:', rolError)
-        throw new Error('No se encontró el rol operador_gastos')
-      }
-
-      // 3. Insertar en usuarios_free
-      // Nota: Si email confirmation está habilitada, esto podría fallar por RLS
-      // En ese caso, necesitamos crear el perfil con un trigger o edge function
-      const { error: insertError } = await supabase
-        .from('usuarios_free')
-        .insert({
-          id: authData.user.id,
-          email,
-          nombre,
-          apellido,
-          whatsapp,
-          role_id: rolData.id,
-          origen,
-          origen_detalle: origenDetalle || null
-        })
-
-      if (insertError) {
-        console.error('Insert error:', insertError)
-        // Si el error es por RLS (usuario no autenticado por confirmación pendiente)
-        // retornamos éxito de todos modos, pero con un flag especial
-        if (insertError.code === 'PGRST301' || insertError.message?.includes('JWT')) {
-          return {
-            data: authData,
-            error: null,
-            needsConfirmation: true,
-            message: 'Te enviamos un email para confirmar tu cuenta'
-          }
-        }
-        throw insertError
-      }
+      // El trigger ya creó el perfil en usuarios_free automáticamente
+      // Solo verificamos si tiene sesión activa (email confirmation deshabilitada)
+      // o si necesita confirmar email (email confirmation habilitada)
+      const needsConfirmation = authData.session === null
 
       return {
         data: authData,
         error: null,
-        needsConfirmation: authData.session === null,
-        message: authData.session ? 'Cuenta creada exitosamente' : 'Te enviamos un email para confirmar tu cuenta'
+        needsConfirmation,
+        message: needsConfirmation
+          ? 'Te enviamos un email para confirmar tu cuenta'
+          : 'Cuenta creada exitosamente'
       }
     } catch (error) {
       console.error('Error in signUpFree:', error)
-      return { data: null, error: { message: error.message || 'Error al crear la cuenta' } }
+      return {
+        data: null,
+        error: { message: error.message || 'Error al crear la cuenta' }
+      }
     }
   },
 
