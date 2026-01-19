@@ -8,6 +8,7 @@ Este directorio contiene la documentacion de las Edge Functions de Supabase.
 |---------|-------------|---------------|
 | `create-user` | Crea un usuario con perfil y datos fiscales | [create-user.md](./create-user.md) |
 | `reset-password` | Resetea la contraseña de un usuario | [reset-password.md](./reset-password.md) |
+| `register-free-user` | Crea usuarios gratuitos pre-confirmados con Admin API | [register-free-user.md](./register-free-user.md) |
 
 ## Estructura de Documentacion
 
@@ -73,4 +74,4 @@ npx supabase functions deploy nombre_funcion
 
 ## Ultima Actualizacion
 
-2026-01-06 - Agregada funcion reset-password
+2026-01-19 - Agregada funcion register-free-user (usuarios pre-confirmados con Admin API)

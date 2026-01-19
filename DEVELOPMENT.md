@@ -1,38 +1,39 @@
 # Guía de Desarrollo
 
-## Configuración de Supabase para Desarrollo Local
+## Sistema de Registro
 
-### Desactivar Confirmación de Email
+### Registro de Usuarios Gratuitos (Sin Confirmación de Email)
 
-Por defecto, Supabase requiere que los usuarios confirmen su email antes de poder iniciar sesión. Esto es ideal para producción, pero puede ser tedioso durante el desarrollo.
+El sistema usa una **Edge Function con Admin API** para crear usuarios pre-confirmados automáticamente. Esto significa:
 
-#### Opción 1: Desactivar Confirmación de Email (Recomendado para desarrollo)
+✅ **No necesitas desactivar la confirmación de email en Supabase**
+✅ **Los usuarios gratuitos se crean activos al instante**
+✅ **Mantiene la seguridad usando SERVICE_ROLE_KEY solo en servidor**
 
-1. Ve a tu dashboard de Supabase: https://supabase.com/dashboard/project/nhwiezngaprzoqcvutbx
-2. Navega a **Authentication** → **Settings** → **Email Auth**
-3. Desmarca la opción **"Enable email confirmations"**
-4. Guarda los cambios
+#### Cómo Funciona
 
-Con esto, los usuarios podrán iniciar sesión inmediatamente después de registrarse sin necesitar confirmar su email.
+1. El frontend llama a `authService.signUpFree()`
+2. Se invoca la Edge Function `register-free-user`
+3. La Edge Function usa `auth.admin.createUser()` con `email_confirm: true`
+4. El usuario se crea pre-confirmado (sin necesidad de email)
+5. Se hace auto-login y devuelve la sesión al cliente
 
-#### Opción 2: Confirmar Emails Manualmente (Para testing)
+#### Ventajas de Este Enfoque
 
-Si preferís mantener la confirmación habilitada:
+- **Seguridad**: SERVICE_ROLE_KEY nunca se expone al frontend
+- **UX**: Registro instantáneo, sin esperar emails
+- **Flexibilidad**: Configuración global de Supabase no afecta a usuarios gratuitos
+- **Mantenibilidad**: Un solo lugar donde se crea usuarios gratuitos
+
+#### Testing Manual de Usuarios (Opcional)
+
+Si necesitás confirmar usuarios manualmente creados por otros métodos:
 
 1. Ve a **Authentication** → **Users** en el dashboard de Supabase
 2. Encuentra el usuario que registraste
 3. Haz click en el usuario
 4. Busca el botón **"Confirm user"** y hacé click
 5. Ahora el usuario podrá iniciar sesión
-
-#### Opción 3: Usar Mailtrap o similar (Para testing de emails)
-
-Para testear el flujo completo de confirmación de email:
-
-1. Configurá un servicio de email de testing como [Mailtrap](https://mailtrap.io/)
-2. En Supabase, ve a **Authentication** → **Settings** → **SMTP Settings**
-3. Configurá los datos de Mailtrap
-4. Los emails llegarán a la bandeja de Mailtrap para testing
 
 ---
 
@@ -88,18 +89,24 @@ Para testear el flujo completo de confirmación de email:
 ## Troubleshooting
 
 ### "Email o contraseña incorrectos"
-- Verificá que el usuario esté confirmado (ver Opción 2 arriba)
 - Verificá que las credenciales sean correctas
 - Revisá la consola del navegador para ver el error exacto
+- Si el usuario se registró antes de la implementación de la Edge Function, puede que necesite confirmación manual
 
-### "Tu cuenta aún no está verificada"
-- El usuario necesita confirmar su email
-- Seguí las instrucciones de Opción 1 o 2 arriba
+### "Error al crear la cuenta"
+- Verificá que la Edge Function `register-free-user` esté desplegada
+- Revisá los logs de la Edge Function en el dashboard de Supabase
+- Verificá que el email no esté ya registrado
 
 ### Usuario no puede acceder al Dashboard
 - Verificá que el usuario tenga un rol asignado
 - Usuarios gratuitos deben estar en `usuarios_free`
 - Usuarios premium deben estar en `profiles`
+
+### Edge Function no responde
+- Verificá que esté desplegada: `npx supabase functions deploy register-free-user`
+- Revisá los logs: Dashboard → Edge Functions → register-free-user → Logs
+- Verificá las variables de entorno en el dashboard
 
 ---
 
@@ -107,10 +114,12 @@ Para testear el flujo completo de confirmación de email:
 
 ### Test: Registro Gratuito
 1. Ir a `/registro`
-2. Completar formulario
-3. Si confirmación está habilitada: revisar mensaje de confirmación
-4. Si confirmación está deshabilitada: login automático
-5. Verificar redirección a Dashboard personalizado
+2. Completar formulario (email, contraseña, nombre, apellido, whatsapp, origen)
+3. Click en "Crear cuenta"
+4. El usuario se crea **pre-confirmado** automáticamente
+5. Login automático inmediato (sin confirmación de email)
+6. Verificar redirección a DashboardGratuito con saludo personalizado
+7. Verificar acceso a todas las herramientas desde las cards
 
 ### Test: Login Usuario Gratuito
 1. Ir a `/login`

@@ -17,6 +17,7 @@ export const authService = {
 
   /**
    * Sign up a new free user (operador_gastos)
+   * Usa Edge Function para crear usuario pre-confirmado con Admin API
    * @param {object} userData - User data
    * @param {string} userData.email
    * @param {string} userData.password
@@ -25,49 +26,56 @@ export const authService = {
    * @param {string} userData.whatsapp
    * @param {string} userData.origen - recomendacion, instagram, tiktok, google, otros
    * @param {string} userData.origenDetalle - Optional detail
-   * @returns {Promise<{data: object, error: object}>}
+   * @returns {Promise<{data: object, error: object, session: object}>}
    */
   async signUpFree({ email, password, nombre, apellido, whatsapp, origen, origenDetalle }) {
     try {
-      // 1. Crear usuario en auth.users con todos los datos en metadata
-      // El trigger 'on_auth_user_created_free' se encargará de crear el perfil en usuarios_free
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nombre,
-            apellido,
-            whatsapp,
-            origen,
-            origen_detalle: origenDetalle || null,
-            tipo_usuario: 'free'
-          },
-          emailRedirectTo: window.location.origin + '/login'
+      // Llamar a Edge Function que usa Admin API (seguro)
+      const { data, error } = await supabase.functions.invoke('register-free-user', {
+        body: {
+          email,
+          password,
+          nombre,
+          apellido,
+          whatsapp,
+          origen,
+          origenDetalle
         }
       })
 
-      if (authError) {
-        console.error('Auth signup error:', authError)
-        return { data: null, error: authError }
+      if (error) {
+        console.error('Edge function error:', error)
+        return {
+          data: null,
+          error: { message: error.message || 'Error al crear la cuenta' }
+        }
       }
 
-      if (!authData.user) {
-        return { data: null, error: { message: 'No se pudo crear el usuario' } }
+      if (data.error) {
+        console.error('Server error:', data.error)
+        return {
+          data: null,
+          error: { message: data.error || 'Error al crear la cuenta' }
+        }
       }
 
-      // El trigger ya creó el perfil en usuarios_free automáticamente
-      // Solo verificamos si tiene sesión activa (email confirmation deshabilitada)
-      // o si necesita confirmar email (email confirmation habilitada)
-      const needsConfirmation = authData.session === null
+      // La Edge Function ya creó el usuario Y lo logueo
+      // Establecer la sesión en el cliente
+      if (data.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token
+        })
+      }
 
       return {
-        data: authData,
+        data: {
+          user: data.user,
+          session: data.session
+        },
         error: null,
-        needsConfirmation,
-        message: needsConfirmation
-          ? 'Te enviamos un email para confirmar tu cuenta'
-          : 'Cuenta creada exitosamente'
+        needsConfirmation: false, // Siempre false porque usamos Admin API
+        message: data.message || 'Cuenta creada exitosamente'
       }
     } catch (error) {
       console.error('Error in signUpFree:', error)
