@@ -67,26 +67,25 @@ serve(async (req) => {
 
     // El trigger on_auth_user_created_free creará el perfil en usuarios_free
 
-    // Ahora hacer login del usuario para obtener sesión
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-
-    const { data: sessionData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
+    // Crear sesión usando Admin API (evita el error "Email signups are disabled")
+    // Usamos admin.createSession() que funciona incluso con signups deshabilitados
+    const { data, error: sessionError } = await supabaseAdmin.auth.admin.createSession({
+      user_id: userData.user.id
     })
 
-    if (signInError) {
-      console.error('Error iniciando sesión:', signInError)
+    if (sessionError || !data?.session) {
+      console.error('Error creando sesión:', sessionError)
+      // Usuario creado exitosamente, pero no pudimos hacer auto-login
+      // El usuario puede loguearse manualmente
       return new Response(
         JSON.stringify({
-          error: 'Usuario creado pero no se pudo iniciar sesión',
-          details: signInError.message
+          user: userData.user,
+          session: null,
+          message: 'Cuenta creada exitosamente. Por favor inicia sesión manualmente.',
+          needsManualLogin: true
         }),
         {
-          status: 500,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
@@ -95,8 +94,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         user: userData.user,
-        session: sessionData.session,
-        message: 'Cuenta creada exitosamente'
+        session: data.session,
+        message: 'Cuenta creada exitosamente',
+        needsManualLogin: false
       }),
       {
         status: 200,

@@ -16,11 +16,16 @@ export function Register() {
     }
   }, [isAuthenticated, loading, navigate])
 
-  const handleRegisterSuccess = (needsConfirmation, message) => {
-    if (needsConfirmation) {
+  const handleRegisterSuccess = (needsConfirmation, message, needsManualLogin = false) => {
+    if (needsManualLogin) {
+      // Usuario creado pero necesita login manual
+      setConfirmationText(message || 'Cuenta creada exitosamente. Por favor inicia sesión.')
+      setShowConfirmationMessage(true)
+    } else if (needsConfirmation) {
       setConfirmationText(message || 'Te enviamos un email para confirmar tu cuenta')
       setShowConfirmationMessage(true)
     } else {
+      // Login automático exitoso
       navigate('/', { replace: true })
     }
   }
@@ -142,21 +147,27 @@ export function Register() {
                 {/* Success Icon */}
                 <div className="flex justify-center">
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <Mail className="w-8 h-8 text-emerald-600" />
+                    {confirmationText.includes('inicia sesión') ? (
+                      <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                    ) : (
+                      <Mail className="w-8 h-8 text-emerald-600" />
+                    )}
                   </div>
                 </div>
 
                 {/* Message */}
                 <div className="text-center space-y-2">
                   <h3 className="text-xl font-semibold text-gray-900">
-                    Revisa tu email
+                    {confirmationText.includes('inicia sesión') ? '¡Cuenta creada!' : 'Revisa tu email'}
                   </h3>
                   <p className="text-gray-600">
                     {confirmationText}
                   </p>
-                  <p className="text-sm text-gray-500 mt-4">
-                    Hacé click en el link del email para activar tu cuenta y comenzar a usar todas las herramientas.
-                  </p>
+                  {!confirmationText.includes('inicia sesión') && (
+                    <p className="text-sm text-gray-500 mt-4">
+                      Hacé click en el link del email para activar tu cuenta y comenzar a usar todas las herramientas.
+                    </p>
+                  )}
                 </div>
 
                 {/* Action */}
@@ -168,9 +179,11 @@ export function Register() {
                     Ir a iniciar sesión
                   </Link>
 
-                  <p className="text-xs text-center text-gray-500">
-                    Si no recibiste el email, revisa tu carpeta de spam
-                  </p>
+                  {!confirmationText.includes('inicia sesión') && (
+                    <p className="text-xs text-center text-gray-500">
+                      Si no recibiste el email, revisa tu carpeta de spam
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

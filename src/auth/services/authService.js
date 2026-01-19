@@ -59,8 +59,8 @@ export const authService = {
         }
       }
 
-      // La Edge Function ya creó el usuario Y lo logueo
-      // Establecer la sesión en el cliente
+      // La Edge Function ya creó el usuario Y lo logueo (si pudo)
+      // Establecer la sesión en el cliente si existe
       if (data.session) {
         await supabase.auth.setSession({
           access_token: data.session.access_token,
@@ -75,6 +75,7 @@ export const authService = {
         },
         error: null,
         needsConfirmation: false, // Siempre false porque usamos Admin API
+        needsManualLogin: data.needsManualLogin || false, // Si true, usuario debe loguearse manualmente
         message: data.message || 'Cuenta creada exitosamente'
       }
     } catch (error) {

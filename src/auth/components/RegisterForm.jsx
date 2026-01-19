@@ -106,8 +106,12 @@ export function RegisterForm({ onSuccess }) {
         return
       }
 
-      // Si requiere confirmación de email, mostrar mensaje apropiado
-      onSuccess?.(result.needsConfirmation, result.message)
+      // Si requiere login manual, mostrar mensaje diferente
+      if (result.needsManualLogin) {
+        onSuccess?.(false, result.message, true) // tercer parámetro: needsManualLogin
+      } else {
+        onSuccess?.(result.needsConfirmation, result.message, false)
+      }
     } catch (err) {
       console.error('Catch error:', err)
       setServerError('Error de conexión. Verifica tu internet.')
