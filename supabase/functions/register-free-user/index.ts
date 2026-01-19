@@ -12,6 +12,9 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Version: 2.0 - Using admin.createSession()
+  console.log('Edge Function Version 2.0 - admin.createSession')
+
   try {
     // Crear cliente admin con SERVICE_ROLE_KEY (seguro en Edge Function)
     const supabaseAdmin = createClient(
@@ -82,8 +85,17 @@ serve(async (req) => {
 
     if (createError) {
       console.error('Error creando usuario:', createError)
+
+      // Mensaje específico para email duplicado
+      const errorMessage = createError.message?.includes('already been registered') || createError.code === 'email_exists'
+        ? 'Este email ya está registrado. Por favor inicia sesión o usa otro email.'
+        : createError.message || 'Error al crear el usuario'
+
       return new Response(
-        JSON.stringify({ error: createError.message }),
+        JSON.stringify({
+          error: errorMessage,
+          code: createError.code
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
