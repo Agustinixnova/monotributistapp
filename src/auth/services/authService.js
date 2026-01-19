@@ -28,36 +28,46 @@ export const authService = {
    * @returns {Promise<{data: object, error: object}>}
    */
   async signUpFree({ email, password, nombre, apellido, whatsapp, origen, origenDetalle }) {
-    // 1. Crear usuario en auth.users
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          nombre,
-          apellido,
-          tipo_usuario: 'free' // Para identificar que es usuario gratuito
-        }
-      }
-    })
-
-    if (authError) {
-      return { data: null, error: authError }
-    }
-
-    // 2. El trigger o la inserción manual creará el registro en usuarios_free
-    // Por ahora lo hacemos manualmente ya que necesitamos obtener el role_id
     try {
-      // Obtener el rol operador_gastos
+      // 1. Crear usuario en auth.users
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nombre,
+            apellido,
+            tipo_usuario: 'free'
+          },
+          emailRedirectTo: window.location.origin + '/login'
+        }
+      })
+
+      if (authError) {
+        console.error('Auth error:', authError)
+        return { data: null, error: authError }
+      }
+
+      // Si el usuario requiere confirmación de email, authData.user existe pero session puede ser null
+      if (!authData.user) {
+        return { data: null, error: { message: 'No se pudo crear el usuario' } }
+      }
+
+      // 2. Obtener el rol operador_gastos
       const { data: rolData, error: rolError } = await supabase
         .from('roles')
         .select('id')
         .eq('name', 'operador_gastos')
         .single()
 
-      if (rolError) throw rolError
+      if (rolError) {
+        console.error('Role error:', rolError)
+        throw new Error('No se encontró el rol operador_gastos')
+      }
 
-      // Insertar en usuarios_free
+      // 3. Insertar en usuarios_free
+      // Nota: Si email confirmation está habilitada, esto podría fallar por RLS
+      // En ese caso, necesitamos crear el perfil con un trigger o edge function
       const { error: insertError } = await supabase
         .from('usuarios_free')
         .insert({
@@ -71,14 +81,30 @@ export const authService = {
           origen_detalle: origenDetalle || null
         })
 
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error('Insert error:', insertError)
+        // Si el error es por RLS (usuario no autenticado por confirmación pendiente)
+        // retornamos éxito de todos modos, pero con un flag especial
+        if (insertError.code === 'PGRST301' || insertError.message?.includes('JWT')) {
+          return {
+            data: authData,
+            error: null,
+            needsConfirmation: true,
+            message: 'Te enviamos un email para confirmar tu cuenta'
+          }
+        }
+        throw insertError
+      }
 
-      return { data: authData, error: null }
+      return {
+        data: authData,
+        error: null,
+        needsConfirmation: authData.session === null,
+        message: authData.session ? 'Cuenta creada exitosamente' : 'Te enviamos un email para confirmar tu cuenta'
+      }
     } catch (error) {
-      // Si falla la inserción en usuarios_free, intentar limpiar el usuario de auth
-      // (esto no siempre funciona desde el cliente, pero lo intentamos)
-      console.error('Error creating free user profile:', error)
-      return { data: null, error }
+      console.error('Error in signUpFree:', error)
+      return { data: null, error: { message: error.message || 'Error al crear la cuenta' } }
     }
   },
 

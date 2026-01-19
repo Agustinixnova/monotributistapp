@@ -85,7 +85,7 @@ export function RegisterForm({ onSuccess }) {
     setIsLoading(true)
 
     try {
-      const { error } = await signUpFree({
+      const result = await signUpFree({
         email: formData.email.trim(),
         password: formData.password,
         nombre: formData.nombre.trim(),
@@ -94,19 +94,22 @@ export function RegisterForm({ onSuccess }) {
         origen: formData.origen
       })
 
-      if (error) {
-        if (error.message?.includes('already registered')) {
+      if (result.error) {
+        if (result.error.message?.includes('already registered') || result.error.message?.includes('already been registered')) {
           setServerError('Este email ya está registrado')
-        } else if (error.message?.includes('weak password')) {
+        } else if (result.error.message?.includes('weak password')) {
           setServerError('La contraseña es muy débil')
         } else {
-          setServerError('Error al registrarse. Intenta nuevamente.')
+          console.error('Signup error:', result.error)
+          setServerError(result.error.message || 'Error al registrarse. Intenta nuevamente.')
         }
         return
       }
 
-      onSuccess?.()
-    } catch {
+      // Si requiere confirmación de email, mostrar mensaje apropiado
+      onSuccess?.(result.needsConfirmation, result.message)
+    } catch (err) {
+      console.error('Catch error:', err)
       setServerError('Error de conexión. Verifica tu internet.')
     } finally {
       setIsLoading(false)

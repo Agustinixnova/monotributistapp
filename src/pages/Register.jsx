@@ -1,12 +1,14 @@
 import { useNavigate, Link } from 'react-router-dom'
 import { RegisterForm } from '../auth/components/RegisterForm'
 import { useAuth } from '../auth/hooks/useAuth'
-import { useEffect } from 'react'
-import { ChartNoAxesCombined, CheckCircle2, Gift } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChartNoAxesCombined, CheckCircle2, Gift, Mail } from 'lucide-react'
 
 export function Register() {
   const navigate = useNavigate()
   const { isAuthenticated, loading } = useAuth()
+  const [showConfirmationMessage, setShowConfirmationMessage] = useState(false)
+  const [confirmationText, setConfirmationText] = useState('')
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -14,8 +16,13 @@ export function Register() {
     }
   }, [isAuthenticated, loading, navigate])
 
-  const handleRegisterSuccess = () => {
-    navigate('/', { replace: true })
+  const handleRegisterSuccess = (needsConfirmation, message) => {
+    if (needsConfirmation) {
+      setConfirmationText(message || 'Te enviamos un email para confirmar tu cuenta')
+      setShowConfirmationMessage(true)
+    } else {
+      navigate('/', { replace: true })
+    }
   }
 
   if (loading) {
@@ -129,16 +136,56 @@ export function Register() {
               </p>
             </div>
 
-            {/* Form */}
-            <RegisterForm onSuccess={handleRegisterSuccess} />
+            {/* Form or Confirmation Message */}
+            {showConfirmationMessage ? (
+              <div className="space-y-6">
+                {/* Success Icon */}
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <Mail className="w-8 h-8 text-emerald-600" />
+                  </div>
+                </div>
+
+                {/* Message */}
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    Revisa tu email
+                  </h3>
+                  <p className="text-gray-600">
+                    {confirmationText}
+                  </p>
+                  <p className="text-sm text-gray-500 mt-4">
+                    Hacé click en el link del email para activar tu cuenta y comenzar a usar todas las herramientas.
+                  </p>
+                </div>
+
+                {/* Action */}
+                <div className="space-y-3">
+                  <Link
+                    to="/login"
+                    className="block w-full h-[52px] rounded-xl font-semibold text-white bg-violet-600 hover:bg-violet-700 transition-colors flex items-center justify-center"
+                  >
+                    Ir a iniciar sesión
+                  </Link>
+
+                  <p className="text-xs text-center text-gray-500">
+                    Si no recibiste el email, revisa tu carpeta de spam
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <RegisterForm onSuccess={handleRegisterSuccess} />
+            )}
 
             {/* Link to Login */}
-            <p className="mt-6 text-center text-gray-600">
-              ¿Ya tenés cuenta?{' '}
-              <Link to="/login" className="text-violet-600 hover:text-violet-700 font-medium hover:underline">
-                Iniciar sesión
-              </Link>
-            </p>
+            {!showConfirmationMessage && (
+              <p className="mt-6 text-center text-gray-600">
+                ¿Ya tenés cuenta?{' '}
+                <Link to="/login" className="text-violet-600 hover:text-violet-700 font-medium hover:underline">
+                  Iniciar sesión
+                </Link>
+              </p>
+            )}
           </div>
         </div>
 
