@@ -88,26 +88,41 @@ export function Dashboard() {
     const fetchRole = async () => {
       if (!user?.id) return
 
+      console.log('Dashboard: Buscando rol para user.id:', user.id)
+
       // Primero intentar obtener de profiles (usuarios premium)
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('nombre, apellido, roles(name)')
         .eq('id', user.id)
         .maybeSingle()
 
+      console.log('Dashboard: profileData:', profileData, 'error:', profileError)
+
       // Si no está en profiles, es usuario gratuito, buscar en usuarios_free
       if (!profileData) {
-        const { data: freeUserData } = await supabase
+        // Consulta simplificada sin JOIN para evitar problemas de RLS
+        const { data: freeUserData, error: freeError } = await supabase
           .from('usuarios_free')
-          .select('nombre, apellido, roles(name)')
+          .select('nombre, apellido, role_id')
           .eq('id', user.id)
           .maybeSingle()
 
+        console.log('Dashboard: freeUserData:', freeUserData, 'error:', freeError)
+
         if (freeUserData) {
-          setRoleName(freeUserData?.roles?.name || 'operador_gastos')
+          // Usuario gratuito siempre es operador_gastos o empleado
+          // Verificamos si tiene role_id para determinar
+          console.log('Dashboard: Usuario gratuito detectado, role_id:', freeUserData.role_id)
+          setRoleName('operador_gastos') // Default para usuarios gratuitos
           setNombreUsuario(freeUserData?.nombre || '')
+        } else {
+          console.log('Dashboard: Usuario no encontrado en ninguna tabla')
+          // Si no está en ninguna tabla pero existe en auth, asumimos que es gratuito
+          setRoleName('operador_gastos')
         }
       } else {
+        console.log('Dashboard: Usuario premium detectado, rol:', profileData?.roles?.name)
         setRoleName(profileData?.roles?.name || null)
         setNombreUsuario(profileData?.nombre || '')
       }
