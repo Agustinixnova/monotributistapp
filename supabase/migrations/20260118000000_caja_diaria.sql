@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.caja_metodos_pago (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     -- NULL = método del sistema, NOT NULL = personalizado
     nombre VARCHAR(50) NOT NULL,
-    icono VARCHAR(10) DEFAULT '💰',
+    icono VARCHAR(50) DEFAULT 'Wallet',
     es_efectivo BOOLEAN DEFAULT false,
     es_sistema BOOLEAN DEFAULT false,
     orden INT DEFAULT 0,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.caja_categorias (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     nombre VARCHAR(50) NOT NULL,
-    icono VARCHAR(10) DEFAULT '📋',
+    icono VARCHAR(50) DEFAULT 'List',
     tipo VARCHAR(10) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'ambos')),
     es_sistema BOOLEAN DEFAULT false,
     orden INT DEFAULT 0,
@@ -118,24 +118,28 @@ CREATE INDEX IF NOT EXISTS idx_caja_cierres_fecha ON public.caja_cierres(fecha);
 CREATE INDEX IF NOT EXISTS idx_caja_cierres_cerrado ON public.caja_cierres(cerrado);
 
 -- =====================================================
--- RLS POLICIES
+-- RLS POLICIES (usando DROP IF EXISTS para idempotencia)
 -- =====================================================
 
 -- Métodos de pago
 ALTER TABLE public.caja_metodos_pago ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "caja_metodos_select" ON public.caja_metodos_pago;
 CREATE POLICY "caja_metodos_select" ON public.caja_metodos_pago
     FOR SELECT TO authenticated
     USING (es_sistema = true OR user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_metodos_insert" ON public.caja_metodos_pago;
 CREATE POLICY "caja_metodos_insert" ON public.caja_metodos_pago
     FOR INSERT TO authenticated
     WITH CHECK (user_id = auth.uid() AND es_sistema = false);
 
+DROP POLICY IF EXISTS "caja_metodos_update" ON public.caja_metodos_pago;
 CREATE POLICY "caja_metodos_update" ON public.caja_metodos_pago
     FOR UPDATE TO authenticated
     USING (user_id = auth.uid() AND es_sistema = false);
 
+DROP POLICY IF EXISTS "caja_metodos_delete" ON public.caja_metodos_pago;
 CREATE POLICY "caja_metodos_delete" ON public.caja_metodos_pago
     FOR DELETE TO authenticated
     USING (user_id = auth.uid() AND es_sistema = false);
@@ -143,18 +147,22 @@ CREATE POLICY "caja_metodos_delete" ON public.caja_metodos_pago
 -- Categorías
 ALTER TABLE public.caja_categorias ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "caja_categorias_select" ON public.caja_categorias;
 CREATE POLICY "caja_categorias_select" ON public.caja_categorias
     FOR SELECT TO authenticated
     USING (es_sistema = true OR user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_categorias_insert" ON public.caja_categorias;
 CREATE POLICY "caja_categorias_insert" ON public.caja_categorias
     FOR INSERT TO authenticated
     WITH CHECK (user_id = auth.uid() AND es_sistema = false);
 
+DROP POLICY IF EXISTS "caja_categorias_update" ON public.caja_categorias;
 CREATE POLICY "caja_categorias_update" ON public.caja_categorias
     FOR UPDATE TO authenticated
     USING (user_id = auth.uid() AND es_sistema = false);
 
+DROP POLICY IF EXISTS "caja_categorias_delete" ON public.caja_categorias;
 CREATE POLICY "caja_categorias_delete" ON public.caja_categorias
     FOR DELETE TO authenticated
     USING (user_id = auth.uid() AND es_sistema = false);
@@ -162,18 +170,22 @@ CREATE POLICY "caja_categorias_delete" ON public.caja_categorias
 -- Movimientos
 ALTER TABLE public.caja_movimientos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "caja_movimientos_select" ON public.caja_movimientos;
 CREATE POLICY "caja_movimientos_select" ON public.caja_movimientos
     FOR SELECT TO authenticated
     USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_movimientos_insert" ON public.caja_movimientos;
 CREATE POLICY "caja_movimientos_insert" ON public.caja_movimientos
     FOR INSERT TO authenticated
     WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_movimientos_update" ON public.caja_movimientos;
 CREATE POLICY "caja_movimientos_update" ON public.caja_movimientos
     FOR UPDATE TO authenticated
     USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_movimientos_delete" ON public.caja_movimientos;
 CREATE POLICY "caja_movimientos_delete" ON public.caja_movimientos
     FOR DELETE TO authenticated
     USING (user_id = auth.uid());
@@ -181,6 +193,7 @@ CREATE POLICY "caja_movimientos_delete" ON public.caja_movimientos
 -- Movimientos pagos
 ALTER TABLE public.caja_movimientos_pagos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "caja_movimientos_pagos_select" ON public.caja_movimientos_pagos;
 CREATE POLICY "caja_movimientos_pagos_select" ON public.caja_movimientos_pagos
     FOR SELECT TO authenticated
     USING (
@@ -190,6 +203,7 @@ CREATE POLICY "caja_movimientos_pagos_select" ON public.caja_movimientos_pagos
         )
     );
 
+DROP POLICY IF EXISTS "caja_movimientos_pagos_insert" ON public.caja_movimientos_pagos;
 CREATE POLICY "caja_movimientos_pagos_insert" ON public.caja_movimientos_pagos
     FOR INSERT TO authenticated
     WITH CHECK (
@@ -199,6 +213,7 @@ CREATE POLICY "caja_movimientos_pagos_insert" ON public.caja_movimientos_pagos
         )
     );
 
+DROP POLICY IF EXISTS "caja_movimientos_pagos_update" ON public.caja_movimientos_pagos;
 CREATE POLICY "caja_movimientos_pagos_update" ON public.caja_movimientos_pagos
     FOR UPDATE TO authenticated
     USING (
@@ -208,6 +223,7 @@ CREATE POLICY "caja_movimientos_pagos_update" ON public.caja_movimientos_pagos
         )
     );
 
+DROP POLICY IF EXISTS "caja_movimientos_pagos_delete" ON public.caja_movimientos_pagos;
 CREATE POLICY "caja_movimientos_pagos_delete" ON public.caja_movimientos_pagos
     FOR DELETE TO authenticated
     USING (
@@ -220,18 +236,22 @@ CREATE POLICY "caja_movimientos_pagos_delete" ON public.caja_movimientos_pagos
 -- Cierres
 ALTER TABLE public.caja_cierres ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "caja_cierres_select" ON public.caja_cierres;
 CREATE POLICY "caja_cierres_select" ON public.caja_cierres
     FOR SELECT TO authenticated
     USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_cierres_insert" ON public.caja_cierres;
 CREATE POLICY "caja_cierres_insert" ON public.caja_cierres
     FOR INSERT TO authenticated
     WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_cierres_update" ON public.caja_cierres;
 CREATE POLICY "caja_cierres_update" ON public.caja_cierres
     FOR UPDATE TO authenticated
     USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "caja_cierres_delete" ON public.caja_cierres;
 CREATE POLICY "caja_cierres_delete" ON public.caja_cierres
     FOR DELETE TO authenticated
     USING (user_id = auth.uid());
@@ -240,7 +260,7 @@ CREATE POLICY "caja_cierres_delete" ON public.caja_cierres
 -- FUNCIONES RPC
 -- =====================================================
 
--- Función: Resumen del día
+-- Función: Resumen del día (CORREGIDA - sin duplicación de totales)
 CREATE OR REPLACE FUNCTION public.caja_resumen_dia(
     p_user_id UUID,
     p_fecha DATE DEFAULT CURRENT_DATE
@@ -257,32 +277,97 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-    WITH movimientos_dia AS (
-        SELECT
-            m.id,
-            m.tipo,
-            m.monto_total,
-            mp.monto as pago_monto,
-            met.es_efectivo
-        FROM public.caja_movimientos m
-        JOIN public.caja_movimientos_pagos mp ON mp.movimiento_id = m.id
-        JOIN public.caja_metodos_pago met ON met.id = mp.metodo_pago_id
-        WHERE m.user_id = p_user_id
-        AND m.fecha = p_fecha
-        AND m.anulado = false
-    )
     SELECT
-        COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN monto_total END), 0)::DECIMAL as total_entradas,
-        COALESCE(SUM(CASE WHEN tipo = 'salida' THEN monto_total END), 0)::DECIMAL as total_salidas,
-        COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN monto_total ELSE -monto_total END), 0)::DECIMAL as saldo,
-        COALESCE(SUM(CASE WHEN tipo = 'entrada' AND es_efectivo THEN pago_monto END), 0)::DECIMAL as efectivo_entradas,
-        COALESCE(SUM(CASE WHEN tipo = 'salida' AND es_efectivo THEN pago_monto END), 0)::DECIMAL as efectivo_salidas,
-        COALESCE(SUM(CASE WHEN es_efectivo THEN
-            CASE WHEN tipo = 'entrada' THEN pago_monto ELSE -pago_monto END
-        END), 0)::DECIMAL as efectivo_saldo,
-        COALESCE(SUM(CASE WHEN tipo = 'entrada' AND NOT es_efectivo THEN pago_monto END), 0)::DECIMAL as digital_entradas,
-        COALESCE(SUM(CASE WHEN tipo = 'salida' AND NOT es_efectivo THEN pago_monto END), 0)::DECIMAL as digital_salidas
-    FROM movimientos_dia;
+        -- Totales generales (desde caja_movimientos directo, SIN joins para evitar duplicación)
+        COALESCE((
+            SELECT SUM(m.monto_total)
+            FROM public.caja_movimientos m
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.tipo = 'entrada'
+            AND m.anulado = false
+        ), 0)::DECIMAL as total_entradas,
+
+        COALESCE((
+            SELECT SUM(m.monto_total)
+            FROM public.caja_movimientos m
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.tipo = 'salida'
+            AND m.anulado = false
+        ), 0)::DECIMAL as total_salidas,
+
+        COALESCE((
+            SELECT SUM(CASE WHEN m.tipo = 'entrada' THEN m.monto_total ELSE -m.monto_total END)
+            FROM public.caja_movimientos m
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.anulado = false
+        ), 0)::DECIMAL as saldo,
+
+        -- Efectivo entradas (desde tabla de pagos)
+        COALESCE((
+            SELECT SUM(mp.monto)
+            FROM public.caja_movimientos m
+            JOIN public.caja_movimientos_pagos mp ON mp.movimiento_id = m.id
+            JOIN public.caja_metodos_pago met ON met.id = mp.metodo_pago_id
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.tipo = 'entrada'
+            AND m.anulado = false
+            AND met.es_efectivo = true
+        ), 0)::DECIMAL as efectivo_entradas,
+
+        -- Efectivo salidas (desde tabla de pagos)
+        COALESCE((
+            SELECT SUM(mp.monto)
+            FROM public.caja_movimientos m
+            JOIN public.caja_movimientos_pagos mp ON mp.movimiento_id = m.id
+            JOIN public.caja_metodos_pago met ON met.id = mp.metodo_pago_id
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.tipo = 'salida'
+            AND m.anulado = false
+            AND met.es_efectivo = true
+        ), 0)::DECIMAL as efectivo_salidas,
+
+        -- Efectivo saldo
+        COALESCE((
+            SELECT SUM(CASE WHEN m.tipo = 'entrada' THEN mp.monto ELSE -mp.monto END)
+            FROM public.caja_movimientos m
+            JOIN public.caja_movimientos_pagos mp ON mp.movimiento_id = m.id
+            JOIN public.caja_metodos_pago met ON met.id = mp.metodo_pago_id
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.anulado = false
+            AND met.es_efectivo = true
+        ), 0)::DECIMAL as efectivo_saldo,
+
+        -- Digital entradas (desde tabla de pagos)
+        COALESCE((
+            SELECT SUM(mp.monto)
+            FROM public.caja_movimientos m
+            JOIN public.caja_movimientos_pagos mp ON mp.movimiento_id = m.id
+            JOIN public.caja_metodos_pago met ON met.id = mp.metodo_pago_id
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.tipo = 'entrada'
+            AND m.anulado = false
+            AND met.es_efectivo = false
+        ), 0)::DECIMAL as digital_entradas,
+
+        -- Digital salidas (desde tabla de pagos)
+        COALESCE((
+            SELECT SUM(mp.monto)
+            FROM public.caja_movimientos m
+            JOIN public.caja_movimientos_pagos mp ON mp.movimiento_id = m.id
+            JOIN public.caja_metodos_pago met ON met.id = mp.metodo_pago_id
+            WHERE m.user_id = p_user_id
+            AND m.fecha = p_fecha
+            AND m.tipo = 'salida'
+            AND m.anulado = false
+            AND met.es_efectivo = false
+        ), 0)::DECIMAL as digital_salidas;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 

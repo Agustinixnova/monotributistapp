@@ -10,21 +10,37 @@ import InputMonto from './InputMonto'
 export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoInicial, estaCerrado }) {
   const [editando, setEditando] = useState(false)
   const [nuevoSaldo, setNuevoSaldo] = useState(saldoInicial || 0)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
 
   if (!resumen) return null
 
   const efectivoEnCaja = parseFloat(saldoInicial || 0) + parseFloat(resumen.efectivo_saldo || 0)
 
   const handleGuardar = async () => {
-    if (onEditarSaldoInicial) {
-      await onEditarSaldoInicial(nuevoSaldo)
+    if (!onEditarSaldoInicial) return
+
+    setGuardando(true)
+    setError('')
+
+    try {
+      const result = await onEditarSaldoInicial(nuevoSaldo)
+      if (result && !result.success) {
+        setError(result.error?.message || 'Error al guardar')
+      } else {
+        setEditando(false)
+      }
+    } catch (err) {
+      setError(err.message || 'Error al guardar')
+    } finally {
+      setGuardando(false)
     }
-    setEditando(false)
   }
 
   const handleCancelar = () => {
     setNuevoSaldo(saldoInicial || 0)
     setEditando(false)
+    setError('')
   }
 
   return (
@@ -47,16 +63,19 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
                 value={nuevoSaldo}
                 onChange={setNuevoSaldo}
                 className="w-24 px-2 py-1 text-right text-sm bg-white/20 border border-white/30 rounded text-white placeholder-white/50"
+                disabled={guardando}
               />
               <button
                 onClick={handleGuardar}
-                className="px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs"
+                disabled={guardando}
+                className="px-2 py-1 bg-white/20 hover:bg-white/30 disabled:opacity-50 rounded text-xs"
               >
-                ✓
+                {guardando ? '...' : '✓'}
               </button>
               <button
                 onClick={handleCancelar}
-                className="px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs"
+                disabled={guardando}
+                className="px-2 py-1 bg-white/20 hover:bg-white/30 disabled:opacity-50 rounded text-xs"
               >
                 ✕
               </button>
@@ -79,6 +98,14 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
             </div>
           )}
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="text-xs bg-red-500/20 border border-red-300/30 rounded px-2 py-1 mt-2">
+            {error}
+          </div>
+        )}
+
         <div className="flex justify-between">
           <span>+ Entradas:</span>
           <span className="font-medium">{formatearMonto(resumen.efectivo_entradas)}</span>

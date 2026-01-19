@@ -7,7 +7,8 @@ import {
   getCierreCaja,
   upsertCierreCaja,
   getSaldoInicial,
-  guardarSaldoInicial as guardarSaldoInicialService
+  guardarSaldoInicial as guardarSaldoInicialService,
+  reabrirDia as reabrirDiaService
 } from '../services/cierresService'
 import { getFechaHoy } from '../utils/formatters'
 
@@ -26,12 +27,26 @@ export function useCierreCaja(fecha = null) {
     // Obtener cierre actual
     const { data: dataCierre, error: errCierre } = await getCierreCaja(fechaActual)
 
-    // Obtener saldo inicial (efectivo final del día anterior)
-    const { data: dataSaldo, error: errSaldo } = await getSaldoInicial(fechaActual)
+    if (errCierre) {
+      setError(errCierre)
+      setLoading(false)
+      return
+    }
 
-    if (errCierre || errSaldo) {
-      setError(errCierre || errSaldo)
+    // Si existe un cierre, usar su saldo_inicial
+    // Si no, intentar obtener el efectivo final del día anterior
+    if (dataCierre && dataCierre.saldo_inicial !== null) {
+      setCierre(dataCierre)
+      setSaldoInicial(parseFloat(dataCierre.saldo_inicial || 0))
     } else {
+      // Obtener saldo inicial (efectivo final del día anterior)
+      const { data: dataSaldo, error: errSaldo } = await getSaldoInicial(fechaActual)
+
+      if (errSaldo) {
+        console.error('Error obteniendo saldo inicial:', errSaldo)
+        // No es crítico, continuamos con saldo 0
+      }
+
       setCierre(dataCierre)
       setSaldoInicial(parseFloat(dataSaldo || 0))
     }
@@ -78,6 +93,19 @@ export function useCierreCaja(fecha = null) {
     return { success: true, data }
   }
 
+  // Reabrir día cerrado
+  const reabrirDia = async () => {
+    const { data, error: err } = await reabrirDiaService(fechaActual)
+
+    if (err) {
+      setError(err)
+      return { success: false, error: err }
+    }
+
+    await fetchCierre()
+    return { success: true, data }
+  }
+
   return {
     cierre,
     saldoInicial,
@@ -86,6 +114,7 @@ export function useCierreCaja(fecha = null) {
     refresh: fetchCierre,
     guardarCierre,
     actualizarSaldoInicial,
+    reabrirDia,
     estaCerrado
   }
 }

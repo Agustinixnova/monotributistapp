@@ -3,16 +3,18 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
 import { formatearFechaLarga, getFechaHoy } from '../utils/formatters'
+import { descargarPDFCierreCaja } from '../utils/pdfCierreCaja'
 import ResumenEfectivo from './ResumenEfectivo'
 import ResumenDia from './ResumenDia'
 import BotonesAccion from './BotonesAccion'
 import ListaMovimientos from './ListaMovimientos'
 import ModalMovimiento from './ModalMovimiento'
 import ModalCierreCaja from './ModalCierreCaja'
+import ModalConfiguracion from './ModalConfiguracion'
 
 export default function CajaDiariaPage() {
   const {
@@ -31,6 +33,7 @@ export default function CajaDiariaPage() {
 
   const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null })
   const [modalCierre, setModalCierre] = useState(false)
+  const [modalConfiguracion, setModalConfiguracion] = useState(false)
 
   // Verificar si es el día actual
   const esHoy = fecha === getFechaHoy()
@@ -82,6 +85,29 @@ export default function CajaDiariaPage() {
     return result
   }
 
+  const handleEditarCierre = () => {
+    setModalCierre(true)
+  }
+
+  const handleReabrirDia = async () => {
+    if (!confirm('¿Estás seguro que querés reabrir este día? Podrás volver a agregar movimientos.')) return
+
+    const result = await cierre.reabrirDia()
+    if (result.success) {
+      await refreshAll()
+    }
+  }
+
+  const handleDescargarPDF = () => {
+    descargarPDFCierreCaja({
+      fecha,
+      saldoInicial: cierre.saldoInicial,
+      resumen: resumen.resumen,
+      cierre: cierre.cierre,
+      totalesPorMetodo: resumen.totalesPorMetodo
+    })
+  }
+
   return (
     <Layout>
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
@@ -101,6 +127,15 @@ export default function CajaDiariaPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Botón Configuración */}
+            <button
+              onClick={() => setModalConfiguracion(true)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Configuración"
+            >
+              <Settings className="w-5 h-5 text-gray-600" />
+            </button>
+
             {/* Selector de fecha */}
             <input
               type="date"
@@ -178,9 +213,9 @@ export default function CajaDiariaPage() {
         />
       </div>
 
-      {/* Botón Cerrar Caja */}
-      {esHoy && !estaCerrado && (
-        <div className="mb-6">
+      {/* Botones de cierre/edición */}
+      <div className="mb-6">
+        {esHoy && !estaCerrado && (
           <button
             onClick={() => setModalCierre(true)}
             className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition-colors"
@@ -188,8 +223,39 @@ export default function CajaDiariaPage() {
             <Lock className="w-5 h-5" />
             Cerrar Caja
           </button>
-        </div>
-      )}
+        )}
+
+        {estaCerrado && (
+          <div className="space-y-3">
+            {/* Botón de PDF */}
+            <button
+              onClick={handleDescargarPDF}
+              className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-lg transition-colors"
+            >
+              <FileDown className="w-5 h-5" />
+              Descargar PDF del Cierre
+            </button>
+
+            {/* Botones de edición */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleEditarCierre}
+                className="flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition-colors"
+              >
+                <Edit2 className="w-5 h-5" />
+                Editar Cierre
+              </button>
+              <button
+                onClick={handleReabrirDia}
+                className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium py-3 rounded-lg transition-colors"
+              >
+                <LockOpen className="w-5 h-5" />
+                Reabrir Día
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Modal Nuevo Movimiento */}
       <ModalMovimiento
@@ -209,6 +275,14 @@ export default function CajaDiariaPage() {
         resumen={resumen.resumen}
         totalesPorMetodo={resumen.totalesPorMetodo}
         onGuardar={handleCerrarCaja}
+        cierreExistente={estaCerrado ? cierre.cierre : null}
+        fecha={fecha}
+      />
+
+      {/* Modal Configuración */}
+      <ModalConfiguracion
+        isOpen={modalConfiguracion}
+        onClose={() => setModalConfiguracion(false)}
       />
       </div>
     </Layout>

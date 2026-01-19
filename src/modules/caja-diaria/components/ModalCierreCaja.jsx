@@ -3,12 +3,13 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Lock, CheckCircle, AlertCircle } from 'lucide-react'
+import { X, Lock, CheckCircle, AlertCircle, FileDown, Printer } from 'lucide-react'
 import InputMonto from './InputMonto'
 import IconoDinamico from './IconoDinamico'
 import { formatearMonto } from '../utils/formatters'
 import { calcularEfectivoEsperado, calcularDiferenciaCierre } from '../utils/calculosCaja'
 import { getColorDiferencia } from '../utils/coloresConfig'
+import { descargarPDFCierreCaja, abrirPDFCierreCaja } from '../utils/pdfCierreCaja'
 
 export default function ModalCierreCaja({
   isOpen,
@@ -16,11 +17,15 @@ export default function ModalCierreCaja({
   saldoInicial,
   resumen,
   totalesPorMetodo,
-  onGuardar
+  onGuardar,
+  cierreExistente = null, // Para modo edición
+  fecha = null // Fecha del cierre
 }) {
   const [efectivoReal, setEfectivoReal] = useState(0)
   const [motivoDiferencia, setMotivoDiferencia] = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  const modoEdicion = !!cierreExistente
 
   // Calcular efectivo esperado
   const efectivoEsperado = calcularEfectivoEsperado(
@@ -32,13 +37,20 @@ export default function ModalCierreCaja({
   // Calcular diferencia
   const diferencia = calcularDiferenciaCierre(efectivoReal, efectivoEsperado)
 
-  // Pre-llenar efectivo real con el esperado
+  // Pre-llenar efectivo real con el esperado o con el cierre existente
   useEffect(() => {
     if (isOpen) {
-      setEfectivoReal(efectivoEsperado)
-      setMotivoDiferencia('')
+      if (cierreExistente) {
+        // Modo edición: cargar datos existentes
+        setEfectivoReal(parseFloat(cierreExistente.efectivo_real || 0))
+        setMotivoDiferencia(cierreExistente.motivo_diferencia || '')
+      } else {
+        // Modo creación: usar esperado
+        setEfectivoReal(efectivoEsperado)
+        setMotivoDiferencia('')
+      }
     }
-  }, [isOpen, efectivoEsperado])
+  }, [isOpen, efectivoEsperado, cierreExistente])
 
   const handleGuardar = async () => {
     setGuardando(true)
@@ -59,6 +71,27 @@ export default function ModalCierreCaja({
     } finally {
       setGuardando(false)
     }
+  }
+
+  // Preparar datos para el PDF
+  const datosPDF = {
+    fecha: fecha || new Date().toISOString().split('T')[0],
+    saldoInicial,
+    resumen,
+    cierre: cierreExistente || {
+      efectivo_real: efectivoReal,
+      diferencia,
+      motivo_diferencia: motivoDiferencia
+    },
+    totalesPorMetodo
+  }
+
+  const handleDescargarPDF = () => {
+    descargarPDFCierreCaja(datosPDF)
+  }
+
+  const handleImprimirPDF = () => {
+    abrirPDFCierreCaja(datosPDF)
   }
 
   if (!isOpen) return null
@@ -83,7 +116,9 @@ export default function ModalCierreCaja({
           {/* Header */}
           <div className="bg-gradient-to-r from-violet-500 to-violet-600 px-5 py-4 text-white">
             <div className="flex items-center justify-between">
-              <h3 className="font-heading font-semibold text-lg">Cierre de Caja</h3>
+              <h3 className="font-heading font-semibold text-lg">
+                {modoEdicion ? 'Editar Cierre de Caja' : 'Cierre de Caja'}
+              </h3>
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-white/20 rounded-lg transition-colors"
@@ -185,21 +220,50 @@ export default function ModalCierreCaja({
                   Medios digitales (no en caja)
                 </h4>
                 <div className="space-y-2 text-sm">
-                  {mediosDigitales.map(metodo => (
-                    <div key={metodo.metodo_id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <IconoDinamico nombre={metodo.metodo_icono} className="w-4 h-4 text-gray-600" />
-                        <span className="text-gray-700">{metodo.metodo_nombre}:</span>
+                  {mediosDigitales.map(metodo => {
+                    const tieneEntradas = parseFloat(metodo.total_entradas || 0) > 0
+                    const tieneSalidas = parseFloat(metodo.total_salidas || 0) > 0
+
+                    // Solo mostrar si tiene movimientos
+                    if (!tieneEntradas && !tieneSalidas) return null
+
+                    return (
+                      <div key={metodo.metodo_id}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <IconoDinamico nombre={metodo.metodo_icono} className="w-4 h-4 text-gray-600" />
+                          <span className="text-gray-700 font-medium">{metodo.metodo_nombre}:</span>
+                        </div>
+                        <div className="ml-6 space-y-1 text-xs">
+                          {tieneEntradas && (
+                            <div className="flex justify-between text-emerald-700">
+                              <span>+ Entradas:</span>
+                              <span className="font-medium">{formatearMonto(metodo.total_entradas)}</span>
+                            </div>
+                          )}
+                          {tieneSalidas && (
+                            <div className="flex justify-between text-red-700">
+                              <span>- Salidas:</span>
+                              <span className="font-medium">{formatearMonto(metodo.total_salidas)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span className="font-medium">{formatearMonto(metodo.total)}</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                   <div className="border-t border-gray-200 pt-2 mt-2">
                     <div className="flex justify-between text-base">
-                      <span className="font-semibold">Total digital:</span>
-                      <span className="font-bold">
+                      <span className="font-semibold">Total digital entradas:</span>
+                      <span className="font-bold text-emerald-700">
                         {formatearMonto(
-                          mediosDigitales.reduce((sum, m) => sum + parseFloat(m.total || 0), 0)
+                          mediosDigitales.reduce((sum, m) => sum + parseFloat(m.total_entradas || 0), 0)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-base">
+                      <span className="font-semibold">Total digital salidas:</span>
+                      <span className="font-bold text-red-700">
+                        {formatearMonto(
+                          mediosDigitales.reduce((sum, m) => sum + parseFloat(m.total_salidas || 0), 0)
                         )}
                       </span>
                     </div>
@@ -239,14 +303,38 @@ export default function ModalCierreCaja({
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-200 px-5 py-4">
+          <div className="border-t border-gray-200 px-5 py-4 space-y-3">
+            {/* Botones de PDF (solo en modo edición) */}
+            {modoEdicion && (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleDescargarPDF}
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Descargar PDF
+                </button>
+                <button
+                  onClick={handleImprimirPDF}
+                  className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimir
+                </button>
+              </div>
+            )}
+
+            {/* Botón principal */}
             <button
               onClick={handleGuardar}
               disabled={guardando}
               className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 text-white font-medium py-3 rounded-lg transition-colors"
             >
               <Lock className="w-5 h-5" />
-              {guardando ? 'Cerrando...' : 'Cerrar Caja'}
+              {guardando
+                ? (modoEdicion ? 'Actualizando...' : 'Cerrando...')
+                : (modoEdicion ? 'Actualizar Cierre' : 'Cerrar Caja')
+              }
             </button>
           </div>
         </div>

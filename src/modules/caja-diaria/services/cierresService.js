@@ -18,9 +18,9 @@ export async function getCierreCaja(fecha) {
       .select('*')
       .eq('user_id', user.id)
       .eq('fecha', fecha)
-      .single()
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
+    if (error) throw error
     return { data, error: null }
   } catch (error) {
     console.error('Error fetching cierre de caja:', error)
@@ -81,9 +81,9 @@ export async function getSaldoInicial(fecha) {
       .eq('user_id', user.id)
       .eq('fecha', fechaAnterior)
       .eq('cerrado', true)
-      .single()
+      .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') throw error
+    if (error) throw error
 
     return { data: data?.efectivo_real || 0, error: null }
   } catch (error) {
@@ -127,23 +127,76 @@ export async function guardarSaldoInicial(fecha, saldoInicial) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Usuario no autenticado')
 
+    // Primero intentar actualizar si existe
+    const { data: existing } = await supabase
+      .from('caja_cierres')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('fecha', fecha)
+      .maybeSingle()
+
+    let data, error
+
+    if (existing) {
+      // Actualizar existente
+      const result = await supabase
+        .from('caja_cierres')
+        .update({ saldo_inicial: saldoInicial })
+        .eq('id', existing.id)
+        .select()
+        .single()
+
+      data = result.data
+      error = result.error
+    } else {
+      // Crear nuevo
+      const result = await supabase
+        .from('caja_cierres')
+        .insert({
+          user_id: user.id,
+          fecha,
+          saldo_inicial: saldoInicial,
+          cerrado: false
+        })
+        .select()
+        .single()
+
+      data = result.data
+      error = result.error
+    }
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error guardando saldo inicial:', error)
+    return { data: null, error }
+  }
+}
+
+/**
+ * Reabrir un día cerrado (cambiar cerrado a false)
+ * @param {string} fecha - Fecha en formato YYYY-MM-DD
+ */
+export async function reabrirDia(fecha) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
+
     const { data, error } = await supabase
       .from('caja_cierres')
-      .upsert({
-        user_id: user.id,
-        fecha,
-        saldo_inicial: saldoInicial,
-        cerrado: false
-      }, {
-        onConflict: 'user_id,fecha'
+      .update({
+        cerrado: false,
+        cerrado_at: null
       })
+      .eq('user_id', user.id)
+      .eq('fecha', fecha)
       .select()
       .single()
 
     if (error) throw error
     return { data, error: null }
   } catch (error) {
-    console.error('Error guardando saldo inicial:', error)
+    console.error('Error reabriendo día:', error)
     return { data: null, error }
   }
 }

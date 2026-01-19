@@ -1,21 +1,107 @@
 /**
- * Renderiza iconos de Lucide dinámicamente desde un string
+ * Renderiza iconos de Lucide dinámicamente
+ * Soporta nombres de Lucide (PascalCase) y emojis legacy
  */
 
-import * as LucideIcons from 'lucide-react'
+import {
+  Banknote,
+  Smartphone,
+  CreditCard,
+  QrCode,
+  ArrowLeftRight,
+  Package,
+  Store,
+  ShoppingCart,
+  DollarSign,
+  ArrowDownCircle,
+  Truck,
+  Receipt,
+  UserMinus,
+  Briefcase,
+  ArrowUpCircle,
+  RefreshCw,
+  Wallet,
+  List,
+  Wallet2,
+  Building2,
+  HandCoins,
+  PiggyBank,
+  TrendingUp,
+  TrendingDown,
+  CircleDollarSign,
+  Coins,
+  BadgeDollarSign
+} from 'lucide-react'
+
+// Mapa de iconos por nombre Lucide
+const iconMap = {
+  Banknote,
+  Smartphone,
+  CreditCard,
+  QrCode,
+  ArrowLeftRight,
+  Package,
+  Store,
+  ShoppingCart,
+  DollarSign,
+  ArrowDownCircle,
+  Truck,
+  Receipt,
+  UserMinus,
+  Briefcase,
+  ArrowUpCircle,
+  RefreshCw,
+  Wallet,
+  List,
+  Wallet2,
+  Building2,
+  HandCoins,
+  PiggyBank,
+  TrendingUp,
+  TrendingDown,
+  CircleDollarSign,
+  Coins,
+  BadgeDollarSign
+}
+
+// Mapa de emojis a iconos Lucide (para datos legacy)
+const emojiMap = {
+  '🏪': Store,
+  '🛒': ShoppingCart,
+  '💵': DollarSign,
+  '💰': DollarSign,
+  '⬇️': ArrowDownCircle,
+  '📦': Package,
+  '🚚': Truck,
+  '🧾': Receipt,
+  '👤': UserMinus,
+  '💼': Briefcase,
+  '⬆️': ArrowUpCircle,
+  '🔄': RefreshCw,
+  '💳': CreditCard,
+  '📱': Smartphone,
+  '📲': QrCode,
+  '↔️': ArrowLeftRight,
+  '👛': Wallet,
+  '📋': List
+}
 
 export default function IconoDinamico({ nombre, className = "w-5 h-5" }) {
-  // Si no hay nombre, mostrar icono por defecto
   if (!nombre) {
-    return <LucideIcons.Circle className={className} />
+    return <List className={className} />
   }
 
-  // Obtener el componente del icono desde Lucide
-  const IconComponent = LucideIcons[nombre]
+  // Primero buscar en el mapa de nombres Lucide
+  let IconComponent = iconMap[nombre]
 
-  // Si no existe el icono, mostrar uno por defecto
+  // Si no encuentra, buscar en el mapa de emojis
   if (!IconComponent) {
-    return <LucideIcons.Circle className={className} />
+    IconComponent = emojiMap[nombre]
+  }
+
+  // Si sigue sin encontrar, usar List como fallback
+  if (!IconComponent) {
+    IconComponent = List
   }
 
   return <IconComponent className={className} />
