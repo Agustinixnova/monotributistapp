@@ -133,7 +133,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
 
         {/* Modal */}
         <div className="flex min-h-full items-center justify-center p-4">
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="bg-violet-600 px-5 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -145,12 +145,12 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="border-b border-gray-200">
-              <div className="flex">
+            {/* Tabs - scroll horizontal en móviles */}
+            <div className="border-b border-gray-200 overflow-x-auto">
+              <div className="flex min-w-max">
                 <button
                   onClick={() => setTab('general')}
-                  className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                  className={`px-4 py-3 font-medium transition-colors whitespace-nowrap text-sm ${
                     tab === 'general'
                       ? 'text-violet-600 border-b-2 border-violet-600'
                       : 'text-gray-600 hover:text-gray-900'
@@ -160,7 +160,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 </button>
                 <button
                   onClick={() => setTab('categorias')}
-                  className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                  className={`px-4 py-3 font-medium transition-colors whitespace-nowrap text-sm ${
                     tab === 'categorias'
                       ? 'text-violet-600 border-b-2 border-violet-600'
                       : 'text-gray-600 hover:text-gray-900'
@@ -170,7 +170,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 </button>
                 <button
                   onClick={() => setTab('metodos')}
-                  className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                  className={`px-4 py-3 font-medium transition-colors whitespace-nowrap text-sm ${
                     tab === 'metodos'
                       ? 'text-violet-600 border-b-2 border-violet-600'
                       : 'text-gray-600 hover:text-gray-900'
@@ -181,7 +181,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 {esDuenio && (
                   <button
                     onClick={() => setTab('pagos')}
-                    className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                    className={`px-4 py-3 font-medium transition-colors whitespace-nowrap text-sm ${
                       tab === 'pagos'
                         ? 'text-violet-600 border-b-2 border-violet-600'
                         : 'text-gray-600 hover:text-gray-900'
@@ -193,7 +193,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                 {esDuenio && (
                   <button
                     onClick={() => setTab('empleados')}
-                    className={`flex-1 px-4 py-3 font-medium transition-colors ${
+                    className={`px-4 py-3 font-medium transition-colors whitespace-nowrap text-sm ${
                       tab === 'empleados'
                         ? 'text-violet-600 border-b-2 border-violet-600'
                         : 'text-gray-600 hover:text-gray-900'
