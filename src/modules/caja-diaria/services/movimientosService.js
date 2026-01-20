@@ -68,14 +68,70 @@ export async function getMovimientoDetalle(movimientoId) {
 
     // Obtener nombre del creador si existe
     if (data?.created_by_id) {
-      const { data: perfil, error: perfilError } = await supabase
-        .from('profiles')
-        .select('id, nombre, apellido, email')
-        .eq('id', data.created_by_id)
-        .single()
+      try {
+        // Obtener usuario actual
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-      if (!perfilError && perfil) {
-        data.creador = perfil
+        // Si el creador es el usuario actual, usar su info directamente
+        if (currentUser && currentUser.id === data.created_by_id) {
+          // Obtener perfil del usuario actual
+          const { data: miPerfil } = await supabase
+            .from('profiles')
+            .select('nombre, apellido, email')
+            .eq('id', currentUser.id)
+            .single()
+
+          if (miPerfil) {
+            const nombreCompleto = [miPerfil.nombre, miPerfil.apellido].filter(Boolean).join(' ').trim()
+            data.creador = {
+              nombre: miPerfil.nombre,
+              apellido: miPerfil.apellido,
+              email: miPerfil.email || currentUser.email,
+              nombre_completo: nombreCompleto || (miPerfil.email || currentUser.email)?.split('@')[0] || 'Usuario'
+            }
+          } else {
+            // Usar email del auth si no hay perfil
+            data.creador = {
+              nombre: null,
+              apellido: null,
+              email: currentUser.email,
+              nombre_completo: currentUser.email?.split('@')[0] || 'Usuario'
+            }
+          }
+        } else {
+          // Si es otro usuario, intentar con RPC (tiene SECURITY DEFINER)
+          const { data: perfiles, error: perfilError } = await supabase
+            .rpc('get_users_names', { user_ids: [data.created_by_id] })
+
+          if (!perfilError && perfiles && perfiles.length > 0) {
+            const perfil = perfiles[0]
+            data.creador = {
+              nombre: perfil.nombre,
+              apellido: perfil.apellido,
+              email: perfil.email,
+              nombre_completo: perfil.nombre_completo !== 'Usuario' ? perfil.nombre_completo : perfil.email?.split('@')[0] || 'Usuario'
+            }
+          } else {
+            // Fallback: intentar query directa a profiles
+            const { data: perfil } = await supabase
+              .from('profiles')
+              .select('nombre, apellido, email')
+              .eq('id', data.created_by_id)
+              .single()
+
+            if (perfil) {
+              const nombreCompleto = [perfil.nombre, perfil.apellido].filter(Boolean).join(' ').trim()
+              data.creador = {
+                nombre: perfil.nombre,
+                apellido: perfil.apellido,
+                email: perfil.email,
+                nombre_completo: nombreCompleto || perfil.email?.split('@')[0] || 'Usuario'
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error obteniendo creador del movimiento:', err)
       }
     }
 

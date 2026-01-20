@@ -124,13 +124,19 @@ export default function ModalDetalleMovimiento({ isOpen, onClose, movimiento }) 
                 ) : detalle?.creador ? (
                   <span className="text-gray-600">
                     Registrado por: <span className="font-medium">
-                      {detalle.creador.nombre || detalle.creador.apellido
-                        ? `${detalle.creador.nombre || ''} ${detalle.creador.apellido || ''}`.trim()
-                        : detalle.creador.email?.split('@')[0] || 'Usuario'}
+                      {detalle.creador.nombre_completo && detalle.creador.nombre_completo !== 'Usuario'
+                        ? detalle.creador.nombre_completo
+                        : detalle.creador.nombre || detalle.creador.apellido
+                          ? `${detalle.creador.nombre || ''} ${detalle.creador.apellido || ''}`.trim()
+                          : detalle.creador.email
+                            ? detalle.creador.email.split('@')[0]
+                            : 'Usuario'}
                     </span>
                   </span>
-                ) : (
+                ) : movimiento?.created_by_id ? (
                   <span className="text-gray-500">Registrado por: Usuario</span>
+                ) : (
+                  <span className="text-gray-500">Sin información del creador</span>
                 )}
               </div>
             </div>
