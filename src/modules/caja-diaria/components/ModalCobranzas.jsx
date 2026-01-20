@@ -113,7 +113,7 @@ export default function ModalCobranzas({ isOpen, onClose, metodosPago, onPagoReg
                   </p>
                   {!busqueda && (
                     <p className="text-sm text-gray-400 mt-1">
-                      Las deudas aparecerán aquí cuando registres fiados
+                      Las deudas aparecerán aquí cuando registres cuentas corrientes
                     </p>
                   )}
                 </div>

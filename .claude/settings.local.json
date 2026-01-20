@@ -55,7 +55,10 @@
       "Bash(curl:*)",
       "Bash(del nul)",
       "Bash(taskkill:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(supabase:*)",
+      "Bash(del check-category.js)",
+      "Bash(git restore:*)"
     ]
   }
 }
