@@ -260,6 +260,13 @@ export function generarPDFCierreCaja({
 
   // === PÁGINA 2: DETALLE DE MOVIMIENTOS ===
   if (movimientos && movimientos.length > 0) {
+    // Ordenar movimientos de más antiguo a más nuevo (cronológico)
+    const movimientosOrdenados = [...movimientos].sort((a, b) => {
+      const horaA = a.hora || '00:00:00'
+      const horaB = b.hora || '00:00:00'
+      return horaA.localeCompare(horaB)
+    })
+
     doc.addPage()
     y = 20
 
@@ -301,8 +308,8 @@ export function generarPDFCierreCaja({
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7)
 
-    // Iterar movimientos
-    movimientos.forEach((mov, index) => {
+    // Iterar movimientos (ya ordenados cronológicamente)
+    movimientosOrdenados.forEach((mov, index) => {
       // Verificar si necesitamos nueva página
       if (y > 270) {
         doc.addPage()
@@ -342,10 +349,10 @@ export function generarPDFCierreCaja({
 
       const esEntrada = mov.tipo === 'entrada'
 
-      // Alternar fondo
+      // Dibujar fondo alineado con el texto
       if (index % 2 === 0) {
         doc.setFillColor(249, 250, 251) // gray-50
-        doc.rect(margin, y - 3, pageWidth - 2 * margin, mov.descripcion ? 10 : 6, 'F')
+        doc.rect(margin, y - 2, pageWidth - 2 * margin, mov.descripcion ? 10 : 6, 'F')
       }
 
       // Hora

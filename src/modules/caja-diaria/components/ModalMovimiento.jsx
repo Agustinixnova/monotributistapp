@@ -177,9 +177,10 @@ export default function ModalMovimiento({
   const colorFondo = esEntrada ? 'bg-emerald-500' : 'bg-red-500'
   const colorTexto = esEntrada ? 'text-emerald-600' : 'text-red-600'
 
-  // Filtrar categorías según tipo
+  // Filtrar categorías según tipo y excluir las de uso interno del sistema (arqueo/cierre)
+  const categoriasOcultas = ['Sobrante de caja', 'Faltante de caja', 'Ajuste de caja']
   const categoriasDisponibles = categorias.filter(
-    cat => cat.tipo === tipo || cat.tipo === 'ambos'
+    cat => (cat.tipo === tipo || cat.tipo === 'ambos') && !categoriasOcultas.includes(cat.nombre)
   )
 
   // Total pagado
