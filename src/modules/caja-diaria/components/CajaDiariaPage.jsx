@@ -24,7 +24,7 @@ import ModalVisualizadorQR from './ModalVisualizadorQR'
 import ModalComentario from './ModalComentario'
 import ModalCalculadora from './ModalCalculadora'
 import ModalDetalleResumen from './ModalDetalleResumen'
-import ModalReportePeriodo from './ModalReportePeriodo'
+import ModalReportes from './ModalReportes'
 import ModalRegistrarFiado from './ModalRegistrarFiado'
 import ModalCobranzas from './ModalCobranzas'
 import AlertaDiasSinCerrar from './AlertaDiasSinCerrar'
@@ -68,7 +68,7 @@ export default function CajaDiariaPage() {
   const [modalQR, setModalQR] = useState(false)
   const [modalCalculadora, setModalCalculadora] = useState(false)
   const [modalDetalleResumen, setModalDetalleResumen] = useState(false)
-  const [modalReportePeriodo, setModalReportePeriodo] = useState(false)
+  const [modalReportes, setModalReportes] = useState(false)
   const [modalFiado, setModalFiado] = useState({ isOpen: false, montoInicial: 0 })
   const [modalCobranzas, setModalCobranzas] = useState(false)
 
@@ -327,11 +327,11 @@ export default function CajaDiariaPage() {
           {/* Botones de acción superiores */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
-              onClick={() => setModalReportePeriodo(true)}
-              className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
-              title="Reporte por Período"
+              onClick={() => setModalReportes(true)}
+              className="p-2 bg-violet-100 hover:bg-violet-200 rounded-lg transition-colors"
+              title="Reportes"
             >
-              <FileText className="w-5 h-5 text-indigo-600" />
+              <FileText className="w-5 h-5 text-violet-600" />
             </button>
 
             <button
@@ -655,10 +655,10 @@ export default function CajaDiariaPage() {
         fecha={fecha}
       />
 
-      {/* Modal Reporte por Período */}
-      <ModalReportePeriodo
-        isOpen={modalReportePeriodo}
-        onClose={() => setModalReportePeriodo(false)}
+      {/* Modal Reportes */}
+      <ModalReportes
+        isOpen={modalReportes}
+        onClose={() => setModalReportes(false)}
         nombreNegocio={configuracion.nombreNegocio}
       />
 
