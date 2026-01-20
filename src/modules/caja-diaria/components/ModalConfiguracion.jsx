@@ -11,6 +11,7 @@ import ModalEmpleado from './ModalEmpleado'
 import ModalPermisos from './ModalPermisos'
 import ModalConfirmacion from './ModalConfirmacion'
 import ModalClienteFiado from './ModalClienteFiado'
+import ModalFichaCliente from './ModalFichaCliente'
 import { useCategorias } from '../hooks/useCategorias'
 import { useMetodosPago } from '../hooks/useMetodosPago'
 import { useConfiguracion } from '../hooks/useConfiguracion'
@@ -31,6 +32,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const [metodoEditar, setMetodoEditar] = useState(null)
   const [empleadoPermisos, setEmpleadoPermisos] = useState(null)
   const [clienteFiadoEditar, setClienteFiadoEditar] = useState(null)
+  const [clienteFichaSeleccionado, setClienteFichaSeleccionado] = useState(null)
   const [clientesDeudas, setClientesDeudas] = useState({})
 
   // Estados para alias
@@ -493,39 +495,49 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                         return (
                           <div
                             key={cliente.id}
-                            className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-violet-300"
+                            className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-violet-300 transition-colors"
                           >
-                            {/* Avatar */}
-                            <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
-                              <span className="text-violet-600 font-medium">
-                                {cliente.nombre?.charAt(0)}{cliente.apellido?.charAt(0) || ''}
-                              </span>
-                            </div>
+                            {/* Área clickeable para abrir ficha */}
+                            <button
+                              onClick={() => setClienteFichaSeleccionado(cliente)}
+                              className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                            >
+                              {/* Avatar */}
+                              <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-violet-600 font-medium">
+                                  {cliente.nombre?.charAt(0)}{cliente.apellido?.charAt(0) || ''}
+                                </span>
+                              </div>
 
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 truncate">
-                                {cliente.nombre} {cliente.apellido || ''}
-                              </div>
-                              {cliente.telefono && (
-                                <div className="text-xs text-gray-500 flex items-center gap-1">
-                                  <Phone className="w-3 h-3" />
-                                  {cliente.telefono}
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900 truncate">
+                                  {cliente.nombre} {cliente.apellido || ''}
                                 </div>
-                              )}
-                              <div className="text-xs text-gray-400 flex items-center gap-2">
-                                {cliente.limite_credito ? (
-                                  <span>Límite: {formatearMonto(cliente.limite_credito)}</span>
-                                ) : (
-                                  <span>Sin límite</span>
+                                {cliente.telefono && (
+                                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                                    <Phone className="w-3 h-3" />
+                                    {cliente.telefono}
+                                  </div>
                                 )}
-                                {deuda > 0 && (
-                                  <span className="text-red-600 font-medium">
-                                    Deuda: {formatearMonto(deuda)}
-                                  </span>
-                                )}
+                                <div className="text-xs text-gray-400 flex items-center gap-2">
+                                  {cliente.limite_credito ? (
+                                    <span>Límite: {formatearMonto(cliente.limite_credito)}</span>
+                                  ) : (
+                                    <span>Sin límite</span>
+                                  )}
+                                  {deuda > 0 ? (
+                                    <span className="text-red-600 font-medium">
+                                      Deuda: {formatearMonto(deuda)}
+                                    </span>
+                                  ) : deuda < 0 ? (
+                                    <span className="text-blue-600 font-medium">
+                                      A favor: {formatearMonto(Math.abs(deuda))}
+                                    </span>
+                                  ) : null}
+                                </div>
                               </div>
-                            </div>
+                            </button>
 
                             {/* Acciones */}
                             <button
@@ -973,6 +985,17 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         }}
         onGuardar={handleGuardarClienteFiado}
         cliente={clienteFiadoEditar}
+      />
+
+      {/* Modal Ficha Cliente */}
+      <ModalFichaCliente
+        isOpen={!!clienteFichaSeleccionado}
+        onClose={() => setClienteFichaSeleccionado(null)}
+        cliente={clienteFichaSeleccionado}
+        onEditar={(cliente) => {
+          setClienteFichaSeleccionado(null)
+          handleEditarClienteFiado(cliente)
+        }}
       />
 
       {/* Modal Confirmación - Eliminar QR */}

@@ -1,5 +1,7 @@
 /**
  * Item individual de movimiento en la lista
+ * - Mobile: diseño vertical compacto
+ * - Desktop: diseño horizontal tipo fila de tabla
  */
 
 import { ArrowUpCircle, ArrowDownCircle, Trash2, MessageSquare } from 'lucide-react'
@@ -12,65 +14,127 @@ export default function MovimientoItem({ movimiento, onAnular, onEditarComentari
   const Icon = esEntrada ? ArrowUpCircle : ArrowDownCircle
   const colorIcon = esEntrada ? 'text-emerald-600' : 'text-red-600'
   const colorMonto = esEntrada ? 'text-emerald-700' : 'text-red-700'
+  const bgColor = esEntrada ? 'bg-emerald-50/50' : 'bg-red-50/50'
+
+  const nombreCreador = movimiento.creador
+    ? (movimiento.creador.nombre_completo?.trim() || movimiento.creador.nombre || movimiento.creador.email?.split('@')[0] || 'Usuario')
+    : (movimiento.created_by_id ? 'Usuario' : null)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
-      <div className="flex items-start gap-3">
-        {/* Icono */}
-        <div className={`mt-0.5 ${colorIcon}`}>
+    <div className={`border border-gray-200 rounded-lg hover:shadow-sm transition-shadow ${bgColor}`}>
+      {/* Layout Mobile (default) */}
+      <div className="md:hidden p-3">
+        <div className="flex items-start gap-3">
+          <div className={`mt-0.5 ${colorIcon}`}>
+            <Icon className="w-5 h-5" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <IconoDinamico nombre={movimiento.categoria?.icono} className="w-4 h-4 text-gray-600" />
+                <span className="font-medium text-gray-900 text-sm">
+                  {movimiento.categoria?.nombre}
+                </span>
+              </div>
+              <span className="text-xs text-gray-500 whitespace-nowrap">
+                {formatearHora(movimiento.hora)}
+              </span>
+            </div>
+
+            {nombreCreador && (
+              <div className="text-xs text-gray-500">Por: {nombreCreador}</div>
+            )}
+
+            {movimiento.descripcion && (
+              <p className="text-xs text-gray-600 mt-0.5 truncate">{movimiento.descripcion}</p>
+            )}
+
+            <div className="flex items-center justify-between mt-1">
+              <div className={`text-base font-bold ${colorMonto}`}>
+                {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
+              </div>
+              <DetalleMetodosPago pagos={movimiento.pagos} compact />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            {onEditarComentario && (
+              <button
+                onClick={() => onEditarComentario(movimiento)}
+                className={`p-1.5 hover:bg-violet-100 rounded transition-colors ${
+                  movimiento.descripcion ? 'text-violet-500' : 'text-gray-400'
+                } hover:text-violet-600`}
+                title={movimiento.descripcion ? 'Editar comentario' : 'Agregar comentario'}
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            )}
+            {onAnular && (
+              <button
+                onClick={() => onAnular(movimiento.id)}
+                className="p-1.5 hover:bg-red-100 rounded transition-colors text-gray-400 hover:text-red-600"
+                title="Anular movimiento"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Layout Desktop (md+) - Fila compacta */}
+      <div className="hidden md:flex items-center gap-4 px-4 py-2">
+        {/* Hora */}
+        <div className="w-12 text-xs text-gray-500 font-medium">
+          {formatearHora(movimiento.hora)}
+        </div>
+
+        {/* Icono tipo */}
+        <div className={colorIcon}>
           <Icon className="w-5 h-5" />
         </div>
 
-        {/* Contenido */}
-        <div className="flex-1 min-w-0">
-          {/* Primera línea: categoría y hora */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <IconoDinamico nombre={movimiento.categoria?.icono} className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-900">
-                {movimiento.categoria?.nombre}
-              </span>
-            </div>
-            <span className="text-xs text-gray-500 whitespace-nowrap">
-              {formatearHora(movimiento.hora)}
-            </span>
-          </div>
-
-          {/* Nombre del creador */}
-          {movimiento.creador && (
-            <div className="text-xs text-gray-500 mt-0.5">
-              Por: {movimiento.creador.nombre_completo?.trim() || movimiento.creador.nombre || movimiento.creador.email?.split('@')[0] || 'Usuario'}
-            </div>
-          )}
-          {movimiento.created_by_id && !movimiento.creador && (
-            <div className="text-xs text-gray-500 mt-0.5">
-              Por: Usuario
-            </div>
-          )}
-
-          {/* Descripción (si existe) */}
-          {movimiento.descripcion && (
-            <p className="text-sm text-gray-600 mt-0.5">
-              {movimiento.descripcion}
-            </p>
-          )}
-
-          {/* Monto */}
-          <div className={`text-lg font-bold ${colorMonto} mt-1`}>
-            {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
-          </div>
-
-          {/* Detalle de métodos de pago */}
-          <DetalleMetodosPago pagos={movimiento.pagos} />
+        {/* Categoría */}
+        <div className="w-36 flex items-center gap-2">
+          <IconoDinamico nombre={movimiento.categoria?.icono} className="w-4 h-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-900 truncate">
+            {movimiento.categoria?.nombre}
+          </span>
         </div>
 
-        {/* Botones de acción */}
-        <div className="flex flex-col gap-1">
-          {/* Botón comentario */}
+        {/* Descripción + Usuario */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {movimiento.descripcion && (
+              <span className="text-sm text-gray-600 truncate max-w-[200px]">
+                {movimiento.descripcion}
+              </span>
+            )}
+            {nombreCreador && (
+              <span className="text-xs text-gray-400 whitespace-nowrap">
+                ({nombreCreador})
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Métodos de pago */}
+        <div className="w-40">
+          <DetalleMetodosPago pagos={movimiento.pagos} compact />
+        </div>
+
+        {/* Monto */}
+        <div className={`w-28 text-right font-bold ${colorMonto}`}>
+          {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
+        </div>
+
+        {/* Acciones */}
+        <div className="flex items-center gap-1 w-16 justify-end">
           {onEditarComentario && (
             <button
               onClick={() => onEditarComentario(movimiento)}
-              className={`p-2 hover:bg-violet-50 rounded-lg transition-colors ${
+              className={`p-1.5 hover:bg-violet-100 rounded transition-colors ${
                 movimiento.descripcion ? 'text-violet-500' : 'text-gray-400'
               } hover:text-violet-600`}
               title={movimiento.descripcion ? 'Editar comentario' : 'Agregar comentario'}
@@ -78,12 +142,10 @@ export default function MovimientoItem({ movimiento, onAnular, onEditarComentari
               <MessageSquare className="w-4 h-4" />
             </button>
           )}
-
-          {/* Botón anular */}
           {onAnular && (
             <button
               onClick={() => onAnular(movimiento.id)}
-              className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-600"
+              className="p-1.5 hover:bg-red-100 rounded transition-colors text-gray-400 hover:text-red-600"
               title="Anular movimiento"
             >
               <Trash2 className="w-4 h-4" />

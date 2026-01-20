@@ -15,6 +15,8 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
 
   if (!resumen) return null
 
+  // Calcular efectivo en caja: saldo inicial + movimientos de efectivo
+  // (La diferencia de arqueo ya está incluida como movimiento de Faltante/Sobrante)
   const efectivoEnCaja = parseFloat(saldoInicial || 0) + parseFloat(resumen.efectivo_saldo || 0)
 
   const handleGuardar = async () => {

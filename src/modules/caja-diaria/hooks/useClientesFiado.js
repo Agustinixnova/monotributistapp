@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   getClientes,
   getClientesConDeuda,
+  getTodosClientesConSaldo,
   createCliente,
   updateCliente,
   deleteCliente,
@@ -101,7 +102,7 @@ export function useClientesFiado() {
 }
 
 /**
- * Hook para obtener clientes con deuda
+ * Hook para obtener clientes con deuda (solo los que deben)
  */
 export function useClientesConDeuda() {
   const [clientes, setClientes] = useState([])
@@ -112,6 +113,40 @@ export function useClientesConDeuda() {
     setLoading(true)
     setError(null)
     const { data, error: err } = await getClientesConDeuda()
+
+    if (err) {
+      setError(err)
+    } else {
+      setClientes(data || [])
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    fetchClientes()
+  }, [fetchClientes])
+
+  return {
+    clientes,
+    loading,
+    error,
+    refresh: fetchClientes
+  }
+}
+
+/**
+ * Hook para obtener TODOS los clientes activos con su saldo
+ * (para el modal de cobranzas)
+ */
+export function useTodosClientesConSaldo() {
+  const [clientes, setClientes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetchClientes = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    const { data, error: err } = await getTodosClientesConSaldo()
 
     if (err) {
       setError(err)

@@ -11,6 +11,7 @@ import ModalDetalleDeuda from './ModalDetalleDeuda'
 export default function ModalCobranzas({ isOpen, onClose, metodosPago, onPagoRegistrado }) {
   const { clientesConDeuda, loading, refresh } = useCobranzas()
   const [busqueda, setBusqueda] = useState('')
+  const [filtro, setFiltro] = useState('deuda') // 'todos', 'deuda', 'favor'
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
 
   // Cargar clientes al abrir
@@ -18,21 +19,42 @@ export default function ModalCobranzas({ isOpen, onClose, metodosPago, onPagoReg
     if (isOpen) {
       refresh()
       setBusqueda('')
+      setFiltro('deuda')
     }
-  }, [isOpen, refresh])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
-  // Filtrar clientes por búsqueda
-  const clientesFiltrados = busqueda.trim()
-    ? clientesConDeuda.filter(cliente => {
+  // Filtrar clientes por búsqueda y filtro de saldo
+  const clientesFiltrados = clientesConDeuda
+    .filter(cliente => {
+      // Filtro por saldo
+      const deuda = parseFloat(cliente.deuda_total || 0)
+      if (filtro === 'deuda' && deuda <= 0) return false
+      if (filtro === 'favor' && deuda >= 0) return false
+
+      // Filtro por búsqueda
+      if (busqueda.trim()) {
         const termino = busqueda.toLowerCase().trim()
         const nombreCompleto = `${cliente.nombre} ${cliente.apellido || ''}`.toLowerCase()
         const telefono = (cliente.telefono || '').toLowerCase()
         return nombreCompleto.includes(termino) || telefono.includes(termino)
-      })
-    : clientesConDeuda
+      }
+      return true
+    })
+    .sort((a, b) => {
+      // Ordenar alfabéticamente
+      const nombreA = `${a.nombre} ${a.apellido || ''}`.toLowerCase()
+      const nombreB = `${b.nombre} ${b.apellido || ''}`.toLowerCase()
+      return nombreA.localeCompare(nombreB)
+    })
 
-  // Total de deudas
-  const totalDeudas = clientesConDeuda.reduce((sum, c) => sum + parseFloat(c.deuda_total || 0), 0)
+  // Totales
+  const totalDeudas = clientesConDeuda.reduce((sum, c) => {
+    const deuda = parseFloat(c.deuda_total || 0)
+    return deuda > 0 ? sum + deuda : sum
+  }, 0)
+  const clientesConDeudaPositiva = clientesConDeuda.filter(c => parseFloat(c.deuda_total || 0) > 0).length
+  const clientesConSaldoFavor = clientesConDeuda.filter(c => parseFloat(c.deuda_total || 0) < 0).length
 
   const handlePagoRegistrado = async () => {
     await refresh()
@@ -79,8 +101,43 @@ export default function ModalCobranzas({ isOpen, onClose, metodosPago, onPagoReg
                 <span className="text-xl font-bold text-emerald-700">{formatearMonto(totalDeudas)}</span>
               </div>
               <p className="text-xs text-emerald-600 mt-1">
-                {clientesConDeuda.length} {clientesConDeuda.length === 1 ? 'cliente' : 'clientes'} con deuda
+                {clientesConDeuda.length} {clientesConDeuda.length === 1 ? 'cliente' : 'clientes'}
+                {clientesConDeudaPositiva > 0 && ` (${clientesConDeudaPositiva} con deuda)`}
               </p>
+            </div>
+
+            {/* Filtros */}
+            <div className="px-5 py-2 border-b border-gray-200 flex gap-2">
+              <button
+                onClick={() => setFiltro('deuda')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                  filtro === 'deuda'
+                    ? 'bg-red-100 text-red-700 font-medium'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Con deuda ({clientesConDeudaPositiva})
+              </button>
+              <button
+                onClick={() => setFiltro('favor')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                  filtro === 'favor'
+                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                A favor ({clientesConSaldoFavor})
+              </button>
+              <button
+                onClick={() => setFiltro('todos')}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                  filtro === 'todos'
+                    ? 'bg-emerald-100 text-emerald-700 font-medium'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Todos
+              </button>
             </div>
 
             {/* Búsqueda */}
@@ -109,50 +166,69 @@ export default function ModalCobranzas({ isOpen, onClose, metodosPago, onPagoReg
                   <p className="text-gray-500">
                     {busqueda
                       ? 'No se encontraron clientes'
-                      : 'No hay clientes con deuda'}
+                      : filtro === 'deuda'
+                        ? 'No hay clientes con deuda'
+                        : filtro === 'favor'
+                          ? 'No hay clientes con saldo a favor'
+                          : 'No hay clientes registrados'}
                   </p>
-                  {!busqueda && (
+                  {!busqueda && clientesConDeuda.length === 0 && (
                     <p className="text-sm text-gray-400 mt-1">
-                      Las deudas aparecerán aquí cuando registres cuentas corrientes
+                      Agregá clientes desde Configuración → Clientes Cta. Cte.
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {clientesFiltrados.map((cliente) => (
-                    <button
-                      key={cliente.id}
-                      onClick={() => setClienteSeleccionado(cliente)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all text-left"
-                    >
-                      {/* Avatar */}
-                      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-emerald-600 font-medium">
-                          {cliente.nombre?.charAt(0)}{cliente.apellido?.charAt(0) || ''}
-                        </span>
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 truncate">
-                          {cliente.nombre} {cliente.apellido || ''}
+                  {clientesFiltrados.map((cliente) => {
+                    const deuda = parseFloat(cliente.deuda_total || 0)
+                    const tieneDeuda = deuda > 0
+                    const tieneSaldoAFavor = deuda < 0
+                    return (
+                      <button
+                        key={cliente.id}
+                        onClick={() => setClienteSeleccionado(cliente)}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg border-2 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-all text-left"
+                      >
+                        {/* Avatar */}
+                        <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-emerald-600 font-medium">
+                            {cliente.nombre?.charAt(0)}{cliente.apellido?.charAt(0) || ''}
+                          </span>
                         </div>
-                        {cliente.telefono && (
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {cliente.telefono}
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
+                            {cliente.nombre} {cliente.apellido || ''}
                           </div>
-                        )}
-                      </div>
-
-                      {/* Deuda */}
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-lg font-bold text-red-600">
-                          {formatearMonto(cliente.deuda_total)}
+                          {cliente.telefono && (
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              <Phone className="w-3 h-3" />
+                              {cliente.telefono}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </button>
-                  ))}
+
+                        {/* Saldo */}
+                        <div className="text-right flex-shrink-0">
+                          {tieneDeuda ? (
+                            <div className="text-lg font-bold text-red-600">
+                              {formatearMonto(deuda)}
+                            </div>
+                          ) : tieneSaldoAFavor ? (
+                            <div className="text-sm font-medium text-blue-600">
+                              A favor: {formatearMonto(Math.abs(deuda))}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-400">
+                              Sin saldo
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>

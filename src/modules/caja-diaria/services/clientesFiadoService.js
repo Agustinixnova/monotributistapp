@@ -48,14 +48,71 @@ export async function getClientesConDeuda() {
 }
 
 /**
- * Crear un nuevo cliente
- * @param {object} clienteData - { nombre, apellido, telefono, limite_credito, comentario }
+ * Obtener TODOS los clientes activos con su saldo (para modal de cobranzas)
  */
-export async function createCliente({ nombre, apellido, telefono, limite_credito, comentario }) {
+export async function getTodosClientesConSaldo() {
   try {
     const { userId, error: userError } = await getEffectiveUserId()
     if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
+    const { data, error } = await supabase
+      .rpc('caja_todos_clientes_con_saldo', { p_user_id: userId })
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error fetching todos clientes con saldo:', error)
+    return { data: null, error }
+  }
+}
+
+/**
+ * Crear un nuevo cliente (opcionalmente con saldo inicial)
+ * @param {object} clienteData - { nombre, apellido, telefono, limite_credito, comentario, saldo_inicial, tipo_saldo }
+ */
+export async function createCliente({ nombre, apellido, telefono, limite_credito, comentario, saldo_inicial, tipo_saldo }) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Obtener el ID del usuario actual (para created_by_id en caso de empleados)
+    const { data: { user } } = await supabase.auth.getUser()
+    const currentUserId = user?.id
+
+    // Si hay saldo inicial, usar la función RPC
+    if (saldo_inicial && saldo_inicial > 0 && tipo_saldo) {
+      const { data: clienteId, error } = await supabase
+        .rpc('caja_crear_cliente_con_saldo', {
+          p_user_id: userId,
+          p_nombre: nombre.trim(),
+          p_apellido: apellido?.trim() || null,
+          p_telefono: telefono?.trim() || null,
+          p_limite_credito: limite_credito || null,
+          p_comentario: comentario?.trim() || null,
+          p_saldo_inicial: saldo_inicial,
+          p_tipo_saldo: tipo_saldo,
+          p_created_by_id: currentUserId
+        })
+
+      if (error) {
+        if (error.code === '23505' || error.message?.includes('duplicate')) {
+          throw new Error('Ya existe un cliente con ese nombre')
+        }
+        throw error
+      }
+
+      // Obtener el cliente creado
+      const { data: cliente, error: fetchError } = await supabase
+        .from('caja_clientes_fiado')
+        .select('*')
+        .eq('id', clienteId)
+        .single()
+
+      if (fetchError) throw fetchError
+      return { data: cliente, error: null }
+    }
+
+    // Sin saldo inicial, insertar directamente
     const { data, error } = await supabase
       .from('caja_clientes_fiado')
       .insert({

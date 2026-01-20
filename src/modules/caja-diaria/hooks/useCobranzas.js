@@ -4,18 +4,18 @@
 
 import { useState, useCallback } from 'react'
 import { registrarPago, getPagosCliente } from '../services/cobranzasService'
-import { getClientesConDeuda, getClienteById, getHistorialCliente } from '../services/clientesFiadoService'
+import { getTodosClientesConSaldo, getClienteById, getHistorialCliente } from '../services/clientesFiadoService'
 
 export function useCobranzas() {
   const [clientesConDeuda, setClientesConDeuda] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Cargar clientes con deuda
+  // Cargar todos los clientes activos con su saldo
   const fetchClientesConDeuda = useCallback(async () => {
     setLoading(true)
     setError(null)
-    const { data, error: err } = await getClientesConDeuda()
+    const { data, error: err } = await getTodosClientesConSaldo()
 
     if (err) {
       setError(err)

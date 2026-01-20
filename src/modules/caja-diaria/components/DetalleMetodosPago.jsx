@@ -5,18 +5,20 @@
 import { formatearMonto } from '../utils/formatters'
 import IconoDinamico from './IconoDinamico'
 
-export default function DetalleMetodosPago({ pagos }) {
+export default function DetalleMetodosPago({ pagos, compact = false }) {
   if (!pagos || pagos.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
+    <div className={`flex flex-wrap gap-1 ${compact ? '' : 'mt-1'}`}>
       {pagos.map((pago, index) => (
         <span
           key={index}
-          className="group relative inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded cursor-default"
+          className={`group relative inline-flex items-center gap-1 bg-gray-100 text-gray-700 rounded cursor-default ${
+            compact ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5'
+          }`}
           title={pago.metodo?.nombre || 'Método de pago'}
         >
-          <IconoDinamico nombre={pago.metodo?.icono} className="w-3 h-3" />
+          <IconoDinamico nombre={pago.metodo?.icono} className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
           <span>{formatearMonto(pago.monto)}</span>
 
           {/* Tooltip */}

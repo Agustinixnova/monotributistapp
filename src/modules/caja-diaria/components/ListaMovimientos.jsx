@@ -2,10 +2,14 @@
  * Lista de movimientos del día
  */
 
-import { Clock } from 'lucide-react'
+import { useState } from 'react'
+import { Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import MovimientoItem from './MovimientoItem'
 
+const ITEMS_POR_PAGINA = 25
+
 export default function ListaMovimientos({ movimientos, loading, onAnular, onEditarComentario }) {
+  const [paginaActual, setPaginaActual] = useState(1)
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -35,17 +39,65 @@ export default function ListaMovimientos({ movimientos, loading, onAnular, onEdi
     )
   }
 
-  // Mostrar solo los últimos 5
-  const ultimosMovimientos = movimientos.slice(0, 5)
+  // Calcular paginación
+  const totalPaginas = Math.ceil(movimientos.length / ITEMS_POR_PAGINA)
+  const indiceInicio = (paginaActual - 1) * ITEMS_POR_PAGINA
+  const indiceFin = indiceInicio + ITEMS_POR_PAGINA
+  const movimientosPagina = movimientos.slice(indiceInicio, indiceFin)
+  const hayPaginacion = movimientos.length > ITEMS_POR_PAGINA
+
+  const irPaginaAnterior = () => {
+    if (paginaActual > 1) setPaginaActual(paginaActual - 1)
+  }
+
+  const irPaginaSiguiente = () => {
+    if (paginaActual < totalPaginas) setPaginaActual(paginaActual + 1)
+  }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h3 className="font-heading font-semibold text-gray-900 mb-4">
-        Últimos movimientos
-      </h3>
+      {/* Header con título y paginación */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-heading font-semibold text-gray-900">
+          Movimientos del día
+        </h3>
 
-      <div className="space-y-3">
-        {ultimosMovimientos.map(movimiento => (
+        <div className="flex items-center gap-3">
+          {/* Paginación */}
+          {hayPaginacion && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={irPaginaAnterior}
+                disabled={paginaActual === 1}
+                className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Página anterior"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <span className="text-sm text-gray-600 min-w-[60px] text-center">
+                {paginaActual} / {totalPaginas}
+              </span>
+              <button
+                onClick={irPaginaSiguiente}
+                disabled={paginaActual === totalPaginas}
+                className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Página siguiente"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          )}
+
+          {/* Total de movimientos */}
+          <span className="text-sm text-gray-500">
+            {movimientos.length} {movimientos.length === 1 ? 'mov.' : 'movs.'}
+          </span>
+        </div>
+      </div>
+
+      {/* Lista de movimientos */}
+      <div className="space-y-2 md:space-y-1">
+        {movimientosPagina.map(movimiento => (
           <MovimientoItem
             key={movimiento.id}
             movimiento={movimiento}
@@ -55,11 +107,28 @@ export default function ListaMovimientos({ movimientos, loading, onAnular, onEdi
         ))}
       </div>
 
-      {movimientos.length > 5 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-          <span className="text-sm text-gray-500">
-            {movimientos.length - 5} movimientos más
+      {/* Paginación inferior (solo si hay muchas páginas) */}
+      {hayPaginacion && totalPaginas > 2 && (
+        <div className="flex items-center justify-center gap-1 mt-4 pt-4 border-t border-gray-200">
+          <button
+            onClick={irPaginaAnterior}
+            disabled={paginaActual === 1}
+            className="px-3 py-1.5 text-sm rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Anterior
+          </button>
+          <span className="text-sm text-gray-600 mx-3">
+            Página {paginaActual} de {totalPaginas}
           </span>
+          <button
+            onClick={irPaginaSiguiente}
+            disabled={paginaActual === totalPaginas}
+            className="px-3 py-1.5 text-sm rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+          >
+            Siguiente
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

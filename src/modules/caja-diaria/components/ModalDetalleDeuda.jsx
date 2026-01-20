@@ -32,12 +32,13 @@ export default function ModalDetalleDeuda({
   // Cargar datos cuando se abre el modal
   useEffect(() => {
     if (isOpen && cliente) {
-      // Resetear form
-      setMontoCobro(cliente.deuda_total || 0)
+      // Resetear form - monto vacío para que el usuario ingrese
+      setMontoCobro(0)
       setMetodoPagoId(metodosPago?.[0]?.id || null)
       setNota('')
       setError('')
       setMostrarHistorial(false)
+      setHistorial([])
 
       // Cargar historial
       const cargarHistorial = async () => {
@@ -48,7 +49,8 @@ export default function ModalDetalleDeuda({
       }
       cargarHistorial()
     }
-  }, [isOpen, cliente, metodosPago, obtenerHistorial])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, cliente?.id])
 
   const handleCobrar = async () => {
     if (montoCobro <= 0) {
@@ -131,11 +133,15 @@ export default function ModalDetalleDeuda({
                 </div>
               </div>
 
-              {/* Deuda total */}
-              <div className="mt-4 bg-red-50 rounded-lg p-3">
+              {/* Deuda total o saldo a favor */}
+              <div className={`mt-4 rounded-lg p-3 ${deudaTotal > 0 ? 'bg-red-50' : deudaTotal < 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-red-700">Deuda total:</span>
-                  <span className="text-2xl font-bold text-red-600">{formatearMonto(deudaTotal)}</span>
+                  <span className={`text-sm ${deudaTotal > 0 ? 'text-red-700' : deudaTotal < 0 ? 'text-blue-700' : 'text-gray-700'}`}>
+                    {deudaTotal > 0 ? 'Deuda total:' : deudaTotal < 0 ? 'Saldo a favor:' : 'Saldo:'}
+                  </span>
+                  <span className={`text-2xl font-bold ${deudaTotal > 0 ? 'text-red-600' : deudaTotal < 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                    {formatearMonto(Math.abs(deudaTotal))}
+                  </span>
                 </div>
               </div>
             </div>
@@ -156,27 +162,29 @@ export default function ModalDetalleDeuda({
                     className="w-full pl-8 pr-4 py-3 text-2xl font-bold border-2 border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-emerald-600 text-right"
                   />
                 </div>
-                {montoCobro > deudaTotal && (
-                  <p className="text-xs text-orange-600 mt-1">
-                    El monto supera la deuda actual
+                {montoCobro > deudaTotal && deudaTotal > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Quedará saldo a favor: {formatearMonto(montoCobro - deudaTotal)}
                   </p>
                 )}
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setMontoCobro(deudaTotal)}
-                    className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200"
-                  >
-                    Total ({formatearMonto(deudaTotal)})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMontoCobro(Math.floor(deudaTotal / 2))}
-                    className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                  >
-                    Mitad
-                  </button>
-                </div>
+                {deudaTotal > 0 && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setMontoCobro(deudaTotal)}
+                      className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200"
+                    >
+                      Total ({formatearMonto(deudaTotal)})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMontoCobro(Math.floor(deudaTotal / 2))}
+                      className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                    >
+                      Mitad
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Método de pago */}

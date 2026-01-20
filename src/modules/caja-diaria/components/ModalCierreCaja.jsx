@@ -27,6 +27,8 @@ export default function ModalCierreCaja({
   const [efectivoReal, setEfectivoReal] = useState(0)
   const [motivoDiferencia, setMotivoDiferencia] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [dejarTodoElSaldo, setDejarTodoElSaldo] = useState(true)
+  const [saldoParaManiana, setSaldoParaManiana] = useState(0)
 
   const modoEdicion = !!cierreExistente
 
@@ -40,6 +42,9 @@ export default function ModalCierreCaja({
   // Calcular diferencia
   const diferencia = calcularDiferenciaCierre(efectivoReal, efectivoEsperado)
 
+  // Calcular retiro automático
+  const montoRetiro = dejarTodoElSaldo ? 0 : Math.max(0, efectivoReal - saldoParaManiana)
+
   // Pre-llenar efectivo real con el esperado o con el cierre existente
   useEffect(() => {
     if (isOpen) {
@@ -50,10 +55,19 @@ export default function ModalCierreCaja({
       } else {
         // Modo creación: usar esperado
         setEfectivoReal(efectivoEsperado)
+        setSaldoParaManiana(efectivoEsperado)
         setMotivoDiferencia('')
+        setDejarTodoElSaldo(true)
       }
     }
   }, [isOpen, efectivoEsperado, cierreExistente])
+
+  // Actualizar saldoParaManiana cuando efectivoReal cambia y dejarTodoElSaldo es true
+  useEffect(() => {
+    if (dejarTodoElSaldo) {
+      setSaldoParaManiana(efectivoReal)
+    }
+  }, [efectivoReal, dejarTodoElSaldo])
 
   const handleGuardar = async () => {
     setGuardando(true)
@@ -65,7 +79,12 @@ export default function ModalCierreCaja({
         diferencia,
         motivo_diferencia: diferencia !== 0 ? motivoDiferencia.trim() : null,
         total_entradas: resumen?.total_entradas || 0,
-        total_salidas: resumen?.total_salidas || 0
+        total_salidas: resumen?.total_salidas || 0,
+        // Datos del retiro automático
+        retiro_automatico: montoRetiro > 0 ? {
+          monto: montoRetiro,
+          saldo_para_maniana: saldoParaManiana
+        } : null
       })
 
       onClose()
@@ -192,6 +211,52 @@ export default function ModalCierreCaja({
                 />
               </div>
             </div>
+
+            {/* Saldo para mañana (solo en modo creación) */}
+            {!modoEdicion && (
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="dejarTodoElSaldo"
+                    checked={dejarTodoElSaldo}
+                    onChange={(e) => setDejarTodoElSaldo(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                  />
+                  <label htmlFor="dejarTodoElSaldo" className="flex-1 text-sm text-gray-700">
+                    Dejar todo el efectivo como saldo inicial para mañana
+                  </label>
+                </div>
+
+                {!dejarTodoElSaldo && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      ¿Cuánto querés dejar para mañana?
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <InputMonto
+                        value={saldoParaManiana}
+                        onChange={setSaldoParaManiana}
+                        placeholder="0"
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                      />
+                    </div>
+
+                    {montoRetiro > 0 && (
+                      <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-xs text-amber-800 mb-1">
+                          Se generará automáticamente:
+                        </p>
+                        <p className="text-sm font-semibold text-amber-900">
+                          Retiro de efectivo: {formatearMonto(montoRetiro)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Diferencia */}
             <div className={`${colorDif.bg} rounded-lg p-4`}>

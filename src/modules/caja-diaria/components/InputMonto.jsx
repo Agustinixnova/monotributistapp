@@ -3,7 +3,7 @@
  * 1000 → 1.000
  */
 
-import { useState, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { formatearInputMonto, parsearMonto } from '../utils/formatters'
 
 export default function InputMonto({
@@ -14,33 +14,40 @@ export default function InputMonto({
   disabled = false,
   name = 'monto'
 }) {
-  const [displayValue, setDisplayValue] = useState('')
+  const inputRef = useRef(null)
+  const isTyping = useRef(false)
 
+  // Sincronizar valor externo solo cuando no está escribiendo
   useEffect(() => {
-    if (value) {
-      setDisplayValue(formatearInputMonto(value.toString()))
-    } else {
-      setDisplayValue('')
+    if (!isTyping.current && inputRef.current) {
+      const formatted = value ? formatearInputMonto(value.toString()) : ''
+      if (inputRef.current.value !== formatted) {
+        inputRef.current.value = formatted
+      }
     }
   }, [value])
 
   const handleChange = (e) => {
+    isTyping.current = true
     const formatted = formatearInputMonto(e.target.value)
-    setDisplayValue(formatted)
+    e.target.value = formatted
     onChange(parsearMonto(formatted))
+    // Reset typing flag después de un pequeño delay
+    setTimeout(() => { isTyping.current = false }, 100)
   }
 
   return (
     <input
+      ref={inputRef}
       type="text"
       inputMode="numeric"
       name={name}
-      value={displayValue}
+      defaultValue={value ? formatearInputMonto(value.toString()) : ''}
       onChange={handleChange}
       placeholder={placeholder}
       disabled={disabled}
       className={`text-right ${className}`}
-      autoFocus={false} // NUNCA autoFocus en iOS/Safari
+      autoFocus={false}
     />
   )
 }

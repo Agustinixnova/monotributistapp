@@ -138,6 +138,84 @@ export default function CajaDiariaPage() {
   }
 
   const handleCerrarCaja = async (cierreData) => {
+    const metodoEfectivo = metodosPago.metodos?.find(m => m.es_efectivo)
+
+    // 1. Si hay diferencia de arqueo, crear movimiento de ajuste
+    if (cierreData.diferencia && cierreData.diferencia !== 0) {
+      const esFaltante = cierreData.diferencia < 0
+      const montoAjuste = Math.abs(cierreData.diferencia)
+
+      // Buscar categoría correspondiente
+      const nombreCategoria = esFaltante ? 'faltante de caja' : 'sobrante de caja'
+      const tipoCategoria = esFaltante ? 'salida' : 'entrada'
+      const categoriaAjuste = categorias.categorias?.find(c =>
+        c.nombre?.toLowerCase() === nombreCategoria && c.tipo === tipoCategoria
+      )
+
+      if (!categoriaAjuste || !metodoEfectivo) {
+        return {
+          success: false,
+          error: { message: `No se encontró la categoría "${esFaltante ? 'Faltante de caja' : 'Sobrante de caja'}" o el método "Efectivo"` }
+        }
+      }
+
+      // Crear movimiento de ajuste
+      const resultAjuste = await movimientos.crear({
+        tipo: tipoCategoria,
+        categoria_id: categoriaAjuste.id,
+        descripcion: `Ajuste por diferencia de arqueo (${esFaltante ? 'faltante' : 'sobrante'})`,
+        pagos: [{
+          metodo_pago_id: metodoEfectivo.id,
+          monto: montoAjuste
+        }]
+      })
+
+      if (!resultAjuste.success) {
+        return resultAjuste
+      }
+
+      // Después del ajuste, el efectivo esperado coincide con el real
+      cierreData.efectivo_esperado = cierreData.efectivo_real
+      cierreData.diferencia = 0
+    }
+
+    // 2. Si hay retiro automático, crear el movimiento
+    if (cierreData.retiro_automatico) {
+      const { monto, saldo_para_maniana } = cierreData.retiro_automatico
+
+      // Buscar categoría "Retiro de caja"
+      const categoriaRetiro = categorias.categorias?.find(c =>
+        c.nombre?.toLowerCase() === 'retiro de caja' && c.tipo === 'salida'
+      )
+
+      if (!categoriaRetiro || !metodoEfectivo) {
+        return {
+          success: false,
+          error: { message: 'No se encontró la categoría "Retiro de caja" o el método "Efectivo"' }
+        }
+      }
+
+      // Crear movimiento de retiro
+      const resultRetiro = await movimientos.crear({
+        tipo: 'salida',
+        categoria_id: categoriaRetiro.id,
+        descripcion: 'Retiro automático al cerrar caja',
+        pagos: [{
+          metodo_pago_id: metodoEfectivo.id,
+          monto: monto
+        }]
+      })
+
+      if (!resultRetiro.success) {
+        return resultRetiro
+      }
+
+      // Ajustar valores del cierre después del retiro
+      cierreData.efectivo_esperado = cierreData.efectivo_esperado - monto
+      cierreData.efectivo_real = saldo_para_maniana
+    }
+
+    // 3. Guardar el cierre
     const result = await cierre.guardarCierre(cierreData)
     if (result.success) {
       await refreshAll()
@@ -225,21 +303,17 @@ export default function CajaDiariaPage() {
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-start sm:items-center justify-between gap-4 mb-2 flex-col sm:flex-row">
+        {/* Título y acciones principales */}
+        <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
               <Wallet className="w-5 h-5 text-violet-600" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Caja Diaria</h1>
-              <p className="text-sm text-gray-600">
-                {formatearFechaLarga(fecha)}
-              </p>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Caja Diaria</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Botón Calculadora */}
+          {/* Botones de acción - siempre visibles */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setModalCalculadora(true)}
               className="p-2 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
@@ -248,7 +322,6 @@ export default function CajaDiariaPage() {
               <Calculator className="w-5 h-5 text-amber-600" />
             </button>
 
-            {/* Botón Cobranzas */}
             <button
               onClick={() => setModalCobranzas(true)}
               className="p-2 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors relative"
@@ -262,7 +335,6 @@ export default function CajaDiariaPage() {
               )}
             </button>
 
-            {/* Botón Reporte por Período */}
             <button
               onClick={() => setModalReportePeriodo(true)}
               className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
@@ -271,7 +343,6 @@ export default function CajaDiariaPage() {
               <FileText className="w-5 h-5 text-indigo-600" />
             </button>
 
-            {/* Botón Configuración */}
             <button
               onClick={() => setModalConfiguracion(true)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -279,34 +350,34 @@ export default function CajaDiariaPage() {
             >
               <Settings className="w-5 h-5 text-gray-600" />
             </button>
-
-            {/* Selector de fecha */}
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => cambiarFecha(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-            />
-
-            {/* Botón Hoy */}
-            {!esHoy && (
-              <button
-                onClick={irAHoy}
-                className="px-3 py-2 bg-violet-50 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors"
-              >
-                Hoy
-              </button>
-            )}
-
-            {/* Botón Refresh */}
-            <button
-              onClick={refreshAll}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Actualizar"
-            >
-              <RefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
-            </button>
           </div>
+        </div>
+
+        {/* Selector de fecha - fila separada en mobile */}
+        <div className="flex items-center gap-2 justify-end">
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => cambiarFecha(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+          />
+
+          {!esHoy && (
+            <button
+              onClick={irAHoy}
+              className="px-3 py-2 bg-violet-50 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors"
+            >
+              Hoy
+            </button>
+          )}
+
+          <button
+            onClick={refreshAll}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Actualizar"
+          >
+            <RefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Badge día cerrado */}
@@ -406,7 +477,7 @@ export default function CajaDiariaPage() {
 
       {/* Botones de cierre/edición */}
       <div className="mb-6">
-        {esHoy && !estaCerrado && (
+        {!estaCerrado && (
           <button
             onClick={() => setModalCierre(true)}
             className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition-colors"

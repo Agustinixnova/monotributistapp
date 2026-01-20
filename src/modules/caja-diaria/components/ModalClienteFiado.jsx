@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Check, User, Phone, CreditCard, MessageSquare } from 'lucide-react'
+import { X, Check, User, Phone, CreditCard, MessageSquare, Wallet } from 'lucide-react'
 import InputMonto from './InputMonto'
 import { formatearMonto } from '../utils/formatters'
 
@@ -14,6 +14,8 @@ export default function ModalClienteFiado({ isOpen, onClose, onGuardar, cliente 
   const [limiteCredito, setLimiteCredito] = useState(0)
   const [sinLimite, setSinLimite] = useState(true)
   const [comentario, setComentario] = useState('')
+  const [saldoInicial, setSaldoInicial] = useState(0)
+  const [tipoSaldo, setTipoSaldo] = useState('deuda') // 'deuda' o 'favor'
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
@@ -35,6 +37,8 @@ export default function ModalClienteFiado({ isOpen, onClose, onGuardar, cliente 
         setLimiteCredito(0)
         setSinLimite(true)
         setComentario('')
+        setSaldoInicial(0)
+        setTipoSaldo('deuda')
       }
       setError('')
     }
@@ -55,7 +59,10 @@ export default function ModalClienteFiado({ isOpen, onClose, onGuardar, cliente 
         apellido: apellido.trim() || null,
         telefono: telefono.trim() || null,
         limite_credito: sinLimite ? null : limiteCredito,
-        comentario: comentario.trim() || null
+        comentario: comentario.trim() || null,
+        // Solo para clientes nuevos
+        saldo_inicial: !esEdicion && saldoInicial > 0 ? saldoInicial : null,
+        tipo_saldo: !esEdicion && saldoInicial > 0 ? tipoSaldo : null
       })
       onClose()
     } catch (err) {
@@ -185,6 +192,63 @@ export default function ModalClienteFiado({ isOpen, onClose, onGuardar, cliente 
                   : `Se mostrará un aviso si supera ${formatearMonto(limiteCredito) || '$0'}`}
               </p>
             </div>
+
+            {/* Saldo inicial - Solo para clientes nuevos */}
+            {!esEdicion && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Saldo inicial (opcional)
+                </label>
+
+                {/* Tipo de saldo */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setTipoSaldo('deuda')}
+                    className={`flex-1 py-2 px-3 text-sm rounded-lg border-2 transition-colors ${
+                      tipoSaldo === 'deuda'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    Debe (deuda)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoSaldo('favor')}
+                    className={`flex-1 py-2 px-3 text-sm rounded-lg border-2 transition-colors ${
+                      tipoSaldo === 'favor'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    A favor
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <InputMonto
+                    value={saldoInicial}
+                    onChange={setSaldoInicial}
+                    placeholder="0"
+                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 ${
+                      tipoSaldo === 'deuda'
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : 'border-blue-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                  />
+                </div>
+
+                <p className="text-xs text-gray-500 mt-2">
+                  {saldoInicial > 0
+                    ? tipoSaldo === 'deuda'
+                      ? `El cliente empezará con una deuda de ${formatearMonto(saldoInicial)}`
+                      : `El cliente empezará con ${formatearMonto(saldoInicial)} a favor`
+                    : 'Dejá en 0 si el cliente empieza sin saldo'}
+                </p>
+              </div>
+            )}
 
             {/* Comentario */}
             <div>

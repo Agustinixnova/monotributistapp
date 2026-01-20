@@ -60,10 +60,16 @@ export async function upsertCierreCaja(cierre) {
     const { data: { user } } = await supabase.auth.getUser()
     const createdById = user?.id || userId
 
+    // Extraer solo los campos válidos para la tabla (excluir retiro_automatico y otros campos no válidos)
+    const {
+      retiro_automatico,  // Excluir - se maneja en CajaDiariaPage
+      ...cierreValido
+    } = cierre
+
     const cierreData = {
       user_id: userId,
       created_by_id: createdById,
-      ...cierre,
+      ...cierreValido,
       cerrado: true,
       cerrado_at: getTimestampArgentina()
     }
