@@ -3,10 +3,11 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
 import { usePermisosCaja } from '../hooks/usePermisosCaja'
+import { useDiasSinCerrar } from '../hooks/useDiasSinCerrar'
 import { formatearFechaLarga, getFechaHoy } from '../utils/formatters'
 import { descargarPDFCierreCaja } from '../utils/pdfCierreCaja'
 import ResumenEfectivo from './ResumenEfectivo'
@@ -24,7 +25,11 @@ import ModalComentario from './ModalComentario'
 import ModalCalculadora from './ModalCalculadora'
 import ModalDetalleResumen from './ModalDetalleResumen'
 import ModalReportePeriodo from './ModalReportePeriodo'
+import ModalRegistrarFiado from './ModalRegistrarFiado'
+import ModalCobranzas from './ModalCobranzas'
+import AlertaDiasSinCerrar from './AlertaDiasSinCerrar'
 import { useAliasPago } from '../hooks/useAliasPago'
+import { useClientesConDeuda } from '../hooks/useClientesFiado'
 import { actualizarComentario } from '../services/movimientosService'
 
 export default function CajaDiariaPage() {
@@ -50,6 +55,12 @@ export default function CajaDiariaPage() {
   // Alias de pago para el visualizador QR
   const { alias: aliasPago } = useAliasPago()
 
+  // Clientes con deuda (para mostrar botón de cobranzas)
+  const { clientes: clientesConDeuda, refresh: refreshClientesConDeuda } = useClientesConDeuda()
+
+  // Días anteriores sin cerrar
+  const { diasSinCerrar, refresh: refreshDiasSinCerrar } = useDiasSinCerrar()
+
   const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null, montoInicial: 0 })
   const [modalCierre, setModalCierre] = useState(false)
   const [modalArqueo, setModalArqueo] = useState(false)
@@ -58,6 +69,8 @@ export default function CajaDiariaPage() {
   const [modalCalculadora, setModalCalculadora] = useState(false)
   const [modalDetalleResumen, setModalDetalleResumen] = useState(false)
   const [modalReportePeriodo, setModalReportePeriodo] = useState(false)
+  const [modalFiado, setModalFiado] = useState({ isOpen: false, montoInicial: 0 })
+  const [modalCobranzas, setModalCobranzas] = useState(false)
 
   // Estados para modales de confirmación
   const [confirmAnular, setConfirmAnular] = useState({ isOpen: false, id: null })
@@ -90,6 +103,17 @@ export default function CajaDiariaPage() {
     setModalMovimiento({ isOpen: true, tipo: 'entrada', montoInicial: total })
   }
 
+  // Handler cuando se selecciona categoría "Cuenta Corriente" en ModalMovimiento
+  const handleFiado = (monto) => {
+    setModalFiado({ isOpen: true, montoInicial: monto })
+  }
+
+  // Handler cuando se registra una cuenta corriente o pago
+  const handleFiadoGuardado = async () => {
+    await refreshAll()
+    await refreshClientesConDeuda()
+  }
+
   const handleGuardarMovimiento = async (movimientoData) => {
     const result = await movimientos.crear(movimientoData)
     if (result.success) {
@@ -117,6 +141,8 @@ export default function CajaDiariaPage() {
     const result = await cierre.guardarCierre(cierreData)
     if (result.success) {
       await refreshAll()
+      // Actualizar lista de días sin cerrar
+      await refreshDiasSinCerrar()
     }
     return result
   }
@@ -222,6 +248,20 @@ export default function CajaDiariaPage() {
               <Calculator className="w-5 h-5 text-amber-600" />
             </button>
 
+            {/* Botón Cobranzas */}
+            <button
+              onClick={() => setModalCobranzas(true)}
+              className="p-2 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors relative"
+              title="Cobranzas"
+            >
+              <Banknote className="w-5 h-5 text-emerald-600" />
+              {clientesConDeuda.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {clientesConDeuda.length > 9 ? '9+' : clientesConDeuda.length}
+                </span>
+              )}
+            </button>
+
             {/* Botón Reporte por Período */}
             <button
               onClick={() => setModalReportePeriodo(true)}
@@ -287,6 +327,12 @@ export default function CajaDiariaPage() {
           </div>
         </div>
       )}
+
+      {/* Alerta de días sin cerrar */}
+      <AlertaDiasSinCerrar
+        diasSinCerrar={diasSinCerrar}
+        onIrAFecha={cambiarFecha}
+      />
 
       {/* Resúmenes */}
       <div className="grid sm:grid-cols-2 gap-4 mb-6">
@@ -417,6 +463,7 @@ export default function CajaDiariaPage() {
         metodosPago={metodosPago.metodos}
         onGuardar={handleGuardarMovimiento}
         montoInicial={modalMovimiento.montoInicial}
+        onFiado={handleFiado}
       />
 
       {/* Modal Cierre de Caja */}
@@ -524,6 +571,22 @@ export default function CajaDiariaPage() {
         isOpen={modalReportePeriodo}
         onClose={() => setModalReportePeriodo(false)}
         nombreNegocio={configuracion.nombreNegocio}
+      />
+
+      {/* Modal Cuenta Corriente */}
+      <ModalRegistrarFiado
+        isOpen={modalFiado.isOpen}
+        onClose={() => setModalFiado({ isOpen: false, montoInicial: 0 })}
+        onGuardado={handleFiadoGuardado}
+        montoInicial={modalFiado.montoInicial}
+      />
+
+      {/* Modal Cobranzas */}
+      <ModalCobranzas
+        isOpen={modalCobranzas}
+        onClose={() => setModalCobranzas(false)}
+        metodosPago={metodosPago.metodos}
+        onPagoRegistrado={handleFiadoGuardado}
       />
       </div>
     </Layout>

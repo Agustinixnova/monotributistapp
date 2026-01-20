@@ -14,6 +14,8 @@ Sistema para registrar entradas y salidas de dinero diarias. Permite llevar un c
 4. **Métodos de pago configurables** (diferenciando efectivo vs digital)
 5. **Cierre de caja diario** con arqueo
 6. **Historial** de días anteriores
+7. **Sistema de Fiados** - Gestión de ventas a crédito con clientes
+8. **Cobranzas** - Cobro de deudas con registro automático en caja
 
 ## Estructura del Módulo
 
@@ -31,19 +33,30 @@ caja-diaria/
 │   ├── ListaMovimientos.jsx        # Lista de movimientos del día
 │   ├── MovimientoItem.jsx          # Item individual de movimiento
 │   ├── DetalleMetodosPago.jsx      # Pills de métodos usados
-│   └── ModalCierreCaja.jsx         # Modal de cierre de caja
+│   ├── ModalCierreCaja.jsx         # Modal de cierre de caja
+│   ├── ModalRegistrarFiado.jsx     # Modal para registrar venta fiada
+│   ├── ModalSelectorCliente.jsx    # Selector de cliente fiado
+│   ├── ModalAvisoLimite.jsx        # Aviso de límite de crédito superado
+│   ├── ModalClienteFiado.jsx       # CRUD de cliente fiado
+│   ├── ModalCobranzas.jsx          # Lista de clientes con deuda
+│   └── ModalDetalleDeuda.jsx       # Detalle y cobro de deuda
 ├── hooks/
 │   ├── useCajaDiaria.js            # Hook principal (orquestador)
 │   ├── useMovimientos.js           # CRUD movimientos
 │   ├── useResumenDia.js            # Totales del día
 │   ├── useCierreCaja.js            # Lógica de cierre
 │   ├── useMetodosPago.js           # CRUD métodos de pago
-│   └── useCategorias.js            # CRUD categorías
+│   ├── useCategorias.js            # CRUD categorías
+│   ├── useClientesFiado.js         # CRUD clientes fiado
+│   └── useCobranzas.js             # Gestión de cobranzas
 ├── services/
 │   ├── movimientosService.js       # Supabase movimientos
 │   ├── cierresService.js           # Supabase cierres
 │   ├── metodosPagoService.js       # Supabase métodos de pago
-│   └── categoriasService.js        # Supabase categorías
+│   ├── categoriasService.js        # Supabase categorías
+│   ├── clientesFiadoService.js     # Supabase clientes fiado
+│   ├── fiadosService.js            # Supabase ventas fiadas
+│   └── cobranzasService.js         # Supabase cobranzas
 ├── utils/
 │   ├── formatters.js               # Formateo moneda/hora/fecha
 │   ├── calculosCaja.js             # Cálculos de totales
@@ -60,13 +73,22 @@ caja-diaria/
 - **caja_movimientos**: Movimientos de caja
 - **caja_movimientos_pagos**: Detalle de split de pagos
 - **caja_cierres**: Cierres de caja diarios
+- **caja_clientes_fiado**: Clientes que pueden comprar fiado
+- **caja_fiados**: Ventas a crédito (deudas)
+- **caja_pagos_fiado**: Cobranzas de deudas
 
 ### Funciones RPC
 
 - **caja_resumen_dia(p_user_id, p_fecha)**: Retorna resumen del día (totales de entrada, salida, efectivo, digital)
 - **caja_totales_por_metodo(p_user_id, p_fecha)**: Retorna totales agrupados por método de pago
+- **caja_cliente_deuda(p_cliente_id)**: Retorna deuda total de un cliente
+- **caja_clientes_con_deuda(p_user_id)**: Lista clientes con saldo pendiente > 0
+- **caja_cliente_historial(p_cliente_id)**: Historial de fiados y pagos de un cliente
+- **caja_registrar_pago_fiado(...)**: Registra pago y actualiza fiados (FIFO)
 
-Ver migración completa en: `supabase/migrations/20260118000000_caja_diaria.sql`
+Ver migraciones completas en:
+- `supabase/migrations/20260118000000_caja_diaria.sql`
+- `supabase/migrations/20260119270000_caja_fiados.sql`
 
 ## Componentes Clave
 
@@ -229,8 +251,21 @@ La migración incluye:
 
 ## Última actualización
 
-**Fecha:** 2026-01-18
+**Fecha:** 2026-01-19
 **Cambios realizados:**
+- Sistema de Fiados completo:
+  - Gestión de clientes fiado (CRUD)
+  - Límite de crédito opcional por cliente
+  - Registro de ventas fiadas (no afecta caja del día)
+  - Sistema de cobranzas con registro automático en caja
+  - Saldado de fiados FIFO al cobrar
+  - Historial de fiados y pagos por cliente
+- Botón de cobranzas en header con badge de clientes con deuda
+- Tab "Clientes Fiado" en configuración
+- Categoría especial "Fiado" que abre flujo de fiados
+
+**Fecha:** 2026-01-18
+**Cambios anteriores:**
 - Creación completa del módulo Caja Diaria
 - Implementación de split de pagos
 - Sistema de cierre de caja

@@ -5,6 +5,7 @@
 import { supabase } from '../../../lib/supabase'
 import { getEffectiveUserId } from './empleadosService'
 import { getFechaHoyArgentina, getHoraArgentina } from '../utils/dateUtils'
+import { createMovimiento } from './movimientosService'
 
 /**
  * Obtener efectivo esperado actual
@@ -54,6 +55,7 @@ export async function getArqueosByFecha(fecha) {
 
 /**
  * Crear un nuevo arqueo
+ * Si hay diferencia, crea automáticamente un movimiento de ajuste
  * @param {object} arqueo - { fecha, efectivo_esperado, efectivo_real, diferencia, motivo_diferencia, notas }
  */
 export async function createArqueo(arqueo) {
@@ -77,10 +79,85 @@ export async function createArqueo(arqueo) {
       .single()
 
     if (error) throw error
+
+    // Si hay diferencia, crear movimiento de ajuste automático
+    const diferencia = parseFloat(arqueo.diferencia || 0)
+    if (diferencia !== 0) {
+      await crearMovimientoAjuste(userId, arqueo.fecha, diferencia, arqueo.motivo_diferencia)
+    }
+
     return { data, error: null }
   } catch (error) {
     console.error('Error creating arqueo:', error)
     return { data: null, error }
+  }
+}
+
+/**
+ * Crear movimiento de ajuste de caja por diferencia en arqueo
+ * @param {string} userId - ID del usuario dueño
+ * @param {string} fecha - Fecha del arqueo
+ * @param {number} diferencia - Diferencia (positivo = sobrante, negativo = faltante)
+ * @param {string} motivo - Motivo de la diferencia (opcional)
+ */
+async function crearMovimientoAjuste(userId, fecha, diferencia, motivo) {
+  try {
+    // Buscar categoría "Ajuste de caja" (del sistema)
+    const { data: categorias } = await supabase
+      .from('caja_categorias')
+      .select('id')
+      .is('user_id', null)
+      .eq('nombre', 'Ajuste de caja')
+      .eq('activo', true)
+      .single()
+
+    if (!categorias?.id) {
+      console.warn('No se encontró la categoría "Ajuste de caja"')
+      return
+    }
+
+    // Buscar método de pago "Efectivo" (del sistema)
+    const { data: metodoEfectivo } = await supabase
+      .from('caja_metodos_pago')
+      .select('id')
+      .is('user_id', null)
+      .eq('nombre', 'Efectivo')
+      .eq('activo', true)
+      .single()
+
+    if (!metodoEfectivo?.id) {
+      console.warn('No se encontró el método de pago "Efectivo"')
+      return
+    }
+
+    // Determinar tipo de movimiento y monto
+    // diferencia > 0 = sobrante = entrada
+    // diferencia < 0 = faltante = salida
+    const tipo = diferencia > 0 ? 'entrada' : 'salida'
+    const monto = Math.abs(diferencia)
+
+    // Construir descripción
+    let descripcion = `Ajuste de caja por arqueo (${diferencia > 0 ? 'sobrante' : 'faltante'})`
+    if (motivo) {
+      descripcion += ` - ${motivo}`
+    }
+
+    // Crear el movimiento de ajuste
+    await createMovimiento({
+      tipo,
+      categoria_id: categorias.id,
+      descripcion,
+      fecha: fecha || getFechaHoyArgentina(),
+      pagos: [{
+        metodo_pago_id: metodoEfectivo.id,
+        monto
+      }]
+    })
+
+    console.log(`Movimiento de ajuste creado: ${tipo} de $${monto}`)
+  } catch (error) {
+    console.error('Error creando movimiento de ajuste:', error)
+    // No lanzamos el error para que el arqueo se guarde igual
   }
 }
 

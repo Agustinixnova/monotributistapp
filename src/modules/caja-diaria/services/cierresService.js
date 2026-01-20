@@ -234,3 +234,25 @@ export async function reabrirDia(fecha) {
     return { data: null, error }
   }
 }
+
+/**
+ * Obtener días anteriores con movimientos sin cerrar
+ * @returns {Array} Lista de días con movimientos pendientes de cierre
+ */
+export async function getDiasSinCerrar() {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    const { data, error } = await supabase
+      .rpc('caja_dias_sin_cerrar', {
+        p_user_id: userId
+      })
+
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error) {
+    console.error('Error fetching días sin cerrar:', error)
+    return { data: [], error }
+  }
+}

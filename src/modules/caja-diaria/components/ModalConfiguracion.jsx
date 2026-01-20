@@ -3,19 +3,22 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck, QrCode, CreditCard, Upload, Image } from 'lucide-react'
+import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck, QrCode, CreditCard, Upload, Image, UserPlus, Phone, History } from 'lucide-react'
 import IconoDinamico from './IconoDinamico'
 import ModalCategoria from './ModalCategoria'
 import ModalMetodoPago from './ModalMetodoPago'
 import ModalEmpleado from './ModalEmpleado'
 import ModalPermisos from './ModalPermisos'
 import ModalConfirmacion from './ModalConfirmacion'
+import ModalClienteFiado from './ModalClienteFiado'
 import { useCategorias } from '../hooks/useCategorias'
 import { useMetodosPago } from '../hooks/useMetodosPago'
 import { useConfiguracion } from '../hooks/useConfiguracion'
 import { useEmpleados } from '../hooks/useEmpleados'
 import { usePermisosCaja } from '../hooks/usePermisosCaja'
 import { useAliasPago } from '../hooks/useAliasPago'
+import { useClientesFiado } from '../hooks/useClientesFiado'
+import { formatearMonto } from '../utils/formatters'
 
 export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) {
   const [tab, setTab] = useState('general') // 'general' | 'categorias' | 'metodos' | 'empleados' | 'pagos'
@@ -23,9 +26,12 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const [modalMetodoPago, setModalMetodoPago] = useState(false)
   const [modalEmpleado, setModalEmpleado] = useState(false)
   const [modalPermisos, setModalPermisos] = useState(false)
+  const [modalClienteFiado, setModalClienteFiado] = useState(false)
   const [categoriaEditar, setCategoriaEditar] = useState(null)
   const [metodoEditar, setMetodoEditar] = useState(null)
   const [empleadoPermisos, setEmpleadoPermisos] = useState(null)
+  const [clienteFiadoEditar, setClienteFiadoEditar] = useState(null)
+  const [clientesDeudas, setClientesDeudas] = useState({})
 
   // Estados para alias
   const [nuevoAlias, setNuevoAlias] = useState({ nombre: '', alias: '', banco: '' })
@@ -51,6 +57,24 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
 
   const { categorias, crear: crearCategoria, actualizar: actualizarCategoria, eliminar: eliminarCategoria } = useCategorias()
   const { metodos: metodosPago, crear: crearMetodo, actualizar: actualizarMetodo, eliminar: eliminarMetodo } = useMetodosPago()
+
+  // Clientes fiado
+  const { clientes: clientesFiado, crear: crearClienteFiado, actualizar: actualizarClienteFiado, eliminar: eliminarClienteFiado, obtenerDeuda, loading: loadingClientesFiado } = useClientesFiado()
+
+  // Cargar deudas de clientes fiado cuando se abre el tab
+  useEffect(() => {
+    if (isOpen && tab === 'fiados' && clientesFiado.length > 0) {
+      const cargarDeudas = async () => {
+        const deudas = {}
+        for (const cliente of clientesFiado) {
+          const { deuda } = await obtenerDeuda(cliente.id)
+          deudas[cliente.id] = deuda || 0
+        }
+        setClientesDeudas(deudas)
+      }
+      cargarDeudas()
+    }
+  }, [isOpen, tab, clientesFiado, obtenerDeuda])
 
   // Sincronizar input con valor guardado
   useEffect(() => {
@@ -123,6 +147,28 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
     }
   }
 
+  // Handlers para clientes fiado
+  const handleGuardarClienteFiado = async (data) => {
+    if (clienteFiadoEditar) {
+      await actualizarClienteFiado(clienteFiadoEditar.id, data)
+    } else {
+      await crearClienteFiado(data)
+    }
+    setModalClienteFiado(false)
+    setClienteFiadoEditar(null)
+  }
+
+  const handleEditarClienteFiado = (cliente) => {
+    setClienteFiadoEditar(cliente)
+    setModalClienteFiado(true)
+  }
+
+  const handleEliminarClienteFiado = async (id) => {
+    if (confirm('¿Desactivar este cliente? Ya no aparecerá en la lista de cuenta corriente.')) {
+      await eliminarClienteFiado(id)
+    }
+  }
+
   if (!isOpen) return null
 
   return (
@@ -177,6 +223,16 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                   }`}
                 >
                   Métodos
+                </button>
+                <button
+                  onClick={() => setTab('fiados')}
+                  className={`px-4 py-3 font-medium transition-colors whitespace-nowrap text-sm ${
+                    tab === 'fiados'
+                      ? 'text-violet-600 border-b-2 border-violet-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Clientes Cta. Cte.
                 </button>
                 {esDuenio && (
                   <button
@@ -396,6 +452,111 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Tab Clientes Cta. Cte. */}
+              {tab === 'fiados' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                      Clientes con cuenta corriente
+                    </p>
+                    <button
+                      onClick={() => {
+                        setClienteFiadoEditar(null)
+                        setModalClienteFiado(true)
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Nuevo cliente
+                    </button>
+                  </div>
+
+                  {loadingClientesFiado ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin h-6 w-6 border-2 border-violet-600 border-t-transparent rounded-full mx-auto" />
+                    </div>
+                  ) : clientesFiado.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">No tenés clientes registrados</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Agregá clientes para poder registrar ventas fiadas
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {clientesFiado.map(cliente => {
+                        const deuda = clientesDeudas[cliente.id] || 0
+                        return (
+                          <div
+                            key={cliente.id}
+                            className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-violet-300"
+                          >
+                            {/* Avatar */}
+                            <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-violet-600 font-medium">
+                                {cliente.nombre?.charAt(0)}{cliente.apellido?.charAt(0) || ''}
+                              </span>
+                            </div>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900 truncate">
+                                {cliente.nombre} {cliente.apellido || ''}
+                              </div>
+                              {cliente.telefono && (
+                                <div className="text-xs text-gray-500 flex items-center gap-1">
+                                  <Phone className="w-3 h-3" />
+                                  {cliente.telefono}
+                                </div>
+                              )}
+                              <div className="text-xs text-gray-400 flex items-center gap-2">
+                                {cliente.limite_credito ? (
+                                  <span>Límite: {formatearMonto(cliente.limite_credito)}</span>
+                                ) : (
+                                  <span>Sin límite</span>
+                                )}
+                                {deuda > 0 && (
+                                  <span className="text-red-600 font-medium">
+                                    Deuda: {formatearMonto(deuda)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Acciones */}
+                            <button
+                              onClick={() => handleEditarClienteFiado(cliente)}
+                              className="p-2 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEliminarClienteFiado(cliente.id)}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Desactivar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="bg-amber-50 rounded-lg p-4 text-sm text-amber-700">
+                    <p className="font-medium mb-1">Sobre cuenta corriente:</p>
+                    <ul className="list-disc list-inside space-y-1 text-amber-600">
+                      <li>Las cuentas corrientes NO se registran en la caja del día</li>
+                      <li>Solo registran la deuda del cliente</li>
+                      <li>Al cobrar una deuda, se genera una entrada en caja</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
@@ -802,6 +963,16 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         }}
         empleado={empleadoPermisos}
         onGuardar={actualizarPermisos}
+      />
+
+      <ModalClienteFiado
+        isOpen={modalClienteFiado}
+        onClose={() => {
+          setModalClienteFiado(false)
+          setClienteFiadoEditar(null)
+        }}
+        onGuardar={handleGuardarClienteFiado}
+        cliente={clienteFiadoEditar}
       />
 
       {/* Modal Confirmación - Eliminar QR */}

@@ -19,7 +19,9 @@ export default function ModalMovimiento({
   categorias,
   metodosPago,
   onGuardar,
-  montoInicial = 0
+  montoInicial = 0,
+  onFiado = null, // Callback cuando se selecciona categoría "Cuenta Corriente"
+  onCobroDeuda = null // Callback cuando se selecciona categoría "Cobro de deuda"
 }) {
   // Estado del flujo
   const [etapa, setEtapa] = useState(1)
@@ -71,6 +73,24 @@ export default function ModalMovimiento({
 
   // Seleccionar categoría (pasa automáticamente si hay monto)
   const handleSelectCategoria = (id) => {
+    const categoriaSeleccionada = categorias.find(c => c.id === id)
+
+    // Detectar si es la categoría "Cuenta Corriente" (entrada - venta a crédito)
+    if (categoriaSeleccionada?.nombre === 'Cuenta Corriente' && onFiado) {
+      // Cerrar este modal y notificar al padre para abrir el modal de cuenta corriente
+      onClose()
+      onFiado(monto)
+      return
+    }
+
+    // Detectar si es la categoría "Cobro de deuda" (entrada - cobro a cliente)
+    if (categoriaSeleccionada?.nombre === 'Cobro de deuda' && onCobroDeuda) {
+      // Cerrar este modal y notificar al padre para abrir el modal de cobranzas
+      onClose()
+      onCobroDeuda()
+      return
+    }
+
     setCategoriaId(id)
     if (monto > 0) {
       setError('')
