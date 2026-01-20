@@ -7,7 +7,7 @@ import { getEffectiveUserId } from './empleadosService'
 import { getFechaHoyArgentina, getTimestampArgentina, getHoraArgentina } from '../utils/dateUtils'
 
 /**
- * Obtener movimientos de una fecha
+ * Obtener movimientos de una fecha (sin cargar nombres de creadores para mayor velocidad)
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  */
 export async function getMovimientosByFecha(fecha) {
@@ -33,28 +33,52 @@ export async function getMovimientosByFecha(fecha) {
 
     if (error) throw error
 
-    // Obtener perfiles de creadores para cada movimiento usando función RPC
-    if (data && data.length > 0) {
-      const creadorIds = [...new Set(data.map(m => m.created_by_id).filter(Boolean))]
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error fetching movimientos:', error)
+    return { data: null, error }
+  }
+}
 
-      if (creadorIds.length > 0) {
-        const { data: perfiles } = await supabase
-          .rpc('get_users_names', { user_ids: creadorIds })
+/**
+ * Obtener detalle completo de un movimiento (incluye nombre del creador)
+ * @param {string} movimientoId - ID del movimiento
+ */
+export async function getMovimientoDetalle(movimientoId) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
-        if (perfiles) {
-          const perfilesMap = Object.fromEntries(perfiles.map(p => [p.id, p]))
-          data.forEach(movimiento => {
-            if (movimiento.created_by_id && perfilesMap[movimiento.created_by_id]) {
-              movimiento.creador = perfilesMap[movimiento.created_by_id]
-            }
-          })
-        }
+    const { data, error } = await supabase
+      .from('caja_movimientos')
+      .select(`
+        *,
+        categoria:caja_categorias(id, nombre, icono, tipo),
+        pagos:caja_movimientos_pagos(
+          id,
+          monto,
+          metodo:caja_metodos_pago(id, nombre, icono, es_efectivo)
+        )
+      `)
+      .eq('id', movimientoId)
+      .eq('user_id', userId)
+      .single()
+
+    if (error) throw error
+
+    // Obtener nombre del creador si existe
+    if (data?.created_by_id) {
+      const { data: perfiles } = await supabase
+        .rpc('get_users_names', { user_ids: [data.created_by_id] })
+
+      if (perfiles && perfiles.length > 0) {
+        data.creador = perfiles[0]
       }
     }
 
     return { data, error: null }
   } catch (error) {
-    console.error('Error fetching movimientos:', error)
+    console.error('Error fetching movimiento detalle:', error)
     return { data: null, error }
   }
 }

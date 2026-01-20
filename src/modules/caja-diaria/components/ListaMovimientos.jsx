@@ -5,11 +5,13 @@
 import { useState } from 'react'
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import MovimientoItem from './MovimientoItem'
+import ModalDetalleMovimiento from './ModalDetalleMovimiento'
 
 const ITEMS_POR_PAGINA = 25
 
 export default function ListaMovimientos({ movimientos, loading, onAnular, onEditarComentario }) {
   const [paginaActual, setPaginaActual] = useState(1)
+  const [movimientoDetalle, setMovimientoDetalle] = useState(null)
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -103,6 +105,7 @@ export default function ListaMovimientos({ movimientos, loading, onAnular, onEdi
             movimiento={movimiento}
             onAnular={onAnular}
             onEditarComentario={onEditarComentario}
+            onVerDetalle={() => setMovimientoDetalle(movimiento)}
           />
         ))}
       </div>
@@ -131,6 +134,13 @@ export default function ListaMovimientos({ movimientos, loading, onAnular, onEdi
           </button>
         </div>
       )}
+
+      {/* Modal de detalle */}
+      <ModalDetalleMovimiento
+        isOpen={!!movimientoDetalle}
+        onClose={() => setMovimientoDetalle(null)}
+        movimiento={movimientoDetalle}
+      />
     </div>
   )
 }

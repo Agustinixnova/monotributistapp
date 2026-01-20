@@ -2,6 +2,7 @@
  * Item individual de movimiento en la lista
  * - Mobile: diseño vertical compacto
  * - Desktop: diseño horizontal tipo fila de tabla
+ * - Click en el movimiento abre modal de detalle
  */
 
 import { ArrowUpCircle, ArrowDownCircle, Trash2, MessageSquare } from 'lucide-react'
@@ -9,55 +10,54 @@ import { formatearMonto, formatearHora } from '../utils/formatters'
 import DetalleMetodosPago from './DetalleMetodosPago'
 import IconoDinamico from './IconoDinamico'
 
-export default function MovimientoItem({ movimiento, onAnular, onEditarComentario }) {
+export default function MovimientoItem({ movimiento, onAnular, onEditarComentario, onVerDetalle }) {
   const esEntrada = movimiento.tipo === 'entrada'
   const Icon = esEntrada ? ArrowUpCircle : ArrowDownCircle
   const colorIcon = esEntrada ? 'text-emerald-600' : 'text-red-600'
   const colorMonto = esEntrada ? 'text-emerald-700' : 'text-red-700'
   const bgColor = esEntrada ? 'bg-emerald-50/50' : 'bg-red-50/50'
 
-  const nombreCreador = movimiento.creador
-    ? (movimiento.creador.nombre_completo?.trim() || movimiento.creador.nombre || movimiento.creador.email?.split('@')[0] || 'Usuario')
-    : (movimiento.created_by_id ? 'Usuario' : null)
-
   return (
     <div className={`border border-gray-200 rounded-lg hover:shadow-sm transition-shadow ${bgColor}`}>
       {/* Layout Mobile (default) */}
       <div className="md:hidden p-3">
         <div className="flex items-start gap-3">
-          <div className={`mt-0.5 ${colorIcon}`}>
-            <Icon className="w-5 h-5" />
-          </div>
+          {/* Área clickeable para ver detalle */}
+          <button
+            onClick={onVerDetalle}
+            className="flex items-start gap-3 flex-1 min-w-0 text-left"
+          >
+            <div className={`mt-0.5 ${colorIcon}`}>
+              <Icon className="w-5 h-5" />
+            </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <IconoDinamico nombre={movimiento.categoria?.icono} className="w-4 h-4 text-gray-600" />
-                <span className="font-medium text-gray-900 text-sm">
-                  {movimiento.categoria?.nombre}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <IconoDinamico nombre={movimiento.categoria?.icono} className="w-4 h-4 text-gray-600" />
+                  <span className="font-medium text-gray-900 text-sm">
+                    {movimiento.categoria?.nombre}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500 whitespace-nowrap">
+                  {formatearHora(movimiento.hora)}
                 </span>
               </div>
-              <span className="text-xs text-gray-500 whitespace-nowrap">
-                {formatearHora(movimiento.hora)}
-              </span>
-            </div>
 
-            {nombreCreador && (
-              <div className="text-xs text-gray-500">Por: {nombreCreador}</div>
-            )}
+              {movimiento.descripcion && (
+                <p className="text-xs text-gray-600 mt-0.5 truncate">{movimiento.descripcion}</p>
+              )}
 
-            {movimiento.descripcion && (
-              <p className="text-xs text-gray-600 mt-0.5 truncate">{movimiento.descripcion}</p>
-            )}
-
-            <div className="flex items-center justify-between mt-1">
-              <div className={`text-base font-bold ${colorMonto}`}>
-                {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
+              <div className="flex items-center justify-between mt-1">
+                <div className={`text-base font-bold ${colorMonto}`}>
+                  {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
+                </div>
+                <DetalleMetodosPago pagos={movimiento.pagos} compact />
               </div>
-              <DetalleMetodosPago pagos={movimiento.pagos} compact />
             </div>
-          </div>
+          </button>
 
+          {/* Botones de acción */}
           <div className="flex flex-col gap-1">
             {onEditarComentario && (
               <button
@@ -85,49 +85,48 @@ export default function MovimientoItem({ movimiento, onAnular, onEditarComentari
 
       {/* Layout Desktop (md+) - Fila compacta */}
       <div className="hidden md:flex items-center gap-4 px-4 py-2">
-        {/* Hora */}
-        <div className="w-12 text-xs text-gray-500 font-medium">
-          {formatearHora(movimiento.hora)}
-        </div>
+        {/* Área clickeable para ver detalle */}
+        <button
+          onClick={onVerDetalle}
+          className="flex items-center gap-4 flex-1 min-w-0 text-left"
+        >
+          {/* Hora */}
+          <div className="w-12 text-xs text-gray-500 font-medium">
+            {formatearHora(movimiento.hora)}
+          </div>
 
-        {/* Icono tipo */}
-        <div className={colorIcon}>
-          <Icon className="w-5 h-5" />
-        </div>
+          {/* Icono tipo */}
+          <div className={colorIcon}>
+            <Icon className="w-5 h-5" />
+          </div>
 
-        {/* Categoría */}
-        <div className="w-36 flex items-center gap-2">
-          <IconoDinamico nombre={movimiento.categoria?.icono} className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-900 truncate">
-            {movimiento.categoria?.nombre}
-          </span>
-        </div>
+          {/* Categoría */}
+          <div className="w-36 flex items-center gap-2">
+            <IconoDinamico nombre={movimiento.categoria?.icono} className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-900 truncate">
+              {movimiento.categoria?.nombre}
+            </span>
+          </div>
 
-        {/* Descripción + Usuario */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          {/* Descripción */}
+          <div className="flex-1 min-w-0">
             {movimiento.descripcion && (
-              <span className="text-sm text-gray-600 truncate max-w-[200px]">
+              <span className="text-sm text-gray-600 truncate block">
                 {movimiento.descripcion}
               </span>
             )}
-            {nombreCreador && (
-              <span className="text-xs text-gray-400 whitespace-nowrap">
-                ({nombreCreador})
-              </span>
-            )}
           </div>
-        </div>
 
-        {/* Métodos de pago */}
-        <div className="w-40">
-          <DetalleMetodosPago pagos={movimiento.pagos} compact />
-        </div>
+          {/* Métodos de pago */}
+          <div className="w-40">
+            <DetalleMetodosPago pagos={movimiento.pagos} compact />
+          </div>
 
-        {/* Monto */}
-        <div className={`w-28 text-right font-bold ${colorMonto}`}>
-          {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
-        </div>
+          {/* Monto */}
+          <div className={`w-28 text-right font-bold ${colorMonto}`}>
+            {esEntrada ? '+' : '-'} {formatearMonto(movimiento.monto_total)}
+          </div>
+        </button>
 
         {/* Acciones */}
         <div className="flex items-center gap-1 w-16 justify-end">

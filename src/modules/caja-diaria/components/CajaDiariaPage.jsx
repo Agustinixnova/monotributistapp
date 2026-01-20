@@ -108,16 +108,26 @@ export default function CajaDiariaPage() {
     setModalFiado({ isOpen: true, montoInicial: monto })
   }
 
+  // Refresh rápido después de crear/anular movimiento (solo lo necesario)
+  const refreshAfterMovimiento = async () => {
+    await Promise.all([
+      resumen.refresh(),
+      cierre.refresh()
+    ])
+  }
+
   // Handler cuando se registra una cuenta corriente o pago
   const handleFiadoGuardado = async () => {
-    await refreshAll()
+    await refreshAfterMovimiento()
     await refreshClientesConDeuda()
   }
 
   const handleGuardarMovimiento = async (movimientoData) => {
     const result = await movimientos.crear(movimientoData)
     if (result.success) {
-      await refreshAll()
+      // Solo refrescamos resumen y cierre
+      // Los movimientos ya se refrescaron en movimientos.crear()
+      await refreshAfterMovimiento()
     }
     return result
   }
@@ -131,7 +141,9 @@ export default function CajaDiariaPage() {
     setProcesando(true)
     const result = await movimientos.anular(confirmAnular.id, 'Anulado por el usuario')
     if (result.success) {
-      await refreshAll()
+      // Solo refrescamos resumen y cierre
+      // Los movimientos ya se refrescaron en movimientos.anular()
+      await refreshAfterMovimiento()
     }
     setProcesando(false)
     setConfirmAnular({ isOpen: false, id: null })
@@ -312,8 +324,30 @@ export default function CajaDiariaPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Caja Diaria</h1>
           </div>
 
-          {/* Botones de acción - siempre visibles */}
+          {/* Botones de acción superiores */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => setModalReportePeriodo(true)}
+              className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
+              title="Reporte por Período"
+            >
+              <FileText className="w-5 h-5 text-indigo-600" />
+            </button>
+
+            <button
+              onClick={() => setModalConfiguracion(true)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Configuración"
+            >
+              <Settings className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        </div>
+
+        {/* Selector de fecha con calculadora y cobranzas */}
+        <div className="flex items-center gap-2 justify-between">
+          {/* Calculadora y Cobranzas a la izquierda */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setModalCalculadora(true)}
               className="p-2 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
@@ -334,50 +368,34 @@ export default function CajaDiariaPage() {
                 </span>
               )}
             </button>
+          </div>
+
+          {/* Selector de fecha y controles a la derecha */}
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => cambiarFecha(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+            />
+
+            {!esHoy && (
+              <button
+                onClick={irAHoy}
+                className="px-3 py-2 bg-violet-50 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors"
+              >
+                Hoy
+              </button>
+            )}
 
             <button
-              onClick={() => setModalReportePeriodo(true)}
-              className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
-              title="Reporte por Período"
-            >
-              <FileText className="w-5 h-5 text-indigo-600" />
-            </button>
-
-            <button
-              onClick={() => setModalConfiguracion(true)}
+              onClick={refreshAll}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Configuración"
+              title="Actualizar"
             >
-              <Settings className="w-5 h-5 text-gray-600" />
+              <RefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
-        </div>
-
-        {/* Selector de fecha - fila separada en mobile */}
-        <div className="flex items-center gap-2 justify-end">
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => cambiarFecha(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-          />
-
-          {!esHoy && (
-            <button
-              onClick={irAHoy}
-              className="px-3 py-2 bg-violet-50 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors"
-            >
-              Hoy
-            </button>
-          )}
-
-          <button
-            onClick={refreshAll}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Actualizar"
-          >
-            <RefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
 
         {/* Badge día cerrado */}
