@@ -68,11 +68,14 @@ export async function getMovimientoDetalle(movimientoId) {
 
     // Obtener nombre del creador si existe
     if (data?.created_by_id) {
-      const { data: perfiles } = await supabase
-        .rpc('get_users_names', { user_ids: [data.created_by_id] })
+      const { data: perfil, error: perfilError } = await supabase
+        .from('profiles')
+        .select('id, nombre, apellido, email')
+        .eq('id', data.created_by_id)
+        .single()
 
-      if (perfiles && perfiles.length > 0) {
-        data.creador = perfiles[0]
+      if (!perfilError && perfil) {
+        data.creador = perfil
       }
     }
 
