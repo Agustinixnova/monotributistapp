@@ -116,8 +116,9 @@ export default function CajaDiariaPage() {
     ])
   }
 
-  // Handler cuando se registra una cuenta corriente o pago
+  // Handler cuando se registra una cuenta corriente o pago (incluye refresh de movimientos)
   const handleFiadoGuardado = async () => {
+    await movimientos.refresh() // Refrescar tabla de movimientos del día
     await refreshAfterMovimiento()
     await refreshClientesConDeuda()
   }
