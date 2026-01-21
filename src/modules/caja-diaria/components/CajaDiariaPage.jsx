@@ -501,6 +501,7 @@ export default function CajaDiariaPage() {
           loading={movimientos.loading}
           onAnular={estaCerrado || !puede.anularMovimientos ? null : handleAnularMovimiento}
           onEditarComentario={handleEditarComentario}
+          fecha={fecha}
         />
       </div>
 

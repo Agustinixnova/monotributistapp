@@ -3,15 +3,17 @@
  */
 
 import { useState } from 'react'
-import { Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Clock, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react'
 import MovimientoItem from './MovimientoItem'
 import ModalDetalleMovimiento from './ModalDetalleMovimiento'
+import ModalDetalleMovimientosDia from './ModalDetalleMovimientosDia'
 
 const ITEMS_POR_PAGINA = 25
 
-export default function ListaMovimientos({ movimientos, loading, onAnular, onEditarComentario }) {
+export default function ListaMovimientos({ movimientos, loading, onAnular, onEditarComentario, fecha }) {
   const [paginaActual, setPaginaActual] = useState(1)
   const [movimientoDetalle, setMovimientoDetalle] = useState(null)
+  const [modalDetalleDia, setModalDetalleDia] = useState(false)
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -58,11 +60,21 @@ export default function ListaMovimientos({ movimientos, loading, onAnular, onEdi
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
-      {/* Header con título y paginación */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Header con título, botón de detalle y paginación */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h3 className="font-heading font-semibold text-gray-900">
           Movimientos del día
         </h3>
+
+        {/* Botón Ver detalle */}
+        <button
+          onClick={() => setModalDetalleDia(true)}
+          className="px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+          title="Ver resumen por categorías"
+        >
+          <BarChart2 className="w-4 h-4" />
+          <span className="hidden sm:inline">Ver detalle</span>
+        </button>
 
         <div className="flex items-center gap-3">
           {/* Paginación */}
@@ -135,11 +147,19 @@ export default function ListaMovimientos({ movimientos, loading, onAnular, onEdi
         </div>
       )}
 
-      {/* Modal de detalle */}
+      {/* Modal de detalle de movimiento individual */}
       <ModalDetalleMovimiento
         isOpen={!!movimientoDetalle}
         onClose={() => setMovimientoDetalle(null)}
         movimiento={movimientoDetalle}
+      />
+
+      {/* Modal de detalle del día por categorías */}
+      <ModalDetalleMovimientosDia
+        isOpen={modalDetalleDia}
+        onClose={() => setModalDetalleDia(false)}
+        movimientos={movimientos}
+        fecha={fecha}
       />
     </div>
   )
