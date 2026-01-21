@@ -296,54 +296,58 @@ export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, pe
 
   XLSX.utils.book_append_sheet(wb, ws, esIngreso ? 'Ingresos' : 'Egresos')
 
-  // === HOJA DE DESGLOSE (si está incluido) ===
+  // === HOJA DE DESGLOSE (si está incluido y tiene movimientos) ===
   if (desglose && desglose.length > 0) {
-    const desgloseData = [
-      ['DESGLOSE DE MOVIMIENTOS'],
-      [`Periodo: ${periodo}`],
-      [],
-      ['Categoria', 'Fecha', 'Hora', 'Detalle', 'Monto']
-    ]
+    // Contar total de movimientos para verificar que hay datos
+    const totalMovimientos = desglose.reduce((sum, cat) => sum + (cat.movimientos?.length || 0), 0)
 
-    desglose.forEach((catDesglose) => {
-      catDesglose.movimientos.forEach((mov) => {
-        const fechaFormateada = new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: '2-digit'
-        })
-        desgloseData.push([
-          catDesglose.categoria_nombre,
-          fechaFormateada,
-          mov.hora ? mov.hora.substring(0, 5) : '',
-          mov.detalle || '-',
-          parseFloat(mov.monto)
-        ])
+    if (totalMovimientos > 0) {
+      const desgloseData = [
+        ['DESGLOSE DE MOVIMIENTOS'],
+        [`Periodo: ${periodo}`],
+        [],
+        ['Categoria', 'Fecha', 'Hora', 'Detalle', 'Monto']
+      ]
+
+      desglose.forEach((catDesglose) => {
+        if (catDesglose.movimientos && catDesglose.movimientos.length > 0) {
+          catDesglose.movimientos.forEach((mov) => {
+            const fechaFormateada = new Date(mov.fecha + 'T00:00:00').toLocaleDateString('es-AR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit'
+            })
+            desgloseData.push([
+              catDesglose.categoria_nombre,
+              fechaFormateada,
+              mov.hora ? mov.hora.substring(0, 5) : '',
+              mov.detalle || '-',
+              parseFloat(mov.monto)
+            ])
+          })
+        }
       })
-    })
 
-    const wsDesglose = XLSX.utils.aoa_to_sheet(desgloseData)
+      const wsDesglose = XLSX.utils.aoa_to_sheet(desgloseData)
 
-    // Ajustar ancho de columnas
-    wsDesglose['!cols'] = [
-      { wch: 25 }, // Categoría
-      { wch: 12 }, // Fecha
-      { wch: 8 },  // Hora
-      { wch: 40 }, // Detalle
-      { wch: 15 }  // Monto
-    ]
+      // Ajustar ancho de columnas
+      wsDesglose['!cols'] = [
+        { wch: 25 }, // Categoría
+        { wch: 12 }, // Fecha
+        { wch: 8 },  // Hora
+        { wch: 40 }, // Detalle
+        { wch: 15 }  // Monto
+      ]
 
-    // Aplicar formato de moneda a columna E (Monto)
-    const filaInicioDesglose = 5
-    let totalMovimientos = 0
-    desglose.forEach(cat => totalMovimientos += cat.movimientos.length)
+      // Aplicar formato de moneda a columna E (Monto)
+      const filaInicioDesglose = 5
+      for (let i = 0; i < totalMovimientos; i++) {
+        const fila = filaInicioDesglose + i
+        if (wsDesglose[`E${fila}`]) wsDesglose[`E${fila}`].z = formatoMoneda
+      }
 
-    for (let i = 0; i < totalMovimientos; i++) {
-      const fila = filaInicioDesglose + i
-      if (wsDesglose[`E${fila}`]) wsDesglose[`E${fila}`].z = formatoMoneda
+      XLSX.utils.book_append_sheet(wb, wsDesglose, 'Desglose')
     }
-
-    XLSX.utils.book_append_sheet(wb, wsDesglose, 'Desglose')
   }
 
   // Descargar
