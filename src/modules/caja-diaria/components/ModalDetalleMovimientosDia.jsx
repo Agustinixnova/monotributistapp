@@ -23,8 +23,8 @@ export default function ModalDetalleMovimientosDia({ isOpen, onClose, movimiento
     if (!grupo[catId]) {
       grupo[catId] = {
         categoria_id: catId,
-        categoria_nombre: mov.categoria_nombre,
-        categoria_icono: mov.categoria_icono,
+        categoria_nombre: mov.categoria?.nombre || 'Sin categoría',
+        categoria_icono: mov.categoria?.icono || 'HelpCircle',
         cantidad: 0,
         total: 0
       }
