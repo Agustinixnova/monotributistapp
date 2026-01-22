@@ -7,6 +7,21 @@ import { X, Shield, Check } from 'lucide-react'
 
 const PERMISOS_INFO = [
   {
+    key: 'ver_total_dia',
+    label: 'Ver resumen Total del Día',
+    descripcion: 'Permite ver la card con el resumen de entradas, salidas y saldo del día'
+  },
+  {
+    key: 'ver_reportes',
+    label: 'Acceder a Reportes',
+    descripcion: 'Permite acceder al módulo de reportes y generar PDF/Excel'
+  },
+  {
+    key: 'ver_estadisticas',
+    label: 'Acceder a Estadísticas',
+    descripcion: 'Permite ver estadísticas, gráficos y el detalle de movimientos por categoría'
+  },
+  {
     key: 'anular_movimientos',
     label: 'Anular movimientos',
     descripcion: 'Permite anular entradas y salidas registradas'
@@ -40,6 +55,21 @@ const PERMISOS_INFO = [
     key: 'reabrir_dia',
     label: 'Reabrir día',
     descripcion: 'Permite reabrir un día cerrado para agregar movimientos'
+  },
+  {
+    key: 'editar_cuentas_corrientes',
+    label: 'Editar cuentas corrientes',
+    descripcion: 'Permite editar datos de clientes de cuenta corriente'
+  },
+  {
+    key: 'eliminar_clientes_cc',
+    label: 'Eliminar clientes de cuenta corriente',
+    descripcion: 'Permite eliminar clientes del sistema de cuentas corrientes'
+  },
+  {
+    key: 'ver_dias_anteriores',
+    label: 'Ver días anteriores',
+    descripcion: 'Permite cambiar la fecha y ver cajas de días anteriores'
   }
 ]
 

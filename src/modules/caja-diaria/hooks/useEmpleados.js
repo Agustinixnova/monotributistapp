@@ -7,6 +7,7 @@ import {
   getEmpleados,
   crearEmpleado,
   actualizarPermisos,
+  actualizarHorarios,
   toggleEmpleadoActivo,
   eliminarEmpleado
 } from '../services/empleadosService'
@@ -92,6 +93,21 @@ export function useEmpleados() {
     return { success: true }
   }
 
+  // Actualizar horarios de acceso
+  const actualizarHorariosEmpleado = async (id, horarios) => {
+    const { data, error: err } = await actualizarHorarios(id, horarios)
+
+    if (err) {
+      return { success: false, error: err }
+    }
+
+    // Actualizar en estado local
+    setEmpleados(prev => prev.map(emp =>
+      emp.id === id ? { ...emp, horarios_acceso: data.horarios_acceso } : emp
+    ))
+    return { success: true, data }
+  }
+
   return {
     empleados,
     loading,
@@ -99,6 +115,7 @@ export function useEmpleados() {
     refresh: fetchEmpleados,
     crear,
     actualizarPermisos: actualizarPermisosEmpleado,
+    actualizarHorarios: actualizarHorariosEmpleado,
     toggleActivo,
     eliminar
   }

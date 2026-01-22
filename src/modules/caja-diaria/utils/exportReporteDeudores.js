@@ -209,9 +209,11 @@ export function descargarPDFReporteDeudores({ datos, nombreNegocio, totalDeuda, 
   doc.setFontSize(8)
   doc.text('MonoGestion - Caja Diaria', pageWidth / 2, 290, { align: 'center' })
 
-  // Descargar
-  const fechaArchivo = new Date().toISOString().split('T')[0]
-  doc.save(`reporte-deudores-${fechaArchivo}.pdf`)
+  // Descargar con fecha y hora para nombre único
+  const fechaHoraArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).replace(' ', '_').replace(/:/g, '-')
+  doc.save(`reporte-deudores-${fechaHoraArchivo}.pdf`)
 }
 
 /**
@@ -278,7 +280,9 @@ export function descargarExcelReporteDeudores({ datos, nombreNegocio, totalDeuda
 
   XLSX.utils.book_append_sheet(wb, ws, 'Deudores')
 
-  // Descargar
-  const fechaArchivo = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(wb, `reporte-deudores-${fechaArchivo}.xlsx`)
+  // Descargar con fecha y hora para nombre único
+  const fechaHoraArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).replace(' ', '_').replace(/:/g, '-')
+  XLSX.writeFile(wb, `reporte-deudores-${fechaHoraArchivo}.xlsx`)
 }

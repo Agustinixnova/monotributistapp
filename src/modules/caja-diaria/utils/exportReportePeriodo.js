@@ -167,8 +167,11 @@ export function descargarPDFReportePeriodo({ fechaDesde, fechaHasta, datos, nomb
   doc.text(`Generado el ${fechaHora}`, pageWidth / 2, 285, { align: 'center' })
   doc.text('MonoGestion - Caja Diaria', pageWidth / 2, 290, { align: 'center' })
 
-  // Descargar
-  const nombreArchivo = `reporte-caja-${fechaDesde}-a-${fechaHasta}.pdf`
+  // Descargar con hora para nombre único
+  const horaArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).split(' ')[1].replace(/:/g, '-')
+  const nombreArchivo = `reporte-caja-${fechaDesde}-a-${fechaHasta}_${horaArchivo}.pdf`
   doc.save(nombreArchivo)
 }
 
@@ -262,7 +265,10 @@ export function descargarExcelReportePeriodo({ fechaDesde, fechaHasta, datos, no
   // Agregar hoja
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte Caja')
 
-  // Descargar
-  const nombreArchivo = `reporte-caja-${fechaDesde}-a-${fechaHasta}.xlsx`
+  // Descargar con hora para nombre único
+  const horaArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).split(' ')[1].replace(/:/g, '-')
+  const nombreArchivo = `reporte-caja-${fechaDesde}-a-${fechaHasta}_${horaArchivo}.xlsx`
   XLSX.writeFile(wb, nombreArchivo)
 }

@@ -435,7 +435,11 @@ export function generarPDFCierreCaja({
  */
 export function descargarPDFCierreCaja(params) {
   const doc = generarPDFCierreCaja(params)
-  const nombreArchivo = `cierre-caja-${params.fecha}.pdf`
+  // Incluir hora para nombre único
+  const horaArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).split(' ')[1].replace(/:/g, '-')
+  const nombreArchivo = `cierre-caja-${params.fecha}_${horaArchivo}.pdf`
   doc.save(nombreArchivo)
 }
 

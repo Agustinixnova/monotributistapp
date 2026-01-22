@@ -206,9 +206,23 @@ export function descargarPDFMovimientosCuenta({ datos, nombreNegocio, nombreClie
   doc.text(`Generado el ${fechaHora}`, pageWidth / 2, 287, { align: 'center' })
   doc.text('MonoGestion - Caja Diaria', pageWidth / 2, 292, { align: 'center' })
 
-  // Descargar
-  const fechaArchivo = new Date().toISOString().split('T')[0]
-  doc.save(`movimientos-cuenta-${fechaArchivo}.pdf`)
+  // Descargar con nombre del cliente y fecha/hora
+  const ahora = new Date()
+  const fechaHoraArgentina = ahora.toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  })
+  const [fecha, hora] = fechaHoraArgentina.split(' ')
+  const [anio, mes, dia] = fecha.split('-')
+  const [hh, mm] = hora.split(':')
+
+  // Limpiar nombre del cliente para nombre de archivo
+  const clienteSlug = (nombreCliente || 'todos')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+    .replace(/[^a-zA-Z0-9\s]/g, '') // Solo letras, números y espacios
+    .trim()
+    .replace(/\s+/g, '-') // Espacios a guiones
+
+  doc.save(`estado-cuenta-${clienteSlug}-${dia}-${mes}-${hh}-${mm}.pdf`)
 }
 
 /**
@@ -333,7 +347,21 @@ export function descargarExcelMovimientosCuenta({ datos, nombreNegocio, nombreCl
 
   XLSX.utils.book_append_sheet(wb, ws, 'Movimientos')
 
-  // Descargar
-  const fechaArchivo = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(wb, `movimientos-cuenta-${fechaArchivo}.xlsx`)
+  // Descargar con nombre del cliente y fecha/hora
+  const ahora = new Date()
+  const fechaHoraArgentina = ahora.toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  })
+  const [fecha, hora] = fechaHoraArgentina.split(' ')
+  const [anio, mes, dia] = fecha.split('-')
+  const [hh, mm] = hora.split(':')
+
+  // Limpiar nombre del cliente para nombre de archivo
+  const clienteSlug = (nombreCliente || 'todos')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+    .replace(/[^a-zA-Z0-9\s]/g, '') // Solo letras, números y espacios
+    .trim()
+    .replace(/\s+/g, '-') // Espacios a guiones
+
+  XLSX.writeFile(wb, `estado-cuenta-${clienteSlug}-${dia}-${mes}-${hh}-${mm}.xlsx`)
 }

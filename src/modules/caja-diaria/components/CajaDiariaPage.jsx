@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3 } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
 import { usePermisosCaja } from '../hooks/usePermisosCaja'
@@ -29,6 +29,7 @@ import ModalEstadisticas from './ModalEstadisticas'
 import ModalRegistrarFiado from './ModalRegistrarFiado'
 import ModalCobranzas from './ModalCobranzas'
 import AlertaDiasSinCerrar from './AlertaDiasSinCerrar'
+import CajaNoDisponible from './CajaNoDisponible'
 import { useAliasPago } from '../hooks/useAliasPago'
 import { useClientesConDeuda } from '../hooks/useClientesFiado'
 import { actualizarComentario } from '../services/movimientosService'
@@ -51,7 +52,7 @@ export default function CajaDiariaPage() {
   } = useCajaDiaria()
 
   // Permisos del usuario (empleado o dueño)
-  const { puede, esDuenio } = usePermisosCaja()
+  const { puede, esDuenio, dentroDeHorario, proximoHorario, alertaFinSesion, minutosRestantes } = usePermisosCaja()
 
   // Alias de pago para el visualizador QR
   const { alias: aliasPago } = useAliasPago()
@@ -102,6 +103,11 @@ export default function CajaDiariaPage() {
 
   // Verificar si está cerrado
   const estaCerrado = cierre.estaCerrado()
+
+  // Si el empleado está fuera del horario de acceso, mostrar pantalla de bloqueo
+  if (!dentroDeHorario) {
+    return <CajaNoDisponible proximoHorario={proximoHorario} />
+  }
 
   // Handlers
   const handleNuevaEntrada = () => {
@@ -329,6 +335,16 @@ export default function CajaDiariaPage() {
 
   return (
     <Layout>
+      {/* Alerta de fin de sesión - 5 minutos antes */}
+      {alertaFinSesion && (
+        <div className="bg-orange-500 text-white px-4 py-3 flex items-center justify-center gap-2">
+          <Clock className="w-5 h-5" />
+          <span className="font-medium">
+            Tu acceso termina en {minutosRestantes} {minutosRestantes === 1 ? 'minuto' : 'minutos'}
+          </span>
+        </div>
+      )}
+
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -343,21 +359,25 @@ export default function CajaDiariaPage() {
 
           {/* Botones de acción superiores */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setModalEstadisticas(true)}
-              className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
-              title="Estadísticas"
-            >
-              <BarChart3 className="w-5 h-5 text-indigo-600" />
-            </button>
+            {puede.verEstadisticas && (
+              <button
+                onClick={() => setModalEstadisticas(true)}
+                className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors"
+                title="Estadísticas"
+              >
+                <BarChart3 className="w-5 h-5 text-indigo-600" />
+              </button>
+            )}
 
-            <button
-              onClick={() => setModalReportes(true)}
-              className="p-2 bg-violet-100 hover:bg-violet-200 rounded-lg transition-colors"
-              title="Reportes"
-            >
-              <FileText className="w-5 h-5 text-violet-600" />
-            </button>
+            {puede.verReportes && (
+              <button
+                onClick={() => setModalReportes(true)}
+                className="p-2 bg-violet-100 hover:bg-violet-200 rounded-lg transition-colors"
+                title="Reportes"
+              >
+                <FileText className="w-5 h-5 text-violet-600" />
+              </button>
+            )}
 
             <button
               onClick={() => setModalConfiguracion(true)}
@@ -397,20 +417,24 @@ export default function CajaDiariaPage() {
 
           {/* Selector de fecha y controles a la derecha */}
           <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => cambiarFecha(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-            />
+            {puede.verDiasAnteriores && (
+              <>
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => cambiarFecha(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                />
 
-            {!esHoy && (
-              <button
-                onClick={irAHoy}
-                className="px-3 py-2 bg-violet-50 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors"
-              >
-                Hoy
-              </button>
+                {!esHoy && (
+                  <button
+                    onClick={irAHoy}
+                    className="px-3 py-2 bg-violet-50 text-violet-600 rounded-lg text-sm font-medium hover:bg-violet-100 transition-colors"
+                  >
+                    Hoy
+                  </button>
+                )}
+              </>
             )}
 
             <button
@@ -449,7 +473,7 @@ export default function CajaDiariaPage() {
       />
 
       {/* Resúmenes */}
-      <div className="grid sm:grid-cols-2 gap-4 mb-6">
+      <div className={`grid gap-4 mb-6 ${puede.verTotalDia ? 'sm:grid-cols-2' : ''}`}>
         <ResumenEfectivo
           resumen={resumen.resumen}
           saldoInicial={cierre.saldoInicial}
@@ -458,11 +482,13 @@ export default function CajaDiariaPage() {
           ocultarValores={ocultarValores}
           onToggleOcultar={toggleOcultarValores}
         />
-        <ResumenDia
-          resumen={resumen.resumen}
-          onClick={() => setModalDetalleResumen(true)}
-          ocultarValores={ocultarValores}
-        />
+        {puede.verTotalDia && (
+          <ResumenDia
+            resumen={resumen.resumen}
+            onClick={() => setModalDetalleResumen(true)}
+            ocultarValores={ocultarValores}
+          />
+        )}
       </div>
 
       {/* Botones de acción */}
@@ -491,7 +517,10 @@ export default function CajaDiariaPage() {
       {!estaCerrado && (
         <div className="mb-6">
           <button
-            onClick={() => setModalArqueo(true)}
+            onClick={async () => {
+              await refreshAll() // Actualizar datos antes de abrir el modal
+              setModalArqueo(true)
+            }}
             className="w-full flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium py-3 rounded-lg border border-amber-200 transition-colors"
           >
             <Calculator className="w-5 h-5" />
@@ -519,6 +548,7 @@ export default function CajaDiariaPage() {
           onAnular={estaCerrado || !puede.anularMovimientos ? null : handleAnularMovimiento}
           onEditarComentario={handleEditarComentario}
           fecha={fecha}
+          puedeVerEstadisticas={puede.verEstadisticas}
         />
       </div>
 

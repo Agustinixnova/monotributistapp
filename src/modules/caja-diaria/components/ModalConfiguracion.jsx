@@ -3,12 +3,13 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck, QrCode, CreditCard, Upload, Image, UserPlus, Phone, History } from 'lucide-react'
+import { X, Plus, Edit2, Trash2, Settings, Store, Check, Users, Shield, UserX, UserCheck, QrCode, CreditCard, Upload, Image, UserPlus, Phone, History, Clock } from 'lucide-react'
 import IconoDinamico from './IconoDinamico'
 import ModalCategoria from './ModalCategoria'
 import ModalMetodoPago from './ModalMetodoPago'
 import ModalEmpleado from './ModalEmpleado'
 import ModalPermisos from './ModalPermisos'
+import ModalHorarios from './ModalHorarios'
 import ModalConfirmacion from './ModalConfirmacion'
 import ModalClienteFiado from './ModalClienteFiado'
 import ModalFichaCliente from './ModalFichaCliente'
@@ -27,10 +28,12 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const [modalMetodoPago, setModalMetodoPago] = useState(false)
   const [modalEmpleado, setModalEmpleado] = useState(false)
   const [modalPermisos, setModalPermisos] = useState(false)
+  const [modalHorarios, setModalHorarios] = useState(false)
   const [modalClienteFiado, setModalClienteFiado] = useState(false)
   const [categoriaEditar, setCategoriaEditar] = useState(null)
   const [metodoEditar, setMetodoEditar] = useState(null)
   const [empleadoPermisos, setEmpleadoPermisos] = useState(null)
+  const [empleadoHorarios, setEmpleadoHorarios] = useState(null)
   const [clienteFiadoEditar, setClienteFiadoEditar] = useState(null)
   const [clienteFichaSeleccionado, setClienteFichaSeleccionado] = useState(null)
   const [clientesDeudas, setClientesDeudas] = useState({})
@@ -51,7 +54,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const { alias: aliasPago, crear: crearAlias, actualizar: actualizarAlias, eliminar: eliminarAlias, subirQR, eliminarQR } = useAliasPago()
 
   // Empleados (solo se carga si el usuario es dueño)
-  const { empleados, crear: crearEmpleado, actualizarPermisos, toggleActivo, eliminar: eliminarEmpleado, loading: loadingEmpleados } = useEmpleados()
+  const { empleados, crear: crearEmpleado, actualizarPermisos, actualizarHorarios, toggleActivo, eliminar: eliminarEmpleado, loading: loadingEmpleados } = useEmpleados()
   const { esDuenio, puede } = usePermisosCaja()
   const [nombreNegocioInput, setNombreNegocioInput] = useState('')
   const [guardandoNombre, setGuardandoNombre] = useState(false)
@@ -540,20 +543,24 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                             </button>
 
                             {/* Acciones */}
-                            <button
-                              onClick={() => handleEditarClienteFiado(cliente)}
-                              className="p-2 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg"
-                              title="Editar"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEliminarClienteFiado(cliente.id)}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                              title="Desactivar"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {puede.editarCuentasCorrientes && (
+                              <button
+                                onClick={() => handleEditarClienteFiado(cliente)}
+                                className="p-2 text-gray-600 hover:text-violet-600 hover:bg-violet-50 rounded-lg"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {puede.eliminarClientesCC && (
+                              <button
+                                onClick={() => handleEliminarClienteFiado(cliente.id)}
+                                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                title="Desactivar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         )
                       })}
@@ -873,6 +880,17 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                             <div className="text-xs text-gray-400">{emp.whatsapp}</div>
                           </div>
                           <div className="flex items-center gap-1">
+                            {/* Botón horarios */}
+                            <button
+                              onClick={() => {
+                                setEmpleadoHorarios(emp)
+                                setModalHorarios(true)
+                              }}
+                              className="p-2 text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg"
+                              title="Configurar horarios de acceso"
+                            >
+                              <Clock className="w-4 h-4" />
+                            </button>
                             {/* Botón permisos */}
                             <button
                               onClick={() => {
@@ -977,6 +995,16 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         onGuardar={actualizarPermisos}
       />
 
+      <ModalHorarios
+        isOpen={modalHorarios}
+        onClose={() => {
+          setModalHorarios(false)
+          setEmpleadoHorarios(null)
+        }}
+        empleado={empleadoHorarios}
+        onGuardar={actualizarHorarios}
+      />
+
       <ModalClienteFiado
         isOpen={modalClienteFiado}
         onClose={() => {
@@ -992,10 +1020,10 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         isOpen={!!clienteFichaSeleccionado}
         onClose={() => setClienteFichaSeleccionado(null)}
         cliente={clienteFichaSeleccionado}
-        onEditar={(cliente) => {
+        onEditar={puede.editarCuentasCorrientes ? (cliente) => {
           setClienteFichaSeleccionado(null)
           handleEditarClienteFiado(cliente)
-        }}
+        } : null}
       />
 
       {/* Modal Confirmación - Eliminar QR */}

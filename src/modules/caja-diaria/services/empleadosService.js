@@ -13,7 +13,10 @@ const PERMISOS_DEFAULT = {
   agregar_categorias: false,
   agregar_metodos_pago: false,
   editar_cierre: true,
-  reabrir_dia: false
+  reabrir_dia: false,
+  editar_cuentas_corrientes: false,
+  eliminar_clientes_cc: false,
+  ver_dias_anteriores: false
 }
 
 /**
@@ -177,6 +180,28 @@ export async function actualizarPermisos(id, permisos) {
 }
 
 /**
+ * Actualizar horarios de acceso de un empleado
+ * @param {string} id - ID de la relación empleado
+ * @param {object|null} horarios - Objeto con horarios o null para sin restricciones
+ */
+export async function actualizarHorarios(id, horarios) {
+  try {
+    const { data, error } = await supabase
+      .from('caja_empleados')
+      .update({ horarios_acceso: horarios })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error actualizando horarios:', error)
+    return { data: null, error }
+  }
+}
+
+/**
  * Activar/desactivar un empleado
  * @param {string} id - ID de la relación
  * @param {boolean} activo - Estado
@@ -323,12 +348,29 @@ export async function getMisPermisos() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { data: null, error: new Error('No autenticado') }
 
-    const { data, error } = await supabase
+    // Intentar con horarios_acceso, si falla (columna no existe), intentar sin ella
+    let data, error
+    const result = await supabase
       .from('caja_empleados')
-      .select('permisos')
+      .select('permisos, horarios_acceso')
       .eq('empleado_id', user.id)
       .eq('activo', true)
       .maybeSingle()
+
+    if (result.error) {
+      // Puede que la columna horarios_acceso no exista, intentar sin ella
+      const fallback = await supabase
+        .from('caja_empleados')
+        .select('permisos')
+        .eq('empleado_id', user.id)
+        .eq('activo', true)
+        .maybeSingle()
+      data = fallback.data
+      error = fallback.error
+    } else {
+      data = result.data
+      error = result.error
+    }
 
     if (error) throw error
 
@@ -344,8 +386,15 @@ export async function getMisPermisos() {
             agregar_categorias: true,
             agregar_metodos_pago: true,
             editar_cierre: true,
-            reabrir_dia: true
-          }
+            reabrir_dia: true,
+            ver_reportes: true,
+            ver_total_dia: true,
+            ver_estadisticas: true,
+            editar_cuentas_corrientes: true,
+            eliminar_clientes_cc: true,
+            ver_dias_anteriores: true
+          },
+          horariosAcceso: null // Dueño no tiene restricciones
         },
         error: null
       }
@@ -354,7 +403,8 @@ export async function getMisPermisos() {
     return {
       data: {
         esDuenio: false,
-        permisos: data.permisos
+        permisos: data.permisos,
+        horariosAcceso: data.horarios_acceso || null
       },
       error: null
     }

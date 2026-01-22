@@ -228,9 +228,11 @@ export function descargarPDFReporteCategorias({ datos, nombreNegocio, tipo, peri
   doc.text(`Generado el ${fechaHora}`, pageWidth / 2, y, { align: 'center' })
   doc.text('MonoGestion - Caja Diaria', pageWidth / 2, y + 5, { align: 'center' })
 
-  // Descargar
-  const fechaArchivo = new Date().toISOString().split('T')[0]
-  doc.save(`reporte-${tipo}-categorias-${fechaArchivo}.pdf`)
+  // Descargar con fecha y hora para nombre único
+  const fechaHoraArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).replace(' ', '_').replace(/:/g, '-')
+  doc.save(`reporte-${tipo}-categorias-${fechaHoraArchivo}.pdf`)
 }
 
 /**
@@ -350,7 +352,9 @@ export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, pe
     }
   }
 
-  // Descargar
-  const fechaArchivo = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(wb, `reporte-${tipo}-categorias-${fechaArchivo}.xlsx`)
+  // Descargar con fecha y hora para nombre único
+  const fechaHoraArchivo = new Date().toLocaleString('sv-SE', {
+    timeZone: 'America/Argentina/Buenos_Aires'
+  }).replace(' ', '_').replace(/:/g, '-')
+  XLSX.writeFile(wb, `reporte-${tipo}-categorias-${fechaHoraArchivo}.xlsx`)
 }
