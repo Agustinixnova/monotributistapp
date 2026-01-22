@@ -3,11 +3,11 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Edit2 } from 'lucide-react'
+import { Wallet, Edit2, Eye, EyeOff } from 'lucide-react'
 import { formatearMonto } from '../utils/formatters'
 import InputMonto from './InputMonto'
 
-export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoInicial, estaCerrado }) {
+export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoInicial, estaCerrado, ocultarValores, onToggleOcultar }) {
   const [editando, setEditando] = useState(false)
   const [nuevoSaldo, setNuevoSaldo] = useState(saldoInicial || 0)
   const [guardando, setGuardando] = useState(false)
@@ -18,6 +18,9 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
   // Calcular efectivo en caja: saldo inicial + movimientos de efectivo
   // (La diferencia de arqueo ya está incluida como movimiento de Faltante/Sobrante)
   const efectivoEnCaja = parseFloat(saldoInicial || 0) + parseFloat(resumen.efectivo_saldo || 0)
+
+  // Función para mostrar monto o asteriscos
+  const mostrarMonto = (valor) => ocultarValores ? '*****' : formatearMonto(valor)
 
   const handleGuardar = async () => {
     if (!onEditarSaldoInicial) return
@@ -47,13 +50,22 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
 
   return (
     <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl p-5 text-white">
-      <div className="flex items-center gap-2 mb-3">
-        <Wallet className="w-5 h-5" />
-        <h3 className="font-heading font-semibold">Efectivo en Caja</h3>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Wallet className="w-5 h-5" />
+          <h3 className="font-heading font-semibold">Efectivo en Caja</h3>
+        </div>
+        <button
+          onClick={onToggleOcultar}
+          className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+          title={ocultarValores ? 'Mostrar valores' : 'Ocultar valores'}
+        >
+          {ocultarValores ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+        </button>
       </div>
 
       <div className="text-4xl font-bold mb-4">
-        {formatearMonto(efectivoEnCaja)}
+        {mostrarMonto(efectivoEnCaja)}
       </div>
 
       <div className="space-y-1 text-sm text-white/90">
@@ -84,8 +96,8 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="font-medium">{formatearMonto(saldoInicial)}</span>
-              {!estaCerrado && onEditarSaldoInicial && (
+              <span className="font-medium">{mostrarMonto(saldoInicial)}</span>
+              {!estaCerrado && onEditarSaldoInicial && !ocultarValores && (
                 <button
                   onClick={() => {
                     setNuevoSaldo(saldoInicial || 0)
@@ -110,11 +122,11 @@ export default function ResumenEfectivo({ resumen, saldoInicial, onEditarSaldoIn
 
         <div className="flex justify-between">
           <span>+ Entradas:</span>
-          <span className="font-medium">{formatearMonto(resumen.efectivo_entradas)}</span>
+          <span className="font-medium">{mostrarMonto(resumen.efectivo_entradas)}</span>
         </div>
         <div className="flex justify-between">
           <span>- Salidas:</span>
-          <span className="font-medium">{formatearMonto(resumen.efectivo_salidas)}</span>
+          <span className="font-medium">{mostrarMonto(resumen.efectivo_salidas)}</span>
         </div>
       </div>
     </div>

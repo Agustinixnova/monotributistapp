@@ -83,6 +83,20 @@ export default function CajaDiariaPage() {
   // Estado para modal de comentario
   const [modalComentario, setModalComentario] = useState({ isOpen: false, movimiento: null })
 
+  // Estado para ocultar valores (con persistencia en localStorage)
+  const [ocultarValores, setOcultarValores] = useState(() => {
+    const guardado = localStorage.getItem('caja_ocultar_valores')
+    return guardado === 'true'
+  })
+
+  const toggleOcultarValores = () => {
+    setOcultarValores(prev => {
+      const nuevoValor = !prev
+      localStorage.setItem('caja_ocultar_valores', nuevoValor.toString())
+      return nuevoValor
+    })
+  }
+
   // Verificar si es el día actual
   const esHoy = fecha === getFechaHoy()
 
@@ -441,10 +455,13 @@ export default function CajaDiariaPage() {
           saldoInicial={cierre.saldoInicial}
           onEditarSaldoInicial={puede.editarSaldoInicial ? handleEditarSaldoInicial : null}
           estaCerrado={estaCerrado}
+          ocultarValores={ocultarValores}
+          onToggleOcultar={toggleOcultarValores}
         />
         <ResumenDia
           resumen={resumen.resumen}
           onClick={() => setModalDetalleResumen(true)}
+          ocultarValores={ocultarValores}
         />
       </div>
 

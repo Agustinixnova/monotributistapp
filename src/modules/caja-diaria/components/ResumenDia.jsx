@@ -5,11 +5,14 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { formatearMonto } from '../utils/formatters'
 
-export default function ResumenDia({ resumen, onClick }) {
+export default function ResumenDia({ resumen, onClick, ocultarValores }) {
   if (!resumen) return null
 
   const saldo = parseFloat(resumen.saldo || 0)
   const esPositivo = saldo >= 0
+
+  // Función para mostrar monto o asteriscos
+  const mostrarMonto = (valor) => ocultarValores ? '*****' : formatearMonto(valor)
 
   return (
     <div
@@ -28,7 +31,7 @@ export default function ResumenDia({ resumen, onClick }) {
             <span className="text-sm font-medium">Entradas</span>
           </div>
           <span className="font-bold text-emerald-700">
-            {formatearMonto(resumen.total_entradas)}
+            {mostrarMonto(resumen.total_entradas)}
           </span>
         </div>
 
@@ -39,7 +42,7 @@ export default function ResumenDia({ resumen, onClick }) {
             <span className="text-sm font-medium">Salidas</span>
           </div>
           <span className="font-bold text-red-700">
-            {formatearMonto(resumen.total_salidas)}
+            {mostrarMonto(resumen.total_salidas)}
           </span>
         </div>
 
@@ -50,7 +53,7 @@ export default function ResumenDia({ resumen, onClick }) {
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700">Saldo</span>
           <span className={`text-xl font-bold ${esPositivo ? 'text-emerald-700' : 'text-red-700'}`}>
-            {formatearMonto(saldo)}
+            {mostrarMonto(saldo)}
           </span>
         </div>
       </div>
