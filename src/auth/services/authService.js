@@ -1,5 +1,9 @@
 import { supabase } from '../../lib/supabase'
 
+// Keys para localStorage de impersonación
+const IMPERSONATION_KEY = 'impersonation_data'
+const ORIGINAL_SESSION_KEY = 'original_session'
+
 export const authService = {
   /**
    * Sign in with email and password
@@ -128,5 +132,128 @@ export const authService = {
    */
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  },
+
+  /**
+   * Impersonate a user (solo para rol desarrollo)
+   * @param {string} targetUserId - ID del usuario a impersonar
+   * @returns {Promise<{success: boolean, error?: string}>}
+   */
+  async impersonateUser(targetUserId) {
+    try {
+      // Obtener sesión actual para guardarla
+      const { data: currentSession } = await supabase.auth.getSession()
+
+      if (!currentSession?.session) {
+        return { success: false, error: 'No hay sesión activa' }
+      }
+
+      // Llamar a la Edge Function para obtener el token de impersonación
+      const { data, error } = await supabase.functions.invoke('impersonate-user', {
+        body: { targetUserId }
+      })
+
+      if (error) {
+        console.error('Error en impersonate-user:', error)
+        return { success: false, error: error.message || 'Error al impersonar usuario' }
+      }
+
+      if (!data.success) {
+        return { success: false, error: data.error || 'Error al impersonar usuario' }
+      }
+
+      // Guardar sesión original y datos de impersonación en localStorage
+      localStorage.setItem(ORIGINAL_SESSION_KEY, JSON.stringify({
+        access_token: currentSession.session.access_token,
+        refresh_token: currentSession.session.refresh_token
+      }))
+
+      localStorage.setItem(IMPERSONATION_KEY, JSON.stringify({
+        impersonatedUser: data.data.impersonatedUser,
+        impersonatedBy: data.data.impersonatedBy,
+        startedAt: new Date().toISOString()
+      }))
+
+      // Usar verifyOtp con el token para establecer la nueva sesión
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: data.data.token_hash,
+        type: 'magiclink'
+      })
+
+      if (verifyError) {
+        // Limpiar localStorage si falla
+        localStorage.removeItem(ORIGINAL_SESSION_KEY)
+        localStorage.removeItem(IMPERSONATION_KEY)
+        console.error('Error verificando OTP:', verifyError)
+        return { success: false, error: 'Error al establecer sesión de impersonación' }
+      }
+
+      return { success: true, data: verifyData }
+
+    } catch (error) {
+      console.error('Error en impersonateUser:', error)
+      localStorage.removeItem(ORIGINAL_SESSION_KEY)
+      localStorage.removeItem(IMPERSONATION_KEY)
+      return { success: false, error: error.message || 'Error al impersonar usuario' }
+    }
+  },
+
+  /**
+   * Terminar impersonación y volver a la sesión original
+   * @returns {Promise<{success: boolean, error?: string}>}
+   */
+  async exitImpersonation() {
+    try {
+      const originalSessionStr = localStorage.getItem(ORIGINAL_SESSION_KEY)
+
+      if (!originalSessionStr) {
+        return { success: false, error: 'No hay sesión original guardada' }
+      }
+
+      const originalSession = JSON.parse(originalSessionStr)
+
+      // Restaurar sesión original
+      const { error } = await supabase.auth.setSession({
+        access_token: originalSession.access_token,
+        refresh_token: originalSession.refresh_token
+      })
+
+      if (error) {
+        console.error('Error restaurando sesión:', error)
+        return { success: false, error: 'Error al restaurar sesión original' }
+      }
+
+      // Limpiar localStorage
+      localStorage.removeItem(ORIGINAL_SESSION_KEY)
+      localStorage.removeItem(IMPERSONATION_KEY)
+
+      return { success: true }
+
+    } catch (error) {
+      console.error('Error en exitImpersonation:', error)
+      return { success: false, error: error.message || 'Error al salir de impersonación' }
+    }
+  },
+
+  /**
+   * Verificar si hay una impersonación activa
+   * @returns {{isImpersonating: boolean, impersonationData: object|null}}
+   */
+  getImpersonationState() {
+    const impersonationStr = localStorage.getItem(IMPERSONATION_KEY)
+    const originalSessionStr = localStorage.getItem(ORIGINAL_SESSION_KEY)
+
+    if (impersonationStr && originalSessionStr) {
+      try {
+        return {
+          isImpersonating: true,
+          impersonationData: JSON.parse(impersonationStr)
+        }
+      } catch {
+        return { isImpersonating: false, impersonationData: null }
+      }
+    }
+
+    return { isImpersonating: false, impersonationData: null }
   },
 }

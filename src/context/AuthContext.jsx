@@ -7,6 +7,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isImpersonating, setIsImpersonating] = useState(false)
+  const [impersonationData, setImpersonationData] = useState(null)
 
   useEffect(() => {
     // Get initial session
@@ -14,6 +16,11 @@ export function AuthProvider({ children }) {
       setSession(data.session)
       setUser(data.session?.user ?? null)
       setLoading(false)
+
+      // Verificar estado de impersonación
+      const { isImpersonating: impersonating, impersonationData: impData } = authService.getImpersonationState()
+      setIsImpersonating(impersonating)
+      setImpersonationData(impData)
     })
 
     // Listen for auth changes
@@ -22,6 +29,11 @@ export function AuthProvider({ children }) {
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
+
+        // Re-verificar estado de impersonación en cada cambio de auth
+        const { isImpersonating: impersonating, impersonationData: impData } = authService.getImpersonationState()
+        setIsImpersonating(impersonating)
+        setImpersonationData(impData)
       }
     )
 
@@ -60,6 +72,26 @@ export function AuthProvider({ children }) {
     return { data }
   }
 
+  const impersonateUser = async (targetUserId) => {
+    const result = await authService.impersonateUser(targetUserId)
+    if (result.success) {
+      // La sesión se actualizará automáticamente via onAuthStateChange
+      // Forzar recarga de la página para limpiar estado
+      window.location.reload()
+    }
+    return result
+  }
+
+  const exitImpersonation = async () => {
+    const result = await authService.exitImpersonation()
+    if (result.success) {
+      // La sesión se actualizará automáticamente via onAuthStateChange
+      // Forzar recarga de la página para limpiar estado
+      window.location.reload()
+    }
+    return result
+  }
+
   const value = {
     user,
     session,
@@ -68,6 +100,11 @@ export function AuthProvider({ children }) {
     signOut,
     signUpFree,
     isAuthenticated: !!user,
+    // Impersonación
+    isImpersonating,
+    impersonationData,
+    impersonateUser,
+    exitImpersonation,
   }
 
   return (

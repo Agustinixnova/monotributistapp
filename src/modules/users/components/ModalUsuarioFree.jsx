@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, User, Mail, Phone, Calendar, Tag, Key, Eye, EyeOff, Users, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { X, User, Mail, Phone, Calendar, Tag, Key, Eye, EyeOff, Users, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Loader2, UserCog } from 'lucide-react'
 import { getEmpleadosDeUsuario, resetUserPassword } from '../services/userService'
+import { useAuth } from '../../../auth/hooks/useAuth'
+import { supabase } from '../../../lib/supabase'
 
 /**
  * Formatea fecha a DD/MM/YYYY HH:MM
@@ -191,12 +193,42 @@ function EmpleadoCard({ empleado }) {
  * Modal para ver detalles de usuario free y gestionar empleados
  */
 export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
+  const { user, impersonateUser } = useAuth()
   const [empleados, setEmpleados] = useState([])
   const [loadingEmpleados, setLoadingEmpleados] = useState(false)
   const [mostrarEmpleados, setMostrarEmpleados] = useState(true)
+  const [puedeImpersonar, setPuedeImpersonar] = useState(false)
+  const [impersonando, setImpersonando] = useState(false)
+  const [errorImpersonar, setErrorImpersonar] = useState(null)
 
   // Determinar si es dueño (operador_gastos) o empleado
   const esDuenio = usuario?.role?.name === 'operador_gastos'
+
+  // Verificar si el usuario actual tiene rol "desarrollo"
+  useEffect(() => {
+    const checkRolDesarrollo = async () => {
+      if (!user) {
+        setPuedeImpersonar(false)
+        return
+      }
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('roles(name)')
+          .eq('id', user.id)
+          .single()
+
+        setPuedeImpersonar(profile?.roles?.name === 'desarrollo')
+      } catch {
+        setPuedeImpersonar(false)
+      }
+    }
+
+    if (isOpen) {
+      checkRolDesarrollo()
+    }
+  }, [user, isOpen])
 
   useEffect(() => {
     if (isOpen && usuario && esDuenio) {
@@ -214,6 +246,19 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
     } finally {
       setLoadingEmpleados(false)
     }
+  }
+
+  const handleImpersonar = async () => {
+    setImpersonando(true)
+    setErrorImpersonar(null)
+
+    const result = await impersonateUser(usuario.id)
+
+    if (!result.success) {
+      setErrorImpersonar(result.error)
+      setImpersonando(false)
+    }
+    // Si es exitoso, la página se recargará automáticamente
   }
 
   if (!isOpen || !usuario) return null
@@ -364,13 +409,44 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-200 px-5 py-3 flex-shrink-0">
-            <button
-              onClick={onClose}
-              className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-            >
-              Cerrar
-            </button>
+          <div className="border-t border-gray-200 px-5 py-3 flex-shrink-0 space-y-3">
+            {/* Error de impersonación */}
+            {errorImpersonar && (
+              <div className="flex items-center gap-2 text-sm p-2 bg-red-50 text-red-700 rounded-lg">
+                <AlertCircle className="w-4 h-4" />
+                {errorImpersonar}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+              >
+                Cerrar
+              </button>
+
+              {/* Botón de impersonar - solo visible para rol desarrollo */}
+              {puedeImpersonar && (
+                <button
+                  onClick={handleImpersonar}
+                  disabled={impersonando}
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors disabled:bg-amber-300 flex items-center justify-center gap-2"
+                >
+                  {impersonando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Ingresando...
+                    </>
+                  ) : (
+                    <>
+                      <UserCog className="w-4 h-4" />
+                      Impersonar
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { Header } from './Header'
 import { RenewalBanner } from '../../modules/subscriptions/components/RenewalBanner'
 import { RenewalModal } from '../../modules/subscriptions/components/RenewalModal'
 import { useRenewalAlert } from '../../modules/subscriptions/hooks/useRenewalAlert'
+import { ImpersonationBanner } from '../common/ImpersonationBanner'
 
 export function Layout({ children, title = 'Dashboard' }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -16,6 +17,9 @@ export function Layout({ children, title = 'Dashboard' }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Banner de impersonación (siempre visible cuando está activo) */}
+      <ImpersonationBanner />
+
       {/* Banner de renovación (fijo arriba) */}
       <RenewalBanner />
 
