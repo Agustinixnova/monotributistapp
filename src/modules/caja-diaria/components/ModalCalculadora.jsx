@@ -60,6 +60,13 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
         return
       }
 
+      // Resta (-)
+      if (e.key === '-') {
+        e.preventDefault()
+        agregarDigitoRef.current('−')
+        return
+      }
+
       // Punto decimal
       if (e.key === '.' || e.key === ',') {
         e.preventDefault()
@@ -117,13 +124,19 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
   // Agregar dígito o símbolo al display
   const agregarDigito = (digito) => {
     const currentDisplay = displayRef.current
-    // No permitir múltiples × seguidos
-    if (digito === '×' && currentDisplay.endsWith('×')) return
-    // No empezar con ×
-    if (digito === '×' && currentDisplay === '') return
+    const operadores = ['×', '−']
+
+    // No permitir múltiples operadores seguidos
+    if (operadores.includes(digito)) {
+      if (operadores.some(op => currentDisplay.endsWith(op))) return
+      // No empezar con operador (excepto − para números negativos... pero por ahora no)
+      if (currentDisplay === '') return
+    }
+
     // No permitir múltiples puntos en el mismo número
     if (digito === '.') {
-      const partes = currentDisplay.split('×')
+      // Encontrar el último número (después del último operador)
+      const partes = currentDisplay.split(/[×−]/)
       const ultimaParte = partes[partes.length - 1]
       if (ultimaParte.includes('.')) return
     }
@@ -143,6 +156,9 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
   }
   limpiarDisplayRef.current = limpiarDisplay
 
+  // Redondear a 2 decimales
+  const redondear = (num) => Math.round(num * 100) / 100
+
   // Parsear y calcular el display actual
   const calcularDisplay = () => {
     if (!display) return 0
@@ -151,12 +167,20 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     if (display.includes('×')) {
       const partes = display.split('×').map(p => parseFloat(p) || 0)
       if (partes.length === 2) {
-        return partes[0] * partes[1]
+        return redondear(partes[0] * partes[1])
+      }
+    }
+
+    // Si tiene −, es una resta
+    if (display.includes('−')) {
+      const partes = display.split('−').map(p => parseFloat(p) || 0)
+      if (partes.length === 2) {
+        return redondear(partes[0] - partes[1])
       }
     }
 
     // Si es solo un número
-    return parseFloat(display) || 0
+    return redondear(parseFloat(display) || 0)
   }
 
   // Agregar línea al total
@@ -169,10 +193,15 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     if (currentDisplay.includes('×')) {
       const partes = currentDisplay.split('×').map(p => parseFloat(p) || 0)
       if (partes.length === 2) {
-        resultado = partes[0] * partes[1]
+        resultado = redondear(partes[0] * partes[1])
+      }
+    } else if (currentDisplay.includes('−')) {
+      const partes = currentDisplay.split('−').map(p => parseFloat(p) || 0)
+      if (partes.length === 2) {
+        resultado = redondear(partes[0] - partes[1])
       }
     } else {
-      resultado = parseFloat(currentDisplay) || 0
+      resultado = redondear(parseFloat(currentDisplay) || 0)
     }
 
     if (resultado === 0 && !currentDisplay.includes('0')) return
@@ -204,17 +233,27 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     const currentDisplay = displayRef.current
     if (!currentDisplay) return
 
-    if (currentDisplay.includes('×')) {
+    // Buscar si tiene operador
+    const tieneMultiplicacion = currentDisplay.includes('×')
+    const tieneResta = currentDisplay.includes('−')
+
+    if (tieneMultiplicacion) {
       const partes = currentDisplay.split('×')
       if (partes.length === 2 && partes[1]) {
-        // Aplicar % al segundo número (ej: 100×20 -> 100×0.2)
         const num1 = partes[0]
-        const num2 = parseFloat(partes[1]) / 100
+        const num2 = redondear(parseFloat(partes[1]) / 100)
         setDisplay(`${num1}×${num2}`)
+      }
+    } else if (tieneResta) {
+      const partes = currentDisplay.split('−')
+      if (partes.length === 2 && partes[1]) {
+        const num1 = partes[0]
+        const num2 = redondear(parseFloat(partes[1]) / 100)
+        setDisplay(`${num1}−${num2}`)
       }
     } else {
       // Solo un número, dividir por 100
-      const num = parseFloat(currentDisplay) / 100
+      const num = redondear(parseFloat(currentDisplay) / 100)
       setDisplay(num.toString())
     }
   }
@@ -226,7 +265,7 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     if (!currentDisplay) return
 
     // Si tiene operación, calcular y mostrar resultado
-    if (currentDisplay.includes('×')) {
+    if (currentDisplay.includes('×') || currentDisplay.includes('−')) {
       const resultado = calcularDisplay()
       setDisplay(resultado.toString())
     }
@@ -234,7 +273,7 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
   calcularResultadoRef.current = calcularResultado
 
   // Calcular total
-  const total = lineas.reduce((sum, l) => sum + l.resultado, 0)
+  const total = redondear(lineas.reduce((sum, l) => sum + l.resultado, 0))
   const displayValor = calcularDisplay()
 
   if (!isOpen) return null
@@ -367,17 +406,17 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
             <Boton onClick={() => agregarDigito('4')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">4</Boton>
             <Boton onClick={() => agregarDigito('5')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">5</Boton>
             <Boton onClick={() => agregarDigito('6')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">6</Boton>
-            <Boton onClick={calcularResultado} className="bg-blue-500 text-white hover:bg-blue-600">=</Boton>
+            <Boton onClick={() => agregarDigito('−')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">−</Boton>
 
             {/* Fila 4 */}
             <Boton onClick={() => agregarDigito('1')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">1</Boton>
             <Boton onClick={() => agregarDigito('2')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">2</Boton>
             <Boton onClick={() => agregarDigito('3')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">3</Boton>
-            <Boton onClick={() => agregarDigito('.')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">.</Boton>
+            <Boton onClick={calcularResultado} className="bg-blue-500 text-white hover:bg-blue-600">=</Boton>
 
             {/* Fila 5 */}
             <Boton onClick={() => agregarDigito('0')} span={2} className="col-span-2 bg-gray-100 text-gray-900 hover:bg-gray-200">0</Boton>
-            <Boton onClick={() => agregarDigito('00')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">00</Boton>
+            <Boton onClick={() => agregarDigito('.')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">.</Boton>
             <Boton
               onClick={limpiarTodo}
               className={`${lineas.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-400'}`}
