@@ -447,6 +447,60 @@ export async function toggleFreeUserActive(id, isActive) {
 }
 
 /**
+ * Obtiene los empleados de un dueño específico
+ * @param {string} duenioId - UUID del dueño
+ */
+export async function getEmpleadosDeUsuario(duenioId) {
+  // Obtener los empleados desde caja_empleados
+  const { data: empleadosData, error: empleadosError } = await supabase
+    .from('caja_empleados')
+    .select('id, empleado_id, permisos, activo, horarios_acceso, created_at')
+    .eq('duenio_id', duenioId)
+    .order('created_at', { ascending: false })
+
+  if (empleadosError) throw empleadosError
+
+  if (!empleadosData || empleadosData.length === 0) {
+    return []
+  }
+
+  // Obtener datos de usuarios_free para cada empleado
+  const empleadoIds = empleadosData.map(e => e.empleado_id)
+  const { data: usuariosData, error: usuariosError } = await supabase
+    .from('usuarios_free')
+    .select('id, nombre, apellido, email, whatsapp, is_active, created_at')
+    .in('id', empleadoIds)
+
+  if (usuariosError) throw usuariosError
+
+  // Crear mapa para acceso rápido
+  const usuariosMap = new Map()
+  if (usuariosData) {
+    usuariosData.forEach(u => usuariosMap.set(u.id, u))
+  }
+
+  // Combinar datos
+  const empleados = empleadosData.map(emp => {
+    const usuario = usuariosMap.get(emp.empleado_id)
+    return {
+      id: emp.id,
+      empleado_id: emp.empleado_id,
+      nombre: usuario?.nombre || '',
+      apellido: usuario?.apellido || '',
+      email: usuario?.email || '',
+      whatsapp: usuario?.whatsapp || '',
+      is_active: usuario?.is_active ?? true,
+      activo_en_caja: emp.activo,
+      permisos: emp.permisos,
+      horarios_acceso: emp.horarios_acceso,
+      created_at: usuario?.created_at || emp.created_at
+    }
+  })
+
+  return empleados
+}
+
+/**
  * Resetea la contraseña de un usuario
  * @param {string} userId - UUID del usuario
  * @param {string} newPassword - Nueva contraseña (mínimo 6 caracteres)

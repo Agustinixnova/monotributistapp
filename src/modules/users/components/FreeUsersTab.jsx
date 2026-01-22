@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, Search, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Phone, Mail, Calendar, Tag } from 'lucide-react'
+import { Users, Search, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Phone, Mail, Calendar, Tag, ChevronRight } from 'lucide-react'
 import { getFreeUsers, toggleFreeUserActive } from '../services/userService'
+import ModalUsuarioFree from './ModalUsuarioFree'
 
 /**
  * Opciones de origen de usuarios
@@ -68,6 +69,7 @@ export function FreeUsersTab() {
     isActive: ''
   })
   const [togglingId, setTogglingId] = useState(null)
+  const [selectedUser, setSelectedUser] = useState(null)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -213,7 +215,8 @@ export function FreeUsersTab() {
           {users.map(user => (
             <div
               key={user.id}
-              className={`bg-white rounded-lg border p-4 hover:shadow-md transition-shadow ${
+              onClick={() => setSelectedUser(user)}
+              className={`bg-white rounded-lg border p-4 hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer ${
                 !user.is_active ? 'opacity-60' : ''
               }`}
             >
@@ -278,7 +281,10 @@ export function FreeUsersTab() {
                 {/* Acciones */}
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleToggleActive(user.id, user.is_active)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleToggleActive(user.id, user.is_active)
+                    }}
                     disabled={togglingId === user.id}
                     className={`p-2 rounded-lg transition-colors ${
                       user.is_active
@@ -295,6 +301,7 @@ export function FreeUsersTab() {
                       <ToggleLeft className="w-5 h-5" />
                     )}
                   </button>
+                  <ChevronRight className="w-5 h-5 text-gray-300" />
                 </div>
               </div>
             </div>
@@ -316,6 +323,13 @@ export function FreeUsersTab() {
           </div>
         </div>
       </div>
+
+      {/* Modal de detalle de usuario */}
+      <ModalUsuarioFree
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        usuario={selectedUser}
+      />
     </div>
   )
 }
