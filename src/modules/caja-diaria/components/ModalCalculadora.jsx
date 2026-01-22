@@ -391,7 +391,7 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
             {/* Fila 1: 🗑️ C ⌫ % */}
             <Boton
               onClick={limpiarTodo}
-              className={`${lineas.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-400'}`}
+              className="bg-red-100 text-red-600 hover:bg-red-200"
             >
               <Trash2 className="w-5 h-5 mx-auto" />
             </Boton>
@@ -407,17 +407,17 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
             <Boton onClick={() => agregarDigito('9')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">9</Boton>
             <Boton onClick={() => agregarDigito('×')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">×</Boton>
 
-            {/* Fila 3: 4 5 6 − */}
+            {/* Fila 3: 4 5 6 + */}
             <Boton onClick={() => agregarDigito('4')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">4</Boton>
             <Boton onClick={() => agregarDigito('5')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">5</Boton>
             <Boton onClick={() => agregarDigito('6')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">6</Boton>
-            <Boton onClick={() => agregarDigito('−')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">−</Boton>
+            <Boton onClick={agregarLinea} className="bg-emerald-500 text-white hover:bg-emerald-600">+</Boton>
 
-            {/* Fila 4: 1 2 3 + */}
+            {/* Fila 4: 1 2 3 − */}
             <Boton onClick={() => agregarDigito('1')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">1</Boton>
             <Boton onClick={() => agregarDigito('2')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">2</Boton>
             <Boton onClick={() => agregarDigito('3')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">3</Boton>
-            <Boton onClick={agregarLinea} className="bg-emerald-500 text-white hover:bg-emerald-600">+</Boton>
+            <Boton onClick={() => agregarDigito('−')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">−</Boton>
 
             {/* Fila 5: 0 00 . = */}
             <Boton onClick={() => agregarDigito('0')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">0</Boton>
