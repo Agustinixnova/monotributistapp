@@ -4,13 +4,12 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Trash2, Copy, Check, Delete, DollarSign } from 'lucide-react'
+import { X, Trash2, Delete, DollarSign } from 'lucide-react'
 import { formatearMonto } from '../utils/formatters'
 
 export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
   const [lineas, setLineas] = useState([])
   const [display, setDisplay] = useState('')
-  const [copiado, setCopiado] = useState(false)
   const listaRef = useRef(null)
 
   // Refs para acceder a las funciones desde el event listener
@@ -18,6 +17,8 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
   const agregarLineaRef = useRef()
   const borrarUltimoRef = useRef()
   const limpiarDisplayRef = useRef()
+  const calcularPorcentajeRef = useRef()
+  const calcularResultadoRef = useRef()
   const displayRef = useRef(display)
 
   // Mantener displayRef actualizado
@@ -37,7 +38,6 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     if (!isOpen) {
       setDisplay('')
       setLineas([])
-      setCopiado(false)
     }
   }, [isOpen])
 
@@ -92,6 +92,20 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
       if (e.key === 'c' || e.key === 'C') {
         e.preventDefault()
         limpiarDisplayRef.current()
+        return
+      }
+
+      // = para calcular resultado
+      if (e.key === '=') {
+        e.preventDefault()
+        calcularResultadoRef.current()
+        return
+      }
+
+      // % para porcentaje
+      if (e.key === '%') {
+        e.preventDefault()
+        calcularPorcentajeRef.current()
         return
       }
     }
@@ -185,16 +199,39 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     setDisplay('')
   }
 
-  // Copiar total
-  const copiarTotal = async () => {
-    try {
-      await navigator.clipboard.writeText(total.toString())
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2000)
-    } catch (err) {
-      console.error('Error copiando:', err)
+  // Calcular porcentaje
+  const calcularPorcentaje = () => {
+    const currentDisplay = displayRef.current
+    if (!currentDisplay) return
+
+    if (currentDisplay.includes('×')) {
+      const partes = currentDisplay.split('×')
+      if (partes.length === 2 && partes[1]) {
+        // Aplicar % al segundo número (ej: 100×20 -> 100×0.2)
+        const num1 = partes[0]
+        const num2 = parseFloat(partes[1]) / 100
+        setDisplay(`${num1}×${num2}`)
+      }
+    } else {
+      // Solo un número, dividir por 100
+      const num = parseFloat(currentDisplay) / 100
+      setDisplay(num.toString())
     }
   }
+  calcularPorcentajeRef.current = calcularPorcentaje
+
+  // Calcular resultado (=)
+  const calcularResultado = () => {
+    const currentDisplay = displayRef.current
+    if (!currentDisplay) return
+
+    // Si tiene operación, calcular y mostrar resultado
+    if (currentDisplay.includes('×')) {
+      const resultado = calcularDisplay()
+      setDisplay(resultado.toString())
+    }
+  }
+  calcularResultadoRef.current = calcularResultado
 
   // Calcular total
   const total = lineas.reduce((sum, l) => sum + l.resultado, 0)
@@ -317,30 +354,20 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
             <Boton onClick={borrarUltimo} className="bg-gray-200 text-gray-700 hover:bg-gray-300">
               <Delete className="w-5 h-5 mx-auto" />
             </Boton>
-            <Boton onClick={() => agregarDigito('×')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">×</Boton>
+            <Boton onClick={calcularPorcentaje} className="bg-amber-100 text-amber-700 hover:bg-amber-200">%</Boton>
             <Boton onClick={agregarLinea} className="bg-emerald-500 text-white hover:bg-emerald-600">+</Boton>
 
             {/* Fila 2 */}
             <Boton onClick={() => agregarDigito('7')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">7</Boton>
             <Boton onClick={() => agregarDigito('8')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">8</Boton>
             <Boton onClick={() => agregarDigito('9')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">9</Boton>
-            <Boton
-              onClick={copiarTotal}
-              className={`${lineas.length > 0 ? 'bg-violet-100 text-violet-700 hover:bg-violet-200' : 'bg-gray-100 text-gray-400'}`}
-            >
-              {copiado ? <Check className="w-5 h-5 mx-auto" /> : <Copy className="w-5 h-5 mx-auto" />}
-            </Boton>
+            <Boton onClick={() => agregarDigito('×')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">×</Boton>
 
             {/* Fila 3 */}
             <Boton onClick={() => agregarDigito('4')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">4</Boton>
             <Boton onClick={() => agregarDigito('5')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">5</Boton>
             <Boton onClick={() => agregarDigito('6')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">6</Boton>
-            <Boton
-              onClick={limpiarTodo}
-              className={`${lineas.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-400'}`}
-            >
-              <Trash2 className="w-5 h-5 mx-auto" />
-            </Boton>
+            <Boton onClick={calcularResultado} className="bg-blue-500 text-white hover:bg-blue-600">=</Boton>
 
             {/* Fila 4 */}
             <Boton onClick={() => agregarDigito('1')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">1</Boton>
@@ -350,7 +377,13 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
 
             {/* Fila 5 */}
             <Boton onClick={() => agregarDigito('0')} span={2} className="col-span-2 bg-gray-100 text-gray-900 hover:bg-gray-200">0</Boton>
-            <Boton onClick={() => agregarDigito('00')} span={2} className="col-span-2 bg-gray-100 text-gray-900 hover:bg-gray-200">00</Boton>
+            <Boton onClick={() => agregarDigito('00')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">00</Boton>
+            <Boton
+              onClick={limpiarTodo}
+              className={`${lineas.length > 0 ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-400'}`}
+            >
+              <Trash2 className="w-5 h-5 mx-auto" />
+            </Boton>
           </div>
         </div>
       </div>
