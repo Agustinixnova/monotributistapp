@@ -1,11 +1,58 @@
-import { X, User, Mail, Phone, MessageCircle, CreditCard, Building2, MapPin, Calendar, UserCheck, UserX } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, User, Mail, Phone, MessageCircle, CreditCard, Building2, MapPin, Calendar, UserCheck, UserX, UserCog, Loader2, AlertCircle } from 'lucide-react'
 import { formatFullName, formatCUIT, formatPhone, formatDateTime } from '../utils/formatters'
 import { getRoleBadgeColor } from '../../../utils/roleColors'
+import { useAuth } from '../../../auth/hooks/useAuth'
+import { supabase } from '../../../lib/supabase'
 
 /**
  * Modal para ver detalles completos de un usuario
  */
 export function UserDetailModal({ user, onClose }) {
+  const { user: currentUser, impersonateUser } = useAuth()
+  const [puedeImpersonar, setPuedeImpersonar] = useState(false)
+  const [impersonando, setImpersonando] = useState(false)
+  const [errorImpersonar, setErrorImpersonar] = useState(null)
+
+  // Verificar si el usuario actual tiene rol "desarrollo"
+  useEffect(() => {
+    const checkRolDesarrollo = async () => {
+      if (!currentUser) {
+        setPuedeImpersonar(false)
+        return
+      }
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('roles(name)')
+          .eq('id', currentUser.id)
+          .single()
+
+        setPuedeImpersonar(profile?.roles?.name === 'desarrollo')
+      } catch {
+        setPuedeImpersonar(false)
+      }
+    }
+
+    if (user) {
+      checkRolDesarrollo()
+    }
+  }, [currentUser, user])
+
+  const handleImpersonar = async () => {
+    setImpersonando(true)
+    setErrorImpersonar(null)
+
+    const result = await impersonateUser(user.id)
+
+    if (!result.success) {
+      setErrorImpersonar(result.error)
+      setImpersonando(false)
+    }
+    // Si es exitoso, la página se recargará automáticamente
+  }
+
   if (!user) return null
 
   const isMonotributista = user.role?.name === 'monotributista'
@@ -156,13 +203,44 @@ export function UserDetailModal({ user, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t px-6 py-4">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Cerrar
-          </button>
+        <div className="sticky bottom-0 bg-white border-t px-6 py-4 space-y-3">
+          {/* Error de impersonación */}
+          {errorImpersonar && (
+            <div className="flex items-center gap-2 text-sm p-2 bg-red-50 text-red-700 rounded-lg">
+              <AlertCircle className="w-4 h-4" />
+              {errorImpersonar}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cerrar
+            </button>
+
+            {/* Botón de impersonar - solo visible para rol desarrollo */}
+            {puedeImpersonar && (
+              <button
+                onClick={handleImpersonar}
+                disabled={impersonando}
+                className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors disabled:bg-amber-300 flex items-center justify-center gap-2"
+              >
+                {impersonando ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Ingresando...
+                  </>
+                ) : (
+                  <>
+                    <UserCog className="w-4 h-4" />
+                    Impersonar
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
