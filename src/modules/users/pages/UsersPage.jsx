@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { UserPlus, AlertCircle, Users, Shield } from 'lucide-react'
+import { UserPlus, AlertCircle, Users, Shield, Wallet } from 'lucide-react'
 import { useUsers } from '../hooks/useUsers'
 import { getAvailableCounters } from '../services/userService'
-import { UserList, UserFilters, UserForm, AssignCounterModal, UserDetailModal, AssignClientsModal, UserInvoiceModal, RolesTab, ResetPasswordModal } from '../components'
+import { UserList, UserFilters, UserForm, AssignCounterModal, UserDetailModal, AssignClientsModal, UserInvoiceModal, RolesTab, ResetPasswordModal, FreeUsersTab } from '../components'
 import { Layout } from '../../../components/layout'
 
 /**
@@ -157,6 +157,17 @@ export function UsersPage() {
               <Shield className="w-4 h-4" />
               Roles
             </button>
+            <button
+              onClick={() => setActiveTab('free')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'free'
+                  ? 'border-emerald-600 text-emerald-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Wallet className="w-4 h-4" />
+              Usuarios Free
+            </button>
           </nav>
         </div>
       </div>
@@ -232,6 +243,11 @@ export function UsersPage() {
       {/* Contenido de Roles */}
       {activeTab === 'roles' && (
         <RolesTab />
+      )}
+
+      {/* Contenido de Usuarios Free */}
+      {activeTab === 'free' && (
+        <FreeUsersTab />
       )}
 
       {/* Modal de asignar contador */}

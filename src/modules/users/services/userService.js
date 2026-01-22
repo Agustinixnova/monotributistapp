@@ -396,6 +396,57 @@ export async function getAvailableCounters() {
 }
 
 /**
+ * Obtiene todos los usuarios free (operador_gastos y operador_gastos_empleado)
+ * @param {Object} filters - Filtros opcionales
+ * @param {boolean} filters.isActive - Filtrar por estado activo
+ * @param {string} filters.search - Búsqueda por nombre/email
+ * @param {string} filters.origen - Filtrar por origen
+ */
+export async function getFreeUsers(filters = {}) {
+  let query = supabase
+    .from('usuarios_free')
+    .select(`
+      *,
+      role:roles(id, name, display_name)
+    `)
+    .order('created_at', { ascending: false })
+
+  if (typeof filters.isActive === 'boolean') {
+    query = query.eq('is_active', filters.isActive)
+  }
+
+  if (filters.search) {
+    query = query.or(`nombre.ilike.%${filters.search}%,apellido.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
+  }
+
+  if (filters.origen) {
+    query = query.eq('origen', filters.origen)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Activa o desactiva un usuario free
+ * @param {string} id - UUID del usuario
+ * @param {boolean} isActive - Estado a establecer
+ */
+export async function toggleFreeUserActive(id, isActive) {
+  const { data, error } = await supabase
+    .from('usuarios_free')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+/**
  * Resetea la contraseña de un usuario
  * @param {string} userId - UUID del usuario
  * @param {string} newPassword - Nueva contraseña (mínimo 6 caracteres)
