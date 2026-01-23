@@ -355,7 +355,7 @@ CREATE INDEX idx_disponibilidad_prof ON agenda_disponibilidad(profesional_id, di
 - [x] Turno rápido (crear en 3 clicks)
 - [x] Múltiples servicios por turno
 - [x] Duración flexible
-- [ ] Filtro por profesional (pendiente para Fase 4)
+- [x] Filtro por profesional en calendario
 
 **Entregable:** Calendario completo con todas las vistas.
 

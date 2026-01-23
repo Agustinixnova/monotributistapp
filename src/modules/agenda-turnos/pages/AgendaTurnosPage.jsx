@@ -56,6 +56,19 @@ export default function AgendaTurnosPage() {
   const [modalCliente, setModalCliente] = useState({ abierto: false, cliente: null })
   const [modalHistorial, setModalHistorial] = useState({ abierto: false, clienteId: null })
 
+  // Hook de profesionales (debe ir antes de los hooks de turnos para tener profesionalActivo)
+  const {
+    profesionales,
+    profesionalActivo,
+    setProfesionalActivo,
+    tieneMuchos: tieneMuchosProfesionales
+  } = useProfesionales()
+
+  // Opciones de filtro por profesional
+  const filtrosProfesional = profesionalActivo && profesionalActivo !== 'todos'
+    ? { profesionalId: profesionalActivo }
+    : {}
+
   // Hooks de datos - día
   const {
     turnos: turnosDia,
@@ -64,7 +77,7 @@ export default function AgendaTurnosPage() {
     actualizar: actualizarTurno,
     cambiarEstado,
     recargar: recargarTurnosDia
-  } = useTurnosDia(fechaSeleccionada)
+  } = useTurnosDia(fechaSeleccionada, filtrosProfesional)
 
   // Hooks de datos - semana
   const inicioSemana = getPrimerDiaSemana(fechaSeleccionada)
@@ -74,7 +87,7 @@ export default function AgendaTurnosPage() {
     diasSemana,
     loading: loadingTurnosSemana,
     recargar: recargarTurnosSemana
-  } = useTurnosSemana(inicioSemana)
+  } = useTurnosSemana(inicioSemana, filtrosProfesional)
 
   const {
     servicios,
@@ -91,14 +104,6 @@ export default function AgendaTurnosPage() {
     actualizar: actualizarCliente,
     recargar: recargarClientes
   } = useClientes({ autoLoad: tabActiva === 'clientes' || modalTurno.abierto || modalTurnoRapido.abierto })
-
-  // Hook de profesionales
-  const {
-    profesionales,
-    profesionalActivo,
-    setProfesionalActivo,
-    tieneMuchos: tieneMuchosProfesionales
-  } = useProfesionales()
 
   // Recargar datos según vista
   const recargarTurnos = useCallback(() => {
