@@ -3,11 +3,12 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, User, Phone, ChevronDown, ChevronUp, Check, HandCoins, History } from 'lucide-react'
+import { X, User, Phone, ChevronDown, ChevronUp, Check, HandCoins, History, Edit3 } from 'lucide-react'
 import { useCobranzas } from '../hooks/useCobranzas'
 import { formatearMonto, formatearFechaCorta, formatearHora } from '../utils/formatters'
 import InputMonto from './InputMonto'
 import IconoDinamico from './IconoDinamico'
+import ModalEditarMovimiento from './ModalEditarMovimiento'
 
 export default function ModalDetalleDeuda({
   isOpen,
@@ -16,7 +17,7 @@ export default function ModalDetalleDeuda({
   metodosPago,
   onPagoRegistrado
 }) {
-  const { cobrar, obtenerHistorial } = useCobranzas()
+  const { cobrar, obtenerHistorial, editarMovimiento, anularMovimiento } = useCobranzas()
 
   const [historial, setHistorial] = useState([])
   const [loadingHistorial, setLoadingHistorial] = useState(false)
@@ -28,6 +29,9 @@ export default function ModalDetalleDeuda({
   const [nota, setNota] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+
+  // Modal de editar movimiento
+  const [modalEditar, setModalEditar] = useState({ abierto: false, movimiento: null })
 
   // Cargar datos cuando se abre el modal
   useEffect(() => {
@@ -51,6 +55,14 @@ export default function ModalDetalleDeuda({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, cliente?.id])
+
+  // Función para recargar historial
+  const recargarHistorial = async () => {
+    setLoadingHistorial(true)
+    const { historial: data } = await obtenerHistorial(cliente.id)
+    setHistorial(data || [])
+    setLoadingHistorial(false)
+  }
 
   const handleCobrar = async () => {
     if (montoCobro <= 0) {
@@ -82,6 +94,26 @@ export default function ModalDetalleDeuda({
     } else {
       setError(result.error?.message || 'Error al registrar el cobro')
     }
+  }
+
+  // Manejar edición de movimiento
+  const handleEditar = async (tipo, id, nuevoMonto) => {
+    const result = await editarMovimiento(tipo, id, nuevoMonto)
+    if (result.success) {
+      await recargarHistorial()
+      if (onPagoRegistrado) onPagoRegistrado()
+    }
+    return result
+  }
+
+  // Manejar anulación de movimiento
+  const handleAnular = async (tipo, id) => {
+    const result = await anularMovimiento(tipo, id)
+    if (result.success) {
+      await recargarHistorial()
+      if (onPagoRegistrado) onPagoRegistrado()
+    }
+    return result
   }
 
   if (!isOpen || !cliente) return null
@@ -282,11 +314,22 @@ export default function ModalDetalleDeuda({
                             }`}>
                               {item.tipo === 'fiado' ? 'Cta. Cte.' : 'Pago'}
                             </span>
-                            <span className={`font-bold ${
-                              item.tipo === 'fiado' ? 'text-red-600' : 'text-emerald-600'
-                            }`}>
-                              {item.tipo === 'fiado' ? '+' : '-'}{formatearMonto(item.monto)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`font-bold ${
+                                item.tipo === 'fiado' ? 'text-red-600' : 'text-emerald-600'
+                              }`}>
+                                {item.tipo === 'fiado' ? '+' : '-'}{formatearMonto(item.monto)}
+                              </span>
+                              <button
+                                onClick={() => setModalEditar({ abierto: true, movimiento: item })}
+                                className={`p-1 rounded hover:bg-white/50 ${
+                                  item.tipo === 'fiado' ? 'text-red-500' : 'text-emerald-500'
+                                }`}
+                                title="Editar movimiento"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                           {item.descripcion && (
                             <p className="text-gray-600 text-xs mb-1">{item.descripcion}</p>
@@ -328,6 +371,15 @@ export default function ModalDetalleDeuda({
           </div>
         </div>
       </div>
+
+      {/* Modal de editar movimiento */}
+      <ModalEditarMovimiento
+        isOpen={modalEditar.abierto}
+        onClose={() => setModalEditar({ abierto: false, movimiento: null })}
+        movimiento={modalEditar.movimiento}
+        onEditar={handleEditar}
+        onAnular={handleAnular}
+      />
     </div>
   )
 }

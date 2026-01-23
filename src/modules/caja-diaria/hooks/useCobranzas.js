@@ -3,7 +3,8 @@
  */
 
 import { useState, useCallback } from 'react'
-import { registrarPago, getPagosCliente } from '../services/cobranzasService'
+import { registrarPago, getPagosCliente, editarPago, anularPago } from '../services/cobranzasService'
+import { editarFiado, anularFiado } from '../services/fiadosService'
 import { getTodosClientesConSaldo, getClienteById, getHistorialCliente } from '../services/clientesFiadoService'
 
 export function useCobranzas() {
@@ -65,6 +66,40 @@ export function useCobranzas() {
     return { success: true, pagos: data || [] }
   }
 
+  // Editar un movimiento (fiado o pago)
+  const editarMovimiento = async (tipo, id, nuevoMonto, descripcion = null) => {
+    setError(null)
+    let result
+    if (tipo === 'fiado') {
+      result = await editarFiado(id, nuevoMonto, descripcion)
+    } else {
+      result = await editarPago(id, nuevoMonto, descripcion)
+    }
+
+    if (result.error) {
+      setError(result.error)
+      return { success: false, error: result.error }
+    }
+    return { success: true, data: result.data }
+  }
+
+  // Anular un movimiento (fiado o pago)
+  const anularMovimiento = async (tipo, id) => {
+    setError(null)
+    let result
+    if (tipo === 'fiado') {
+      result = await anularFiado(id)
+    } else {
+      result = await anularPago(id)
+    }
+
+    if (result.error) {
+      setError(result.error)
+      return { success: false, error: result.error }
+    }
+    return { success: true }
+  }
+
   return {
     clientesConDeuda,
     loading,
@@ -73,6 +108,8 @@ export function useCobranzas() {
     cobrar,
     obtenerCliente,
     obtenerHistorial,
-    obtenerPagos
+    obtenerPagos,
+    editarMovimiento,
+    anularMovimiento
   }
 }

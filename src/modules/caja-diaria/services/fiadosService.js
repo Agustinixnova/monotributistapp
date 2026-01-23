@@ -103,3 +103,56 @@ export async function getCuentasCorrientesByFecha(fecha) {
 
 // Alias para compatibilidad
 export const getFiadosByFecha = getCuentasCorrientesByFecha
+
+/**
+ * Editar monto de un fiado/deuda
+ * @param {string} fiadoId - ID del fiado
+ * @param {number} nuevoMonto - Nuevo monto
+ * @param {string} descripcion - Descripción opcional
+ */
+export async function editarFiado(fiadoId, nuevoMonto, descripcion = null) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    const updateData = { monto: parseFloat(nuevoMonto) }
+    if (descripcion !== null) updateData.descripcion = descripcion
+
+    const { data, error } = await supabase
+      .from('caja_fiados')
+      .update(updateData)
+      .eq('id', fiadoId)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error editando fiado:', error)
+    return { data: null, error }
+  }
+}
+
+/**
+ * Anular/eliminar un fiado
+ * @param {string} fiadoId - ID del fiado
+ */
+export async function anularFiado(fiadoId) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    const { error } = await supabase
+      .from('caja_fiados')
+      .delete()
+      .eq('id', fiadoId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Error anulando fiado:', error)
+    return { success: false, error }
+  }
+}

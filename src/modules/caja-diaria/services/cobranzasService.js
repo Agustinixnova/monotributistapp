@@ -105,3 +105,96 @@ export async function getPagosByFecha(fecha) {
     return { data: null, error }
   }
 }
+
+/**
+ * Editar monto de un pago
+ * @param {string} pagoId - ID del pago
+ * @param {number} nuevoMonto - Nuevo monto
+ * @param {string} nota - Nota opcional
+ */
+export async function editarPago(pagoId, nuevoMonto, nota = null) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Obtener el pago actual para ver si tiene movimiento asociado
+    const { data: pagoActual, error: fetchError } = await supabase
+      .from('caja_pagos_fiado')
+      .select('*, movimiento_id')
+      .eq('id', pagoId)
+      .eq('user_id', userId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    // Actualizar el pago
+    const updateData = { monto: parseFloat(nuevoMonto) }
+    if (nota !== null) updateData.nota = nota
+
+    const { data, error } = await supabase
+      .from('caja_pagos_fiado')
+      .update(updateData)
+      .eq('id', pagoId)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    // Si tiene movimiento de caja asociado, actualizarlo también
+    if (pagoActual.movimiento_id) {
+      await supabase
+        .from('caja_movimientos')
+        .update({ monto: parseFloat(nuevoMonto) })
+        .eq('id', pagoActual.movimiento_id)
+    }
+
+    return { data, error: null }
+  } catch (error) {
+    console.error('Error editando pago:', error)
+    return { data: null, error }
+  }
+}
+
+/**
+ * Anular/eliminar un pago
+ * @param {string} pagoId - ID del pago
+ */
+export async function anularPago(pagoId) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    // Obtener el pago para ver si tiene movimiento asociado
+    const { data: pago, error: fetchError } = await supabase
+      .from('caja_pagos_fiado')
+      .select('movimiento_id')
+      .eq('id', pagoId)
+      .eq('user_id', userId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    // Eliminar el pago
+    const { error } = await supabase
+      .from('caja_pagos_fiado')
+      .delete()
+      .eq('id', pagoId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+
+    // Si tiene movimiento de caja asociado, eliminarlo también
+    if (pago.movimiento_id) {
+      await supabase
+        .from('caja_movimientos')
+        .delete()
+        .eq('id', pago.movimiento_id)
+    }
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Error anulando pago:', error)
+    return { success: false, error }
+  }
+}
