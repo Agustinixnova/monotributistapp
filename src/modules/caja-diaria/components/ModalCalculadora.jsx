@@ -1,43 +1,37 @@
 /**
- * Calculadora estilo cinta de almacén con teclado numérico
- * Botones grandes para uso fácil en móvil
+ * Calculadora tradicional con botón de cobrar
+ * Funciona como calculadora común, no como cinta
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { X, Trash2, Delete, DollarSign } from 'lucide-react'
+import { X, Delete, DollarSign, RotateCcw } from 'lucide-react'
 import { formatearMonto } from '../utils/formatters'
 
 export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
-  const [lineas, setLineas] = useState([])
-  const [display, setDisplay] = useState('')
-  const listaRef = useRef(null)
+  const [display, setDisplay] = useState('0')
+  const [expresion, setExpresion] = useState('')
+  const [resultado, setResultado] = useState(null)
+  const [operacionPendiente, setOperacionPendiente] = useState(false)
 
-  // Refs para acceder a las funciones desde el event listener
+  // Refs para teclado
   const agregarDigitoRef = useRef()
-  const agregarLineaRef = useRef()
+  const agregarOperadorRef = useRef()
+  const calcularRef = useRef()
   const borrarUltimoRef = useRef()
-  const limpiarDisplayRef = useRef()
+  const limpiarRef = useRef()
   const calcularPorcentajeRef = useRef()
-  const calcularResultadoRef = useRef()
-  const displayRef = useRef(display)
-
-  // Scroll al final cuando se agregan líneas
-  useEffect(() => {
-    if (listaRef.current) {
-      listaRef.current.scrollTop = listaRef.current.scrollHeight
-    }
-  }, [lineas])
 
   // Resetear al cerrar
   useEffect(() => {
     if (!isOpen) {
-      displayRef.current = ''
-      setDisplay('')
-      setLineas([])
+      setDisplay('0')
+      setExpresion('')
+      setResultado(null)
+      setOperacionPendiente(false)
     }
   }, [isOpen])
 
-  // Soporte para teclado físico en PC
+  // Soporte para teclado físico
   useEffect(() => {
     if (!isOpen) return
 
@@ -49,17 +43,25 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
         return
       }
 
-      // Multiplicación (* o x)
-      if (e.key === '*' || e.key === 'x' || e.key === 'X') {
+      // Operadores
+      if (e.key === '+') {
         e.preventDefault()
-        agregarDigitoRef.current('×')
+        agregarOperadorRef.current('+')
         return
       }
-
-      // Resta (-)
       if (e.key === '-') {
         e.preventDefault()
-        agregarDigitoRef.current('−')
+        agregarOperadorRef.current('−')
+        return
+      }
+      if (e.key === '*' || e.key === 'x' || e.key === 'X') {
+        e.preventDefault()
+        agregarOperadorRef.current('×')
+        return
+      }
+      if (e.key === '/') {
+        e.preventDefault()
+        agregarOperadorRef.current('÷')
         return
       }
 
@@ -70,21 +72,14 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
         return
       }
 
-      // + para suma
-      if (e.key === '+') {
+      // Enter o = para calcular
+      if (e.key === 'Enter' || e.key === '=') {
         e.preventDefault()
-        agregarDigitoRef.current('+')
+        calcularRef.current()
         return
       }
 
-      // Enter para calcular y agregar línea
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        calcularResultadoRef.current()
-        return
-      }
-
-      // Backspace para borrar
+      // Backspace
       if (e.key === 'Backspace') {
         e.preventDefault()
         borrarUltimoRef.current()
@@ -98,17 +93,10 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
         return
       }
 
-      // C para limpiar display
+      // C para limpiar
       if (e.key === 'c' || e.key === 'C') {
         e.preventDefault()
-        limpiarDisplayRef.current()
-        return
-      }
-
-      // = para calcular resultado
-      if (e.key === '=') {
-        e.preventDefault()
-        calcularResultadoRef.current()
+        limpiarRef.current()
         return
       }
 
@@ -124,208 +112,225 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Agregar dígito o símbolo al display
-  const agregarDigito = (digito) => {
-    setDisplay(prev => {
-      const operadores = ['×', '−', '+']
-
-      // No permitir múltiples operadores seguidos
-      if (operadores.includes(digito)) {
-        if (operadores.some(op => prev.endsWith(op))) return prev
-        // No empezar con operador
-        if (prev === '') return prev
-      }
-
-      // No permitir múltiples puntos en el mismo número
-      if (digito === '.') {
-        const partes = prev.split(/[×−+]/)
-        const ultimaParte = partes[partes.length - 1]
-        if (ultimaParte.includes('.')) return prev
-      }
-
-      const newDisplay = prev + digito
-      displayRef.current = newDisplay
-      return newDisplay
-    })
-  }
-  agregarDigitoRef.current = agregarDigito
-
-  // Borrar último carácter
-  const borrarUltimo = () => {
-    setDisplay(prev => {
-      const newDisplay = prev.slice(0, -1)
-      displayRef.current = newDisplay
-      return newDisplay
-    })
-  }
-  borrarUltimoRef.current = borrarUltimo
-
-  // Limpiar display
-  const limpiarDisplay = () => {
-    displayRef.current = ''
-    setDisplay('')
-  }
-  limpiarDisplayRef.current = limpiarDisplay
-
   // Redondear a 2 decimales
   const redondear = (num) => Math.round(num * 100) / 100
 
-  // Parsear y calcular el display actual (usa el valor pasado o displayRef)
-  const calcularDisplay = (displayValue = null) => {
-    const currentDisplay = displayValue !== null ? displayValue : displayRef.current
-    if (!currentDisplay) return 0
+  // Evaluar expresión matemática
+  const evaluarExpresion = (expr) => {
+    if (!expr) return 0
 
-    // Si tiene ×, es una multiplicación
-    if (currentDisplay.includes('×')) {
-      const partes = currentDisplay.split('×').map(p => parseFloat(p) || 0)
-      if (partes.length === 2) {
-        return redondear(partes[0] * partes[1])
-      }
+    try {
+      // Reemplazar símbolos por operadores JS
+      const expresionJS = expr
+        .replace(/×/g, '*')
+        .replace(/÷/g, '/')
+        .replace(/−/g, '-')
+
+      // Evaluar de forma segura
+      // eslint-disable-next-line no-new-func
+      const result = new Function('return ' + expresionJS)()
+
+      if (isNaN(result) || !isFinite(result)) return 0
+      return redondear(result)
+    } catch {
+      return 0
     }
-
-    // Si tiene +, es una suma
-    if (currentDisplay.includes('+')) {
-      const partes = currentDisplay.split('+').map(p => parseFloat(p) || 0)
-      if (partes.length === 2) {
-        return redondear(partes[0] + partes[1])
-      }
-    }
-
-    // Si tiene −, es una resta
-    if (currentDisplay.includes('−')) {
-      const partes = currentDisplay.split('−').map(p => parseFloat(p) || 0)
-      if (partes.length === 2) {
-        return redondear(partes[0] - partes[1])
-      }
-    }
-
-    // Si es solo un número
-    return redondear(parseFloat(currentDisplay) || 0)
   }
 
-  // Agregar línea al total
-  const agregarLinea = () => {
-    const currentDisplay = displayRef.current
-    if (!currentDisplay) return
-
-    // Usar calcularDisplay para obtener el resultado
-    const resultado = calcularDisplay(currentDisplay)
-
-    if (resultado === 0 && !currentDisplay.includes('0')) return
-
-    const nuevaLinea = {
-      id: Date.now(),
-      expresion: currentDisplay,
-      resultado
+  // Agregar dígito
+  const agregarDigito = (digito) => {
+    // Si acabamos de calcular un resultado, empezar nuevo número
+    if (resultado !== null && !operacionPendiente) {
+      setDisplay(digito === '.' ? '0.' : digito)
+      setExpresion(digito === '.' ? '0.' : digito)
+      setResultado(null)
+      return
     }
 
-    setLineas(prev => [...prev, nuevaLinea])
-    displayRef.current = ''
-    setDisplay('')
-  }
-  agregarLineaRef.current = agregarLinea
+    // Si hay operación pendiente, empezar nuevo número
+    if (operacionPendiente) {
+      setDisplay(digito === '.' ? '0.' : digito)
+      setExpresion(prev => prev + (digito === '.' ? '0.' : digito))
+      setOperacionPendiente(false)
+      return
+    }
 
-  // Eliminar línea
-  const eliminarLinea = (id) => {
-    setLineas(lineas.filter(l => l.id !== id))
+    // No permitir múltiples puntos
+    if (digito === '.' && display.includes('.')) return
+
+    // No permitir números muy largos
+    if (display.replace(/[^0-9]/g, '').length >= 12) return
+
+    // Si el display es "0", reemplazar (excepto para punto)
+    if (display === '0' && digito !== '.') {
+      setDisplay(digito)
+      setExpresion(prev => {
+        // Si la expresión termina en 0 solo, reemplazar
+        if (prev === '0' || prev === '') return digito
+        // Si termina en operador + 0, reemplazar el 0
+        if (/[+\−×÷]0$/.test(prev)) return prev.slice(0, -1) + digito
+        return prev + digito
+      })
+    } else {
+      setDisplay(prev => prev + digito)
+      setExpresion(prev => prev + digito)
+    }
   }
+  agregarDigitoRef.current = agregarDigito
+
+  // Agregar operador
+  const agregarOperador = (op) => {
+    // Si acabamos de calcular, usar el resultado
+    if (resultado !== null) {
+      setExpresion(resultado.toString() + op)
+      setDisplay(resultado.toString())
+      setResultado(null)
+      setOperacionPendiente(true)
+      return
+    }
+
+    // Si ya hay operación pendiente, reemplazar operador
+    if (operacionPendiente) {
+      setExpresion(prev => prev.slice(0, -1) + op)
+      return
+    }
+
+    // Agregar operador
+    setExpresion(prev => prev + op)
+    setOperacionPendiente(true)
+  }
+  agregarOperadorRef.current = agregarOperador
+
+  // Calcular resultado
+  const calcular = () => {
+    if (!expresion || operacionPendiente) return
+
+    const res = evaluarExpresion(expresion)
+    setResultado(res)
+    setDisplay(res.toString())
+    setOperacionPendiente(false)
+  }
+  calcularRef.current = calcular
+
+  // Borrar último carácter
+  const borrarUltimo = () => {
+    if (resultado !== null) {
+      // Si hay resultado, limpiar todo
+      limpiar()
+      return
+    }
+
+    if (display.length <= 1 || display === '0') {
+      setDisplay('0')
+      setExpresion(prev => {
+        const newExpr = prev.slice(0, -1)
+        return newExpr || '0'
+      })
+      return
+    }
+
+    const lastChar = display.slice(-1)
+    const isOperator = ['+', '−', '×', '÷'].includes(lastChar)
+
+    setDisplay(prev => prev.slice(0, -1) || '0')
+    setExpresion(prev => prev.slice(0, -1) || '0')
+
+    if (isOperator) {
+      setOperacionPendiente(false)
+    }
+  }
+  borrarUltimoRef.current = borrarUltimo
 
   // Limpiar todo
-  const limpiarTodo = () => {
-    setLineas([])
-    displayRef.current = ''
-    setDisplay('')
+  const limpiar = () => {
+    setDisplay('0')
+    setExpresion('')
+    setResultado(null)
+    setOperacionPendiente(false)
   }
+  limpiarRef.current = limpiar
 
   // Calcular porcentaje
-  // Para + y −: calcula el porcentaje del primer número (ej: 1000+10% → 1000+100 = 1100)
-  // Para ×: convierte a decimal (ej: 1000×10% → 1000×0.1 = 100)
   const calcularPorcentaje = () => {
-    const currentDisplay = displayRef.current
-    if (!currentDisplay) return
-
-    // Buscar si tiene operador
-    const tieneMultiplicacion = currentDisplay.includes('×')
-    const tieneSuma = currentDisplay.includes('+')
-    const tieneResta = currentDisplay.includes('−')
-
-    let newDisplay = currentDisplay
-
-    if (tieneMultiplicacion) {
-      // Para multiplicación: convertir a decimal (10% → 0.1)
-      const partes = currentDisplay.split('×')
-      if (partes.length === 2 && partes[1]) {
-        const num1 = partes[0]
-        const num2 = redondear(parseFloat(partes[1]) / 100)
-        newDisplay = `${num1}×${num2}`
-      }
-    } else if (tieneSuma) {
-      // Para suma: calcular el porcentaje del primer número (1000+10% → 1000+100)
-      const partes = currentDisplay.split('+')
-      if (partes.length === 2 && partes[1]) {
-        const num1 = parseFloat(partes[0]) || 0
-        const porcentaje = parseFloat(partes[1]) || 0
-        const valorPorcentaje = redondear(num1 * porcentaje / 100)
-        newDisplay = `${partes[0]}+${valorPorcentaje}`
-      }
-    } else if (tieneResta) {
-      // Para resta: calcular el porcentaje del primer número (1000−10% → 1000−100)
-      const partes = currentDisplay.split('−')
-      if (partes.length === 2 && partes[1]) {
-        const num1 = parseFloat(partes[0]) || 0
-        const porcentaje = parseFloat(partes[1]) || 0
-        const valorPorcentaje = redondear(num1 * porcentaje / 100)
-        newDisplay = `${partes[0]}−${valorPorcentaje}`
-      }
-    } else {
-      // Solo un número, dividir por 100
-      const num = redondear(parseFloat(currentDisplay) / 100)
-      newDisplay = num.toString()
+    if (resultado !== null) {
+      // Si hay resultado, calcular porcentaje del resultado
+      const porcentaje = redondear(resultado / 100)
+      setDisplay(porcentaje.toString())
+      setExpresion(porcentaje.toString())
+      setResultado(porcentaje)
+      return
     }
 
-    displayRef.current = newDisplay
-    setDisplay(newDisplay)
+    // Buscar el último número en la expresión
+    const match = expresion.match(/([+\−×÷]?)(\d+\.?\d*)$/)
+    if (!match) return
+
+    const operador = match[1]
+    const numero = parseFloat(match[2])
+
+    if (operador === '+' || operador === '−') {
+      // Para suma/resta: calcular porcentaje del total anterior
+      const anterior = expresion.slice(0, -match[0].length)
+      const valorAnterior = evaluarExpresion(anterior)
+      const porcentaje = redondear(valorAnterior * numero / 100)
+
+      setExpresion(anterior + operador + porcentaje)
+      setDisplay(porcentaje.toString())
+    } else if (operador === '×' || operador === '÷') {
+      // Para multiplicación/división: convertir a decimal
+      const porcentaje = redondear(numero / 100)
+      const nuevaExpr = expresion.slice(0, -match[2].length) + porcentaje
+      setExpresion(nuevaExpr)
+      setDisplay(porcentaje.toString())
+    } else {
+      // Solo un número: dividir por 100
+      const porcentaje = redondear(numero / 100)
+      setExpresion(porcentaje.toString())
+      setDisplay(porcentaje.toString())
+    }
   }
   calcularPorcentajeRef.current = calcularPorcentaje
 
-  // Calcular resultado (=) - calcula y agrega la línea a la cinta
-  const calcularResultado = () => {
-    const currentDisplay = displayRef.current
-    if (!currentDisplay) return
+  // Cambiar signo (+/-)
+  const cambiarSigno = () => {
+    if (resultado !== null) {
+      const nuevo = -resultado
+      setResultado(nuevo)
+      setDisplay(nuevo.toString())
+      setExpresion(nuevo.toString())
+      return
+    }
 
-    // Si tiene operación, calcular y agregar línea
-    if (currentDisplay.includes('×') || currentDisplay.includes('−') || currentDisplay.includes('+')) {
-      const resultado = calcularDisplay(currentDisplay)
+    if (display === '0') return
 
-      // Agregar línea a la cinta
-      const nuevaLinea = {
-        id: Date.now(),
-        expresion: currentDisplay,
-        resultado
-      }
-      setLineas(prev => [...prev, nuevaLinea])
-      displayRef.current = ''
-      setDisplay('')
+    // Si el display actual es negativo, hacerlo positivo y viceversa
+    if (display.startsWith('-')) {
+      const nuevoDisplay = display.slice(1)
+      setDisplay(nuevoDisplay)
+      // Actualizar expresión también
+      setExpresion(prev => {
+        const idx = prev.lastIndexOf('-' + display.slice(1))
+        if (idx >= 0) {
+          return prev.slice(0, idx) + nuevoDisplay
+        }
+        return prev
+      })
     } else {
-      // Si es solo un número, también agregarlo a la cinta
-      const resultado = redondear(parseFloat(currentDisplay) || 0)
-      if (resultado === 0 && !currentDisplay.includes('0')) return
-
-      const nuevaLinea = {
-        id: Date.now(),
-        expresion: currentDisplay,
-        resultado
-      }
-      setLineas(prev => [...prev, nuevaLinea])
-      displayRef.current = ''
-      setDisplay('')
+      const nuevoDisplay = '-' + display
+      setDisplay(nuevoDisplay)
+      setExpresion(prev => {
+        // Encontrar y reemplazar el número actual
+        const idx = prev.lastIndexOf(display)
+        if (idx >= 0) {
+          return prev.slice(0, idx) + '(-' + display + ')'
+        }
+        return '(-' + prev + ')'
+      })
     }
   }
-  calcularResultadoRef.current = calcularResultado
 
-  // Calcular total
-  const total = redondear(lineas.reduce((sum, l) => sum + l.resultado, 0))
-  const displayValor = calcularDisplay()
+  // Valor actual para cobrar
+  const valorActual = resultado !== null ? resultado : evaluarExpresion(expresion)
 
   if (!isOpen) return null
 
@@ -352,7 +357,7 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
         onClick={onClose}
       />
 
-      {/* Modal - Pantalla completa en móvil */}
+      {/* Modal */}
       <div className="fixed inset-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-sm sm:max-h-[90vh] bg-white sm:rounded-2xl shadow-xl flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-white flex items-center justify-between shrink-0">
@@ -365,118 +370,73 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
           </button>
         </div>
 
-        {/* Lista de líneas (cinta) */}
-        <div
-          ref={listaRef}
-          className="flex-1 overflow-y-auto p-3 space-y-1.5 bg-gray-50 min-h-[120px] max-h-[200px]"
-        >
-          {lineas.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              Usá = para agregar items a la cinta
-            </div>
-          ) : (
-            lineas.map((linea, index) => (
-              <div
-                key={linea.id}
-                className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-100 text-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400 text-xs w-5">{index + 1}.</span>
-                  <span className="text-gray-700">{linea.expresion}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-900">
-                    {formatearMonto(linea.resultado)}
-                  </span>
-                  <button
-                    onClick={() => eliminarLinea(linea.id)}
-                    className="p-1 text-gray-400 hover:text-red-500"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
         {/* Display */}
-        <div className="px-4 py-3 bg-white border-t border-gray-100">
-          <div className="bg-gray-100 rounded-xl px-4 py-3 text-right">
-            <div className="text-gray-500 text-sm h-5 overflow-hidden">
-              {display || '0'}
-            </div>
-            <div className="text-3xl font-bold text-gray-900">
-              {formatearMonto(display ? displayValor : 0)}
-            </div>
+        <div className="px-4 py-4 bg-gray-900 flex-shrink-0">
+          {/* Expresión */}
+          <div className="text-gray-400 text-sm h-6 text-right overflow-hidden font-mono">
+            {expresion || '0'}
+          </div>
+          {/* Resultado/Display principal */}
+          <div className="text-4xl font-bold text-white text-right font-mono tracking-tight">
+            {display}
           </div>
         </div>
-
-        {/* Total y Botón Cobrar */}
-        {lineas.length > 0 && (
-          <div className="px-4 py-3 bg-amber-50 border-t border-amber-100">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-amber-700 font-medium">TOTAL</span>
-              <span className="text-2xl font-bold text-amber-600">
-                {formatearMonto(total)}
-              </span>
-            </div>
-            {onCobrar && (
-              <button
-                onClick={() => {
-                  onCobrar(total)
-                  onClose()
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95"
-              >
-                <DollarSign className="w-5 h-5" />
-                Cobrar {formatearMonto(total)}
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Teclado */}
-        <div className="p-3 bg-white border-t border-gray-200 shrink-0">
+        <div className="p-3 bg-white flex-1">
           <div className="grid grid-cols-4 gap-2">
-            {/* Fila 1: 🗑️ C ⌫ % */}
-            <Boton
-              onClick={limpiarTodo}
-              className="bg-red-100 text-red-600 hover:bg-red-200"
-            >
-              <Trash2 className="w-5 h-5 mx-auto" />
-            </Boton>
-            <Boton onClick={limpiarDisplay} className="bg-gray-200 text-gray-700 hover:bg-gray-300">C</Boton>
-            <Boton onClick={borrarUltimo} className="bg-gray-200 text-gray-700 hover:bg-gray-300">
-              <Delete className="w-5 h-5 mx-auto" />
-            </Boton>
-            <Boton onClick={calcularPorcentaje} className="bg-amber-100 text-amber-700 hover:bg-amber-200">%</Boton>
+            {/* Fila 1: C ± % ÷ */}
+            <Boton onClick={limpiar} className="bg-gray-300 text-gray-800 hover:bg-gray-400">C</Boton>
+            <Boton onClick={cambiarSigno} className="bg-gray-300 text-gray-800 hover:bg-gray-400">±</Boton>
+            <Boton onClick={calcularPorcentaje} className="bg-gray-300 text-gray-800 hover:bg-gray-400">%</Boton>
+            <Boton onClick={() => agregarOperador('÷')} className="bg-amber-500 text-white hover:bg-amber-600">÷</Boton>
 
             {/* Fila 2: 7 8 9 × */}
             <Boton onClick={() => agregarDigito('7')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">7</Boton>
             <Boton onClick={() => agregarDigito('8')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">8</Boton>
             <Boton onClick={() => agregarDigito('9')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">9</Boton>
-            <Boton onClick={() => agregarDigito('×')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">×</Boton>
+            <Boton onClick={() => agregarOperador('×')} className="bg-amber-500 text-white hover:bg-amber-600">×</Boton>
 
-            {/* Fila 3: 4 5 6 + (suma) */}
+            {/* Fila 3: 4 5 6 − */}
             <Boton onClick={() => agregarDigito('4')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">4</Boton>
             <Boton onClick={() => agregarDigito('5')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">5</Boton>
             <Boton onClick={() => agregarDigito('6')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">6</Boton>
-            <Boton onClick={() => agregarDigito('+')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">+</Boton>
+            <Boton onClick={() => agregarOperador('−')} className="bg-amber-500 text-white hover:bg-amber-600">−</Boton>
 
-            {/* Fila 4: 1 2 3 − */}
+            {/* Fila 4: 1 2 3 + */}
             <Boton onClick={() => agregarDigito('1')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">1</Boton>
             <Boton onClick={() => agregarDigito('2')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">2</Boton>
             <Boton onClick={() => agregarDigito('3')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">3</Boton>
-            <Boton onClick={() => agregarDigito('−')} className="bg-amber-100 text-amber-700 hover:bg-amber-200">−</Boton>
+            <Boton onClick={() => agregarOperador('+')} className="bg-amber-500 text-white hover:bg-amber-600">+</Boton>
 
-            {/* Fila 5: 0 00 . = (agregar a cinta) */}
+            {/* Fila 5: 0 . ⌫ = */}
             <Boton onClick={() => agregarDigito('0')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">0</Boton>
-            <Boton onClick={() => agregarDigito('00')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">00</Boton>
             <Boton onClick={() => agregarDigito('.')} className="bg-gray-100 text-gray-900 hover:bg-gray-200">.</Boton>
-            <Boton onClick={calcularResultado} className="bg-emerald-500 text-white hover:bg-emerald-600">=</Boton>
+            <Boton onClick={borrarUltimo} className="bg-gray-200 text-gray-700 hover:bg-gray-300">
+              <Delete className="w-5 h-5 mx-auto" />
+            </Boton>
+            <Boton onClick={calcular} className="bg-amber-500 text-white hover:bg-amber-600">=</Boton>
           </div>
         </div>
+
+        {/* Botón Cobrar */}
+        {onCobrar && (
+          <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 shrink-0">
+            <button
+              onClick={() => {
+                if (valorActual > 0) {
+                  onCobrar(valorActual)
+                  onClose()
+                }
+              }}
+              disabled={valorActual <= 0}
+              className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold text-lg rounded-xl transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:cursor-not-allowed disabled:shadow-none"
+            >
+              <DollarSign className="w-6 h-6" />
+              Cobrar {formatearMonto(valorActual)}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
