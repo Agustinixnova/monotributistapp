@@ -20,6 +20,7 @@ import { BuzonPage } from './modules/buzon/components/BuzonPage'
 import { MisFinanzasPage } from './modules/finanzas-personales/components'
 import { PanelEconomicoPage } from './modules/panel-economico/components'
 import CajaDiariaPage from './modules/caja-diaria/components/CajaDiariaPage'
+import AgendaTurnosPage from './modules/agenda-turnos/pages/AgendaTurnosPage'
 import { MiPerfil } from './pages/MiPerfil'
 import { PWAInstallPrompt, PWAUpdatePrompt } from './pwa'
 
@@ -183,6 +184,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CajaDiariaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/herramientas/agenda-turnos"
+            element={
+              <ProtectedRoute>
+                <AgendaTurnosPage />
               </ProtectedRoute>
             }
           />
