@@ -371,13 +371,13 @@ export default function ModalCalculadora({ isOpen, onClose, onCobrar }) {
         </div>
 
         {/* Display */}
-        <div className="px-4 py-4 bg-gray-900 flex-shrink-0">
+        <div className="px-4 py-4 bg-white border-b border-gray-200 flex-shrink-0">
           {/* Expresión */}
-          <div className="text-gray-400 text-sm h-6 text-right overflow-hidden font-mono">
+          <div className="text-gray-500 text-sm h-6 text-right overflow-hidden font-mono">
             {expresion || '0'}
           </div>
           {/* Resultado/Display principal */}
-          <div className="text-4xl font-bold text-white text-right font-mono tracking-tight">
+          <div className="text-4xl font-bold text-gray-900 text-right font-mono tracking-tight">
             {display}
           </div>
         </div>
