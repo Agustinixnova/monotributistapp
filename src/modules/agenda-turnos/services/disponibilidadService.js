@@ -135,13 +135,14 @@ export async function eliminarExcepcion(excepcionId) {
  */
 export async function getProfesionales() {
   const { userId, esDuenio } = await getEffectiveUserId()
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!esDuenio) {
     // Empleado solo ve su propia agenda
     const { data: perfil } = await supabase
       .from('usuarios_free')
-      .select('id, nombre, apellido, avatar_url')
-      .eq('user_id', (await supabase.auth.getUser()).data.user.id)
+      .select('id, nombre, apellido')
+      .eq('id', user.id)
       .single()
 
     return { data: perfil ? [perfil] : [], error: null }
@@ -150,21 +151,33 @@ export async function getProfesionales() {
   // Dueño ve su agenda + empleados
   const { data: propietario } = await supabase
     .from('usuarios_free')
-    .select('id, nombre, apellido, avatar_url')
+    .select('id, nombre, apellido')
     .eq('id', userId)
     .single()
 
-  const { data: empleados } = await supabase
-    .from('usuarios_free')
-    .select('id, nombre, apellido, avatar_url')
+  // Obtener empleados a través de caja_empleados
+  const { data: empleadosVinculados } = await supabase
+    .from('caja_empleados')
+    .select('empleado_id')
     .eq('duenio_id', userId)
     .eq('activo', true)
+
+  let empleados = []
+  if (empleadosVinculados && empleadosVinculados.length > 0) {
+    const empleadoIds = empleadosVinculados.map(e => e.empleado_id)
+    const { data: perfilesEmpleados } = await supabase
+      .from('usuarios_free')
+      .select('id, nombre, apellido')
+      .in('id', empleadoIds)
+
+    empleados = perfilesEmpleados || []
+  }
 
   const profesionales = []
   if (propietario) {
     profesionales.push({ ...propietario, esDuenio: true })
   }
-  if (empleados) {
+  if (empleados.length > 0) {
     profesionales.push(...empleados.map(e => ({ ...e, esDuenio: false })))
   }
 
