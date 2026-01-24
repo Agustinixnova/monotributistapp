@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react'
 import { X, TrendingUp, Loader2, FileDown, FileSpreadsheet, Calendar } from 'lucide-react'
 import { getReporteIngresosPorCategoria, getDetalleMovimientosCategoria } from '../services/reporteCategoriasService'
+import { getArqueosConDiferencia } from '../services/arqueosService'
 import { formatearMonto } from '../utils/formatters'
 import { getFechaHoyArgentina } from '../utils/dateUtils'
 import IconoDinamico from './IconoDinamico'
@@ -16,6 +17,7 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
 
   const [loading, setLoading] = useState(false)
   const [datos, setDatos] = useState(null)
+  const [ajustesArqueo, setAjustesArqueo] = useState([])
   const [error, setError] = useState(null)
   const [filtroActivo, setFiltroActivo] = useState('hoy')
   const [fechaDesde, setFechaDesde] = useState(hoy)
@@ -66,15 +68,24 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
 
     const { desde, hasta } = calcularFechas(filtro)
 
+    // Obtener reporte por categorías
     const { data, error: err } = await getReporteIngresosPorCategoria({
       fechaDesde: desde,
       fechaHasta: hasta
+    })
+
+    // Obtener ajustes de arqueo positivos (sobrantes)
+    const { data: arqueos } = await getArqueosConDiferencia({
+      fechaDesde: desde,
+      fechaHasta: hasta,
+      tipo: 'positivo'
     })
 
     if (err) {
       setError('Error al generar el reporte')
     } else {
       setDatos(data)
+      setAjustesArqueo(arqueos || [])
     }
     setLoading(false)
   }
@@ -115,9 +126,11 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
       nombreNegocio,
       tipo: 'ingresos',
       periodo: getPeriodoLabel(),
-      total,
+      total: totalCategorias,
       cantidadTotal,
-      desglose
+      desglose,
+      ajustesArqueo,
+      totalConAjustes: total
     })
     setExportando(false)
   }
@@ -134,15 +147,18 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
       nombreNegocio,
       tipo: 'ingresos',
       periodo: getPeriodoLabel(),
-      total,
+      total: totalCategorias,
       cantidadTotal,
-      desglose
+      desglose,
+      ajustesArqueo,
+      totalConAjustes: total
     })
     setExportando(false)
   }
 
   const handleClose = () => {
     setDatos(null)
+    setAjustesArqueo([])
     setError(null)
     setFiltroActivo('hoy')
     setIncluirDesglose(false)
@@ -158,9 +174,11 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
 
   if (!isOpen) return null
 
-  // Calcular total
-  const total = datos?.reduce((sum, cat) => sum + parseFloat(cat.total), 0) || 0
+  // Calcular totales
+  const totalCategorias = datos?.reduce((sum, cat) => sum + parseFloat(cat.total), 0) || 0
   const cantidadTotal = datos?.reduce((sum, cat) => sum + cat.cantidad, 0) || 0
+  const totalAjustesArqueo = ajustesArqueo?.reduce((sum, arq) => sum + parseFloat(arq.diferencia), 0) || 0
+  const total = totalCategorias + totalAjustesArqueo
 
   // Formatear fecha para mostrar
   const formatFecha = (fecha) => {
@@ -312,15 +330,45 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
                   </div>
                 </div>
 
+                {/* Ajustes por arqueo (si hay) */}
+                {ajustesArqueo.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                    <h4 className="text-sm font-semibold text-amber-700 mb-2">
+                      Ajustes por Arqueo ({ajustesArqueo.length})
+                    </h4>
+                    <div className="space-y-1.5">
+                      {ajustesArqueo.map((arq) => (
+                        <div key={arq.id} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">
+                              {formatFecha(arq.fecha)} {arq.hora?.substring(0, 5)}
+                            </span>
+                            <span className="text-gray-600">
+                              ({arq.creador_nombre || 'Usuario'})
+                            </span>
+                          </div>
+                          <span className="font-semibold text-amber-600">
+                            +{formatearMonto(arq.diferencia)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between">
+                      <span className="text-sm font-medium text-amber-700">Subtotal Ajustes</span>
+                      <span className="font-bold text-amber-600">{formatearMonto(totalAjustesArqueo)}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Detalle por categoría */}
-                {datos.length === 0 ? (
+                {datos.length === 0 && ajustesArqueo.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     No hay ingresos en este período
                   </div>
-                ) : (
+                ) : datos.length > 0 && (
                   <div className="space-y-2">
                     {datos.map((cat) => {
-                      const porcentaje = total > 0 ? (parseFloat(cat.total) / total * 100) : 0
+                      const porcentaje = totalCategorias > 0 ? (parseFloat(cat.total) / totalCategorias * 100) : 0
                       return (
                         <div
                           key={cat.categoria_id}
@@ -358,7 +406,7 @@ export default function ModalReporteIngresosCategorias({ isOpen, onClose, nombre
                 )}
 
                 {/* Botones de descarga */}
-                {datos.length > 0 && (
+                {(datos.length > 0 || ajustesArqueo.length > 0) && (
                   <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
                     <button
                       onClick={handleExportarPDF}

@@ -3,8 +3,9 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock, Users } from 'lucide-react'
 import { Layout } from '../../../components/layout'
+import { useAuthContext } from '../../../context/AuthContext'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
 import { usePermisosCaja } from '../hooks/usePermisosCaja'
 import { useDiasSinCerrar } from '../hooks/useDiasSinCerrar'
@@ -28,6 +29,7 @@ import ModalReportes from './ModalReportes'
 import ModalEstadisticas from './ModalEstadisticas'
 import ModalRegistrarFiado from './ModalRegistrarFiado'
 import ModalCobranzas from './ModalCobranzas'
+import ModalVentaDividida from './ModalVentaDividida'
 import AlertaDiasSinCerrar from './AlertaDiasSinCerrar'
 import CajaNoDisponible from './CajaNoDisponible'
 import { useAliasPago } from '../hooks/useAliasPago'
@@ -35,6 +37,9 @@ import { useClientesConDeuda } from '../hooks/useClientesFiado'
 import { actualizarComentario } from '../services/movimientosService'
 
 export default function CajaDiariaPage() {
+  // Obtener usuario actual para funcionalidades específicas
+  const { user } = useAuthContext()
+
   const {
     fecha,
     cambiarFecha,
@@ -50,6 +55,9 @@ export default function CajaDiariaPage() {
     error,
     refreshAll
   } = useCajaDiaria()
+
+  // Verificar si es usuario con acceso a venta dividida (Elizabeth y Pablo)
+  const esUsuarioVentaDividida = ['elizabeth3612@hotmail.com', 'pablo@gmail.com'].includes(user?.email)
 
   // Permisos del usuario (empleado o dueño)
   const { puede, esDuenio, dentroDeHorario, proximoHorario, alertaFinSesion, minutosRestantes } = usePermisosCaja()
@@ -74,6 +82,7 @@ export default function CajaDiariaPage() {
   const [modalEstadisticas, setModalEstadisticas] = useState(false)
   const [modalFiado, setModalFiado] = useState({ isOpen: false, montoInicial: 0 })
   const [modalCobranzas, setModalCobranzas] = useState(false)
+  const [modalVentaDividida, setModalVentaDividida] = useState(false)
 
   // Estados para modales de confirmación
   const [confirmAnular, setConfirmAnular] = useState({ isOpen: false, id: null })
@@ -391,7 +400,7 @@ export default function CajaDiariaPage() {
 
         {/* Selector de fecha con calculadora y cobranzas */}
         <div className="flex items-center gap-2 justify-between">
-          {/* Calculadora y Cobranzas a la izquierda */}
+          {/* Calculadora, Cobranzas y Venta Dividida a la izquierda */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setModalCalculadora(true)}
@@ -413,6 +422,17 @@ export default function CajaDiariaPage() {
                 </span>
               )}
             </button>
+
+            {/* Botón Venta Dividida - Solo para Elizabeth */}
+            {esUsuarioVentaDividida && !estaCerrado && (
+              <button
+                onClick={() => setModalVentaDividida(true)}
+                className="p-2 bg-violet-100 hover:bg-violet-200 rounded-lg transition-colors"
+                title="Venta Dividida (Eliana/Hugo)"
+              >
+                <Users className="w-5 h-5 text-violet-600" />
+              </button>
+            )}
           </div>
 
           {/* Selector de fecha y controles a la derecha */}
@@ -743,6 +763,17 @@ export default function CajaDiariaPage() {
         metodosPago={metodosPago.metodos}
         onPagoRegistrado={handleFiadoGuardado}
       />
+
+      {/* Modal Venta Dividida - Solo para Elizabeth */}
+      {esUsuarioVentaDividida && (
+        <ModalVentaDividida
+          isOpen={modalVentaDividida}
+          onClose={() => setModalVentaDividida(false)}
+          categorias={categorias.categorias}
+          metodosPago={metodosPago.metodos}
+          onGuardar={handleGuardarMovimiento}
+        />
+      )}
       </div>
     </Layout>
   )

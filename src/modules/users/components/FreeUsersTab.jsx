@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, Search, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Phone, Mail, Calendar, Tag, ChevronRight } from 'lucide-react'
-import { getFreeUsers, toggleFreeUserActive } from '../services/userService'
+import { Users, Search, AlertCircle, RefreshCw, ToggleLeft, ToggleRight, Phone, Mail, Calendar, Tag, ChevronRight, Trash2, Download, Clock } from 'lucide-react'
+import { getFreeUsers, getFreeUsersWithLastLogin, toggleFreeUserActive, deleteFreeUser } from '../services/userService'
 import ModalUsuarioFree from './ModalUsuarioFree'
+import * as XLSX from 'xlsx'
 
 /**
  * Opciones de origen de usuarios
@@ -57,6 +58,29 @@ function formatearFecha(fecha) {
 }
 
 /**
+ * Formatea último acceso de forma relativa
+ */
+function formatearUltimoAcceso(fecha) {
+  if (!fecha) return 'Nunca'
+
+  const d = new Date(fecha)
+  const ahora = new Date()
+  const diffMs = ahora - d
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Ahora mismo'
+  if (diffMins < 60) return `Hace ${diffMins} min`
+  if (diffHours < 24) return `Hace ${diffHours}h`
+  if (diffDays === 1) return 'Ayer'
+  if (diffDays < 7) return `Hace ${diffDays} días`
+  if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} sem`
+  if (diffDays < 365) return `Hace ${Math.floor(diffDays / 30)} meses`
+  return `Hace ${Math.floor(diffDays / 365)} años`
+}
+
+/**
  * Pestaña de usuarios free (operador_gastos y operador_gastos_empleado)
  */
 export function FreeUsersTab() {
@@ -70,18 +94,49 @@ export function FreeUsersTab() {
   })
   const [togglingId, setTogglingId] = useState(null)
   const [selectedUser, setSelectedUser] = useState(null)
+  const [deletingUser, setDeletingUser] = useState(null) // Usuario a eliminar (para confirmación)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const filterParams = {}
-      if (filters.search) filterParams.search = filters.search
-      if (filters.origen) filterParams.origen = filters.origen
-      if (filters.isActive !== '') filterParams.isActive = filters.isActive === 'true'
+      let data
 
-      const data = await getFreeUsers(filterParams)
-      setUsers(data)
+      // Intentar con la función que trae último login, si falla usar la normal
+      try {
+        data = await getFreeUsersWithLastLogin()
+      } catch (rpcError) {
+        console.log('RPC no disponible, usando función normal:', rpcError.message)
+        const filterParams = {}
+        if (filters.search) filterParams.search = filters.search
+        if (filters.origen) filterParams.origen = filters.origen
+        if (filters.isActive !== '') filterParams.isActive = filters.isActive === 'true'
+        data = await getFreeUsers(filterParams)
+      }
+
+      // Aplicar filtros localmente si usamos RPC (que no soporta filtros)
+      let filteredData = data
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        filteredData = filteredData.filter(u =>
+          u.nombre?.toLowerCase().includes(searchLower) ||
+          u.apellido?.toLowerCase().includes(searchLower) ||
+          u.email?.toLowerCase().includes(searchLower)
+        )
+      }
+      if (filters.origen) {
+        filteredData = filteredData.filter(u => u.origen === filters.origen)
+      }
+      if (filters.isActive !== '') {
+        const isActiveFilter = filters.isActive === 'true'
+        filteredData = filteredData.filter(u => u.is_active === isActiveFilter)
+      }
+
+      // Filtrar empleados - solo mostrar dueños (operador_gastos)
+      // Los empleados (operador_gastos_empleado) se muestran dentro del modal de cada dueño
+      const duenios = filteredData.filter(u => u.role?.name !== 'operador_gastos_empleado')
+      setUsers(duenios)
     } catch (err) {
       console.error('Error fetching free users:', err)
       setError('Error al cargar los usuarios')
@@ -113,6 +168,82 @@ export function FreeUsersTab() {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
+  // Eliminar usuario
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return
+    setIsDeleting(true)
+    try {
+      await deleteFreeUser(deletingUser.id)
+      // Remover de la lista local
+      setUsers(prev => prev.filter(u => u.id !== deletingUser.id))
+      setDeletingUser(null)
+    } catch (err) {
+      console.error('Error eliminando usuario:', err)
+      setError(err.message || 'Error al eliminar usuario')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  // Exportar a Excel
+  const handleExportExcel = () => {
+    if (users.length === 0) return
+
+    // Formatear fecha con hora y minuto para Excel
+    const formatearFechaHora = (fecha) => {
+      if (!fecha) return '-'
+      const d = new Date(fecha)
+      return d.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    // Preparar datos para Excel
+    const excelData = users.map(user => ({
+      'Nombre': user.nombre || '',
+      'Apellido': user.apellido || '',
+      'Email': user.email || '',
+      'WhatsApp': user.whatsapp || '',
+      'Rol': user.role?.display_name || user.role?.name || '',
+      'Origen': user.origen || '',
+      'Detalle Origen': user.origen_detalle || '',
+      'Estado': user.is_active ? 'Activo' : 'Inactivo',
+      'Fecha Registro': formatearFechaHora(user.created_at),
+      'Último Acceso': user.last_sign_in_at ? formatearFechaHora(user.last_sign_in_at) : 'Nunca'
+    }))
+
+    // Crear workbook y worksheet
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(excelData)
+
+    // Ajustar ancho de columnas
+    const colWidths = [
+      { wch: 15 }, // Nombre
+      { wch: 15 }, // Apellido
+      { wch: 30 }, // Email
+      { wch: 15 }, // WhatsApp
+      { wch: 20 }, // Rol
+      { wch: 15 }, // Origen
+      { wch: 25 }, // Detalle Origen
+      { wch: 10 }, // Estado
+      { wch: 18 }, // Fecha Registro
+      { wch: 18 }, // Último Acceso
+    ]
+    ws['!cols'] = colWidths
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Usuarios Free')
+
+    // Generar archivo y descargar con fecha y hora en el nombre
+    const ahora = new Date()
+    const fecha = ahora.toISOString().split('T')[0]
+    const hora = ahora.toTimeString().slice(0, 5).replace(':', '-')
+    XLSX.writeFile(wb, `usuarios_free_${fecha}_${hora}.xlsx`)
+  }
+
   // Loading state
   if (loading && users.length === 0) {
     return (
@@ -141,14 +272,25 @@ export function FreeUsersTab() {
             {users.length} usuario{users.length !== 1 ? 's' : ''} free registrado{users.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={fetchUsers}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportExcel}
+            disabled={users.length === 0}
+            className="flex items-center gap-2 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar a Excel"
+          >
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -265,6 +407,10 @@ export function FreeUsersTab() {
                       <Calendar className="w-3.5 h-3.5" />
                       {formatearFecha(user.created_at)}
                     </span>
+                    <span className={`flex items-center gap-1 ${user.last_sign_in_at ? 'text-blue-600' : 'text-gray-400'}`} title={user.last_sign_in_at ? `Último acceso: ${new Date(user.last_sign_in_at).toLocaleString('es-AR')}` : 'Nunca ingresó'}>
+                      <Clock className="w-3.5 h-3.5" />
+                      {formatearUltimoAcceso(user.last_sign_in_at)}
+                    </span>
                   </div>
 
                   {/* Origen y detalles */}
@@ -279,7 +425,7 @@ export function FreeUsersTab() {
                 </div>
 
                 {/* Acciones */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -301,6 +447,16 @@ export function FreeUsersTab() {
                       <ToggleLeft className="w-5 h-5" />
                     )}
                   </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeletingUser(user)
+                    }}
+                    className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Eliminar usuario"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                   <ChevronRight className="w-5 h-5 text-gray-300" />
                 </div>
               </div>
@@ -317,8 +473,8 @@ export function FreeUsersTab() {
             <p className="font-medium mb-1">Sobre los usuarios free</p>
             <p>
               Estos usuarios tienen acceso gratuito al módulo de Caja Diaria.
-              Los usuarios con rol "Operador Gastos" son dueños de su propia caja,
-              mientras que los "Empleados" trabajan en la caja de su dueño.
+              Hacé click en un usuario para ver sus detalles y empleados.
+              Los empleados de cada dueño se muestran dentro de su ficha.
             </p>
           </div>
         </div>
@@ -330,6 +486,58 @@ export function FreeUsersTab() {
         onClose={() => setSelectedUser(null)}
         usuario={selectedUser}
       />
+
+      {/* Modal de confirmación de eliminación */}
+      {deletingUser && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => !isDeleting && setDeletingUser(null)}
+          />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-md bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Eliminar usuario</h3>
+                <p className="text-sm text-gray-500">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro que querés eliminar a <strong>{deletingUser.nombre} {deletingUser.apellido}</strong> ({deletingUser.email})?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingUser(null)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

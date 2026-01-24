@@ -4,8 +4,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, TrendingDown, Loader2, FileDown, FileSpreadsheet, Calendar } from 'lucide-react'
+import { X, TrendingDown, Loader2, FileDown, FileSpreadsheet, Calendar, AlertCircle } from 'lucide-react'
 import { getReporteEgresosPorCategoria, getDetalleMovimientosCategoria } from '../services/reporteCategoriasService'
+import { getArqueosConDiferencia } from '../services/arqueosService'
 import { formatearMonto } from '../utils/formatters'
 import { getFechaHoyArgentina } from '../utils/dateUtils'
 import IconoDinamico from './IconoDinamico'
@@ -16,6 +17,7 @@ export default function ModalReporteEgresosCategorias({ isOpen, onClose, nombreN
 
   const [loading, setLoading] = useState(false)
   const [datos, setDatos] = useState(null)
+  const [ajustesArqueo, setAjustesArqueo] = useState([])
   const [error, setError] = useState(null)
   const [filtroActivo, setFiltroActivo] = useState('hoy')
   const [fechaDesde, setFechaDesde] = useState(hoy)
@@ -71,10 +73,18 @@ export default function ModalReporteEgresosCategorias({ isOpen, onClose, nombreN
       fechaHasta: hasta
     })
 
+    // Obtener ajustes de arqueo negativos (faltantes)
+    const { data: ajustes } = await getArqueosConDiferencia({
+      fechaDesde: desde,
+      fechaHasta: hasta,
+      tipo: 'negativo'
+    })
+
     if (err) {
       setError('Error al generar el reporte')
     } else {
       setDatos(data)
+      setAjustesArqueo(ajustes || [])
     }
     setLoading(false)
   }
@@ -115,9 +125,11 @@ export default function ModalReporteEgresosCategorias({ isOpen, onClose, nombreN
       nombreNegocio,
       tipo: 'egresos',
       periodo: getPeriodoLabel(),
-      total,
+      total: totalCategorias,
       cantidadTotal,
-      desglose
+      desglose,
+      ajustesArqueo,
+      totalConAjustes: total
     })
     setExportando(false)
   }
@@ -134,15 +146,18 @@ export default function ModalReporteEgresosCategorias({ isOpen, onClose, nombreN
       nombreNegocio,
       tipo: 'egresos',
       periodo: getPeriodoLabel(),
-      total,
+      total: totalCategorias,
       cantidadTotal,
-      desglose
+      desglose,
+      ajustesArqueo,
+      totalConAjustes: total
     })
     setExportando(false)
   }
 
   const handleClose = () => {
     setDatos(null)
+    setAjustesArqueo([])
     setError(null)
     setFiltroActivo('hoy')
     setIncluirDesglose(false)
@@ -158,9 +173,15 @@ export default function ModalReporteEgresosCategorias({ isOpen, onClose, nombreN
 
   if (!isOpen) return null
 
-  // Calcular total
-  const total = datos?.reduce((sum, cat) => sum + parseFloat(cat.total), 0) || 0
+  // Calcular total de categorías
+  const totalCategorias = datos?.reduce((sum, cat) => sum + parseFloat(cat.total), 0) || 0
   const cantidadTotal = datos?.reduce((sum, cat) => sum + cat.cantidad, 0) || 0
+
+  // Calcular total de ajustes de arqueo (faltantes - valores negativos convertidos a positivos)
+  const totalAjustesArqueo = ajustesArqueo?.reduce((sum, arq) => sum + Math.abs(parseFloat(arq.diferencia)), 0) || 0
+
+  // Total general
+  const total = totalCategorias + totalAjustesArqueo
 
   // Formatear fecha para mostrar
   const formatFecha = (fecha) => {
@@ -357,8 +378,55 @@ export default function ModalReporteEgresosCategorias({ isOpen, onClose, nombreN
                   </div>
                 )}
 
+                {/* Sección de Ajustes por Arqueo (faltantes) */}
+                {ajustesArqueo && ajustesArqueo.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertCircle className="w-4 h-4 text-orange-500" />
+                      <h4 className="font-medium text-gray-700">Ajustes por Arqueo (Faltantes)</h4>
+                    </div>
+                    <div className="space-y-2">
+                      {ajustesArqueo.map((arq) => (
+                        <div
+                          key={arq.id}
+                          className="border border-orange-200 rounded-lg p-3 bg-orange-50"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-sm text-gray-600">
+                                {formatFecha(arq.fecha)} - {arq.hora?.substring(0, 5)}
+                              </span>
+                              <span className="text-xs text-gray-500 ml-2">({arq.creador_nombre || 'Usuario'})</span>
+                            </div>
+                            <span className="font-bold text-orange-600">
+                              {formatearMonto(Math.abs(arq.diferencia))}
+                            </span>
+                          </div>
+                          {arq.motivo_diferencia && (
+                            <p className="text-xs text-gray-500 mt-1">{arq.motivo_diferencia}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center mt-3 pt-2 border-t border-orange-200">
+                      <span className="text-sm font-medium text-orange-700">Subtotal Faltantes</span>
+                      <span className="font-bold text-orange-600">{formatearMonto(totalAjustesArqueo)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Total con ajustes */}
+                {ajustesArqueo && ajustesArqueo.length > 0 && (
+                  <div className="mt-4 bg-red-100 border border-red-300 rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-red-700">TOTAL EGRESOS (con ajustes)</span>
+                      <span className="text-xl font-bold text-red-700">{formatearMonto(total)}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Botones de descarga */}
-                {datos.length > 0 && (
+                {(datos.length > 0 || ajustesArqueo.length > 0) && (
                   <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
                     <button
                       onClick={handleExportarPDF}

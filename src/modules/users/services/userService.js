@@ -430,6 +430,26 @@ export async function getFreeUsers(filters = {}) {
 }
 
 /**
+ * Obtiene todos los usuarios free con su último login (usa RPC)
+ * Incluye last_sign_in_at de auth.users
+ */
+export async function getFreeUsersWithLastLogin() {
+  const { data, error } = await supabase.rpc('get_free_users_with_last_login')
+
+  if (error) throw error
+
+  // Transformar para mantener compatibilidad con el formato anterior
+  return (data || []).map(user => ({
+    ...user,
+    role: {
+      id: user.role_id,
+      name: user.role_name,
+      display_name: user.role_display_name
+    }
+  }))
+}
+
+/**
  * Activa o desactiva un usuario free
  * @param {string} id - UUID del usuario
  * @param {boolean} isActive - Estado a establecer
@@ -473,6 +493,19 @@ export async function getEmpleadosDeUsuario(duenioId) {
 
   if (usuariosError) throw usuariosError
 
+  // Intentar obtener último login de cada empleado
+  let lastLoginMap = new Map()
+  try {
+    const { data: lastLoginData } = await supabase.rpc('get_users_last_login', {
+      user_ids: empleadoIds
+    })
+    if (lastLoginData) {
+      lastLoginData.forEach(l => lastLoginMap.set(l.user_id, l.last_sign_in_at))
+    }
+  } catch (err) {
+    console.log('RPC get_users_last_login no disponible:', err.message)
+  }
+
   // Crear mapa para acceso rápido
   const usuariosMap = new Map()
   if (usuariosData) {
@@ -493,11 +526,51 @@ export async function getEmpleadosDeUsuario(duenioId) {
       activo_en_caja: emp.activo,
       permisos: emp.permisos,
       horarios_acceso: emp.horarios_acceso,
-      created_at: usuario?.created_at || emp.created_at
+      created_at: usuario?.created_at || emp.created_at,
+      last_sign_in_at: lastLoginMap.get(emp.empleado_id) || null
     }
   })
 
   return empleados
+}
+
+/**
+ * Elimina un usuario free (de profiles y auth.users via edge function)
+ * @param {string} userId - UUID del usuario a eliminar
+ */
+export async function deleteFreeUser(userId) {
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    throw new Error('No hay sesión activa. Por favor, volvé a iniciar sesión.')
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ userId })
+    }
+  )
+
+  let data
+  try {
+    const text = await response.text()
+    data = JSON.parse(text)
+  } catch (e) {
+    throw new Error('Error de conexión con el servidor')
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Error al eliminar usuario')
+  }
+
+  return { success: true, message: data.message }
 }
 
 /**

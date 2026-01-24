@@ -9,7 +9,7 @@ import { formatearMonto } from './formatters'
 /**
  * Genera y descarga PDF del reporte por categorías
  */
-export function descargarPDFReporteCategorias({ datos, nombreNegocio, tipo, periodo, total, cantidadTotal, desglose = null }) {
+export function descargarPDFReporteCategorias({ datos, nombreNegocio, tipo, periodo, total, cantidadTotal, desglose = null, ajustesArqueo = [], totalConAjustes = null }) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -136,6 +136,99 @@ export function descargarPDFReporteCategorias({ datos, nombreNegocio, tipo, peri
     y += 4
   })
 
+  // === AJUSTES POR ARQUEO (si hay) ===
+  if (ajustesArqueo && ajustesArqueo.length > 0) {
+    y += 10
+    checkNewPage(40)
+
+    const colorAmber = [217, 119, 6] // amber-600
+    const colorAmberClaro = [254, 243, 199] // amber-100
+
+    doc.setTextColor(...colorAmber)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`AJUSTES POR ARQUEO (${ajustesArqueo.length})`, margin, y)
+    y += 6
+
+    // Encabezados
+    doc.setFillColor(...colorAmber)
+    doc.rect(margin, y, pageWidth - 2 * margin, 7, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    y += 5
+    doc.text('FECHA', margin + 2, y)
+    doc.text('HORA', margin + 30, y)
+    doc.text('USUARIO', margin + 55, y)
+    doc.text('MONTO', margin + 145, y)
+    y += 5
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+
+    let totalAjustes = 0
+    ajustesArqueo.forEach((arq, index) => {
+      checkNewPage()
+      y += 4
+
+      // Fondo alternado
+      if (index % 2 === 0) {
+        doc.setFillColor(...colorAmberClaro)
+        doc.rect(margin, y - 4, pageWidth - 2 * margin, 8, 'F')
+      }
+
+      // Fecha
+      const fechaFormateada = new Date(arq.fecha + 'T00:00:00').toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      })
+      doc.setTextColor(0, 0, 0)
+      doc.text(fechaFormateada, margin + 2, y)
+
+      // Hora
+      doc.text(arq.hora ? arq.hora.substring(0, 5) : '', margin + 30, y)
+
+      // Usuario
+      const usuario = arq.creador_nombre || 'Usuario'
+      doc.text(usuario.substring(0, 25), margin + 55, y)
+
+      // Monto
+      const monto = parseFloat(arq.diferencia)
+      totalAjustes += monto
+      doc.setTextColor(...colorAmber)
+      doc.setFont('helvetica', 'bold')
+      const signo = monto >= 0 ? '+' : ''
+      doc.text(signo + formatearMonto(monto), margin + 145, y)
+      doc.setFont('helvetica', 'normal')
+
+      y += 4
+    })
+
+    // Subtotal ajustes
+    y += 2
+    doc.setDrawColor(...colorAmber)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 5
+    doc.setTextColor(...colorAmber)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Subtotal Ajustes:', margin + 2, y)
+    doc.text((totalAjustes >= 0 ? '+' : '') + formatearMonto(totalAjustes), margin + 145, y)
+    y += 8
+
+    // Total general con ajustes
+    if (totalConAjustes !== null) {
+      doc.setFillColor(...colorPrimario)
+      doc.roundedRect(margin, y, pageWidth - 2 * margin, 12, 2, 2, 'F')
+      y += 8
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(11)
+      doc.text(esIngreso ? 'TOTAL INGRESOS (con ajustes):' : 'TOTAL EGRESOS (con ajustes):', margin + 5, y)
+      doc.text(formatearMonto(totalConAjustes), pageWidth - margin - 5, y, { align: 'right' })
+      y += 8
+    }
+  }
+
   // === DESGLOSE DE MOVIMIENTOS (si está incluido) ===
   if (desglose && desglose.length > 0) {
     y += 10
@@ -238,7 +331,7 @@ export function descargarPDFReporteCategorias({ datos, nombreNegocio, tipo, peri
 /**
  * Genera y descarga Excel del reporte por categorías
  */
-export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, periodo, total, cantidadTotal, desglose = null }) {
+export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, periodo, total, cantidadTotal, desglose = null, ajustesArqueo = [], totalConAjustes = null }) {
   const fechaHora = new Date().toLocaleString('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires'
   })
@@ -249,6 +342,9 @@ export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, pe
   const esIngreso = tipo === 'ingresos'
   const titulo = esIngreso ? 'REPORTE DE INGRESOS POR CATEGORIA' : 'REPORTE DE EGRESOS POR CATEGORIA'
 
+  // Calcular total de ajustes
+  const totalAjustes = ajustesArqueo?.reduce((sum, arq) => sum + parseFloat(arq.diferencia || 0), 0) || 0
+
   // Crear datos para el Excel - Hoja principal
   const excelData = [
     [titulo],
@@ -257,8 +353,12 @@ export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, pe
     [`Generado: ${fechaHora}`],
     [],
     ['RESUMEN'],
-    [esIngreso ? 'Total Ingresos' : 'Total Egresos', total],
+    [esIngreso ? 'Total Ingresos (categorías)' : 'Total Egresos (categorías)', total],
     ['Total Operaciones', cantidadTotal],
+    ...(ajustesArqueo.length > 0 ? [
+      ['Total Ajustes por Arqueo', totalAjustes],
+      [esIngreso ? 'TOTAL INGRESOS' : 'TOTAL EGRESOS', totalConAjustes || (total + totalAjustes)]
+    ] : []),
     [],
     ['DETALLE POR CATEGORIA'],
     ['Categoria', 'Cantidad', 'Total', 'Porcentaje'],
@@ -270,7 +370,26 @@ export function descargarExcelReporteCategorias({ datos, nombreNegocio, tipo, pe
         parseFloat(cat.total),
         porcentaje
       ]
-    })
+    }),
+    ...(ajustesArqueo.length > 0 ? [
+      [],
+      ['AJUSTES POR ARQUEO'],
+      ['Fecha', 'Hora', 'Usuario', 'Monto'],
+      ...ajustesArqueo.map(arq => {
+        const fechaFormateada = new Date(arq.fecha + 'T00:00:00').toLocaleDateString('es-AR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit'
+        })
+        return [
+          fechaFormateada,
+          arq.hora ? arq.hora.substring(0, 5) : '',
+          arq.creador_nombre || 'Usuario',
+          parseFloat(arq.diferencia)
+        ]
+      }),
+      ['', '', 'Subtotal Ajustes', totalAjustes]
+    ] : [])
   ]
 
   // Crear workbook

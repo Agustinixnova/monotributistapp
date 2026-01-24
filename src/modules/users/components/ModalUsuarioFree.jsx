@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, User, Mail, Phone, Calendar, Tag, Key, Eye, EyeOff, Users, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Loader2, UserCog } from 'lucide-react'
+import { X, User, Mail, Phone, Calendar, Tag, Key, Eye, EyeOff, Users, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Loader2, UserCog, Clock } from 'lucide-react'
 import { getEmpleadosDeUsuario, resetUserPassword } from '../services/userService'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { supabase } from '../../../lib/supabase'
@@ -17,6 +17,29 @@ function formatearFecha(fecha) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+/**
+ * Formatea último acceso de forma relativa
+ */
+function formatearUltimoAcceso(fecha) {
+  if (!fecha) return 'Nunca'
+
+  const d = new Date(fecha)
+  const ahora = new Date()
+  const diffMs = ahora - d
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Ahora mismo'
+  if (diffMins < 60) return `Hace ${diffMins} min`
+  if (diffHours < 24) return `Hace ${diffHours}h`
+  if (diffDays === 1) return 'Ayer'
+  if (diffDays < 7) return `Hace ${diffDays} días`
+  if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} sem`
+  if (diffDays < 365) return `Hace ${Math.floor(diffDays / 30)} meses`
+  return `Hace ${Math.floor(diffDays / 365)} años`
 }
 
 /**
@@ -123,8 +146,9 @@ function CambiarPassword({ userId, userName, onSuccess }) {
 /**
  * Card de empleado
  */
-function EmpleadoCard({ empleado }) {
+function EmpleadoCard({ empleado, puedeImpersonar, onImpersonar, impersonandoId }) {
   const [expandido, setExpandido] = useState(false)
+  const estaImpersonando = impersonandoId === empleado.empleado_id
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -175,6 +199,13 @@ function EmpleadoCard({ empleado }) {
                 <Calendar className="w-3 h-3" />
                 {formatearFecha(empleado.created_at)}
               </div>
+              <div
+                className={`flex items-center gap-1 col-span-2 ${empleado.last_sign_in_at ? 'text-blue-600' : 'text-gray-400'}`}
+                title={empleado.last_sign_in_at ? `Último acceso: ${new Date(empleado.last_sign_in_at).toLocaleString('es-AR')}` : 'Nunca ingresó'}
+              >
+                <Clock className="w-3 h-3" />
+                Último acceso: {formatearUltimoAcceso(empleado.last_sign_in_at)}
+              </div>
             </div>
 
             {/* Cambiar contraseña */}
@@ -182,6 +213,30 @@ function EmpleadoCard({ empleado }) {
               <p className="text-xs text-gray-500 mb-2">Cambiar contraseña del empleado:</p>
               <CambiarPassword userId={empleado.empleado_id} userName={empleado.nombre} />
             </div>
+
+            {/* Botón impersonar */}
+            {puedeImpersonar && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onImpersonar(empleado.empleado_id)
+                }}
+                disabled={estaImpersonando}
+                className="w-full px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm rounded-lg font-medium transition-colors disabled:bg-amber-300 flex items-center justify-center gap-2"
+              >
+                {estaImpersonando ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Ingresando...
+                  </>
+                ) : (
+                  <>
+                    <UserCog className="w-4 h-4" />
+                    Impersonar empleado
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -199,6 +254,7 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
   const [mostrarEmpleados, setMostrarEmpleados] = useState(true)
   const [puedeImpersonar, setPuedeImpersonar] = useState(false)
   const [impersonando, setImpersonando] = useState(false)
+  const [impersonandoId, setImpersonandoId] = useState(null) // ID del usuario que se está impersonando
   const [errorImpersonar, setErrorImpersonar] = useState(null)
 
   // Determinar si es dueño (operador_gastos) o empleado
@@ -248,15 +304,18 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
     }
   }
 
-  const handleImpersonar = async () => {
+  const handleImpersonar = async (targetUserId = null) => {
+    const idToImpersonate = targetUserId || usuario.id
     setImpersonando(true)
+    setImpersonandoId(idToImpersonate)
     setErrorImpersonar(null)
 
-    const result = await impersonateUser(usuario.id)
+    const result = await impersonateUser(idToImpersonate)
 
     if (!result.success) {
       setErrorImpersonar(result.error)
       setImpersonando(false)
+      setImpersonandoId(null)
     }
     // Si es exitoso, la página se recargará automáticamente
   }
@@ -348,6 +407,17 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
                   </div>
                 </div>
 
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Último acceso</p>
+                  <p
+                    className={`text-sm flex items-center gap-1 ${usuario.last_sign_in_at ? 'text-blue-600' : 'text-gray-400'}`}
+                    title={usuario.last_sign_in_at ? new Date(usuario.last_sign_in_at).toLocaleString('es-AR') : 'Nunca ingresó'}
+                  >
+                    <Clock className="w-4 h-4" />
+                    {formatearUltimoAcceso(usuario.last_sign_in_at)}
+                  </p>
+                </div>
+
                 {usuario.origen_detalle && (
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Detalle de origen</p>
@@ -398,7 +468,13 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
                     ) : (
                       <div className="space-y-2">
                         {empleados.map(empleado => (
-                          <EmpleadoCard key={empleado.id} empleado={empleado} />
+                          <EmpleadoCard
+                            key={empleado.id}
+                            empleado={empleado}
+                            puedeImpersonar={puedeImpersonar}
+                            onImpersonar={handleImpersonar}
+                            impersonandoId={impersonandoId}
+                          />
                         ))}
                       </div>
                     )}
@@ -429,11 +505,11 @@ export function ModalUsuarioFree({ isOpen, onClose, usuario }) {
               {/* Botón de impersonar - solo visible para rol desarrollo */}
               {puedeImpersonar && (
                 <button
-                  onClick={handleImpersonar}
+                  onClick={() => handleImpersonar()}
                   disabled={impersonando}
                   className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors disabled:bg-amber-300 flex items-center justify-center gap-2"
                 >
-                  {impersonando ? (
+                  {impersonando && impersonandoId === usuario.id ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Ingresando...

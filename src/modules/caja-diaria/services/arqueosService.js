@@ -162,6 +162,82 @@ async function crearMovimientoAjuste(userId, fecha, diferencia, motivo) {
 }
 
 /**
+ * Obtener arqueos con diferencia en un rango de fechas
+ * Para incluir en reportes de ingresos/egresos
+ * @param {object} params - { fechaDesde, fechaHasta, tipo: 'positivo'|'negativo'|'todos' }
+ */
+export async function getArqueosConDiferencia({ fechaDesde, fechaHasta, tipo = 'todos' } = {}) {
+  try {
+    const { userId, error: userError } = await getEffectiveUserId()
+    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+
+    let query = supabase
+      .from('caja_arqueos')
+      .select(`
+        id,
+        fecha,
+        hora,
+        efectivo_esperado,
+        efectivo_real,
+        diferencia,
+        motivo_diferencia,
+        created_by_id
+      `)
+      .eq('user_id', userId)
+      .neq('diferencia', 0)
+      .order('fecha', { ascending: true })
+      .order('hora', { ascending: true })
+
+    // Filtrar por fechas
+    if (fechaDesde) {
+      query = query.gte('fecha', fechaDesde)
+    }
+    if (fechaHasta) {
+      query = query.lte('fecha', fechaHasta)
+    }
+
+    // Filtrar por tipo de diferencia
+    if (tipo === 'positivo') {
+      query = query.gt('diferencia', 0)
+    } else if (tipo === 'negativo') {
+      query = query.lt('diferencia', 0)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    // Obtener nombres de los creadores usando la función RPC
+    if (data && data.length > 0) {
+      const creadorIds = [...new Set(data.map(a => a.created_by_id).filter(Boolean))]
+
+      if (creadorIds.length > 0) {
+        const { data: perfiles } = await supabase
+          .rpc('get_users_names', { user_ids: creadorIds })
+
+        if (perfiles && perfiles.length > 0) {
+          // Crear mapa de id -> nombre_completo
+          const nombresMap = {}
+          perfiles.forEach(p => {
+            nombresMap[p.id] = p.nombre_completo
+          })
+
+          // Agregar creador_nombre a cada arqueo
+          data.forEach(arqueo => {
+            arqueo.creador_nombre = nombresMap[arqueo.created_by_id] || 'Usuario'
+          })
+        }
+      }
+    }
+
+    return { data: data || [], error: null }
+  } catch (error) {
+    console.error('Error fetching arqueos con diferencia:', error)
+    return { data: [], error }
+  }
+}
+
+/**
  * Eliminar un arqueo
  * Requiere permiso eliminar_arqueos si es empleado
  * @param {string} id - ID del arqueo
