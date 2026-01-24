@@ -123,15 +123,19 @@ export function useTurnosDia(fecha = null, options = {}) {
  */
 export function useTurnosSemana(fechaBase = null, options = {}) {
   const fechaActual = fechaBase || getFechaHoyArgentina()
-  const diasSemana = getDiasSemana(fechaActual)
 
   const [turnosPorDia, setTurnosPorDia] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [diasSemanaState, setDiasSemanaState] = useState([])
 
   const fetchTurnos = useCallback(async () => {
     setLoading(true)
     setError(null)
+
+    // Calcular días de la semana dentro del callback para evitar stale closures
+    const diasSemana = getDiasSemana(fechaActual)
+    setDiasSemanaState(diasSemana)
 
     const fechaInicio = diasSemana[0]
     const fechaFin = diasSemana[6]
@@ -175,7 +179,7 @@ export function useTurnosSemana(fechaBase = null, options = {}) {
   return {
     turnos,
     turnosPorDia,
-    diasSemana,
+    diasSemana: diasSemanaState,
     loading,
     error,
     totalTurnos,
