@@ -114,6 +114,7 @@ export function usePermisosCaja() {
     ver_estadisticas: true,
     editar_cuentas_corrientes: true,
     eliminar_clientes_cc: true,
+    editar_movimientos_cc: true,
     ver_dias_anteriores: true
   })
   const [esDuenio, setEsDuenio] = useState(true)
@@ -176,6 +177,7 @@ export function usePermisosCaja() {
     verEstadisticas: permisos.ver_estadisticas,
     editarCuentasCorrientes: permisos.editar_cuentas_corrientes,
     eliminarClientesCC: permisos.eliminar_clientes_cc,
+    editarMovimientosCC: permisos.editar_movimientos_cc,
     verDiasAnteriores: permisos.ver_dias_anteriores,
     // El dueño siempre puede gestionar empleados y configuración
     gestionarEmpleados: esDuenio,

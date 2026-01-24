@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { X, User, Phone, ChevronDown, ChevronUp, Check, HandCoins, History, Edit3 } from 'lucide-react'
 import { useCobranzas } from '../hooks/useCobranzas'
+import { usePermisosCaja } from '../hooks/usePermisosCaja'
 import { formatearMonto, formatearFechaCorta, formatearHora } from '../utils/formatters'
 import InputMonto from './InputMonto'
 import IconoDinamico from './IconoDinamico'
@@ -18,6 +19,7 @@ export default function ModalDetalleDeuda({
   onPagoRegistrado
 }) {
   const { cobrar, obtenerHistorial, editarMovimiento, anularMovimiento } = useCobranzas()
+  const { puede } = usePermisosCaja()
 
   const [historial, setHistorial] = useState([])
   const [loadingHistorial, setLoadingHistorial] = useState(false)
@@ -320,15 +322,17 @@ export default function ModalDetalleDeuda({
                               }`}>
                                 {item.tipo === 'fiado' ? '+' : '-'}{formatearMonto(item.monto)}
                               </span>
-                              <button
-                                onClick={() => setModalEditar({ abierto: true, movimiento: item })}
-                                className={`p-1 rounded hover:bg-white/50 ${
-                                  item.tipo === 'fiado' ? 'text-red-500' : 'text-emerald-500'
-                                }`}
-                                title="Editar movimiento"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
+                              {puede.editarMovimientosCC && (
+                                <button
+                                  onClick={() => setModalEditar({ abierto: true, movimiento: item })}
+                                  className={`p-1 rounded hover:bg-white/50 ${
+                                    item.tipo === 'fiado' ? 'text-red-500' : 'text-emerald-500'
+                                  }`}
+                                  title="Editar movimiento"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
                           {item.descripcion && (

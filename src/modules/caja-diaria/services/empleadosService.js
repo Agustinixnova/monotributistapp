@@ -16,6 +16,7 @@ const PERMISOS_DEFAULT = {
   reabrir_dia: false,
   editar_cuentas_corrientes: false,
   eliminar_clientes_cc: false,
+  editar_movimientos_cc: false,
   ver_dias_anteriores: false
 }
 
@@ -330,7 +331,8 @@ export async function getEffectiveUserId() {
         agregar_categorias: true,
         agregar_metodos_pago: true,
         editar_cierre: true,
-        reabrir_dia: true
+        reabrir_dia: true,
+        editar_movimientos_cc: true
       },
       error: null
     }
@@ -392,6 +394,7 @@ export async function getMisPermisos() {
             ver_estadisticas: true,
             editar_cuentas_corrientes: true,
             eliminar_clientes_cc: true,
+            editar_movimientos_cc: true,
             ver_dias_anteriores: true
           },
           horariosAcceso: null // Dueño no tiene restricciones

@@ -67,6 +67,11 @@ const PERMISOS_INFO = [
     descripcion: 'Permite eliminar clientes del sistema de cuentas corrientes'
   },
   {
+    key: 'editar_movimientos_cc',
+    label: 'Editar movimientos de cuenta corriente',
+    descripcion: 'Permite editar o anular movimientos de deudas y pagos'
+  },
+  {
     key: 'ver_dias_anteriores',
     label: 'Ver días anteriores',
     descripcion: 'Permite cambiar la fecha y ver cajas de días anteriores'
