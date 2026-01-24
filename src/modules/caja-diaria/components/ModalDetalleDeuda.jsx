@@ -18,12 +18,13 @@ export default function ModalDetalleDeuda({
   metodosPago,
   onPagoRegistrado
 }) {
-  const { cobrar, obtenerHistorial, editarMovimiento, anularMovimiento } = useCobranzas()
+  const { cobrar, obtenerHistorial, obtenerCliente, editarMovimiento, anularMovimiento } = useCobranzas()
   const { puede } = usePermisosCaja()
 
   const [historial, setHistorial] = useState([])
   const [loadingHistorial, setLoadingHistorial] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
+  const [deudaActual, setDeudaActual] = useState(0)
 
   // Form de cobro
   const [montoCobro, setMontoCobro] = useState(0)
@@ -45,6 +46,7 @@ export default function ModalDetalleDeuda({
       setError('')
       setMostrarHistorial(false)
       setHistorial([])
+      setDeudaActual(parseFloat(cliente.deuda_total || 0))
 
       // Cargar historial
       const cargarHistorial = async () => {
@@ -58,11 +60,18 @@ export default function ModalDetalleDeuda({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, cliente?.id])
 
-  // Función para recargar historial
-  const recargarHistorial = async () => {
+  // Función para recargar historial y deuda actualizada
+  const recargarDatos = async () => {
     setLoadingHistorial(true)
-    const { historial: data } = await obtenerHistorial(cliente.id)
-    setHistorial(data || [])
+    // Cargar historial y cliente actualizado en paralelo
+    const [historialResult, clienteResult] = await Promise.all([
+      obtenerHistorial(cliente.id),
+      obtenerCliente(cliente.id)
+    ])
+    setHistorial(historialResult.historial || [])
+    if (clienteResult.success && clienteResult.cliente) {
+      setDeudaActual(parseFloat(clienteResult.cliente.deuda_total || 0))
+    }
     setLoadingHistorial(false)
   }
 
@@ -102,7 +111,7 @@ export default function ModalDetalleDeuda({
   const handleEditar = async (tipo, id, nuevoMonto) => {
     const result = await editarMovimiento(tipo, id, nuevoMonto)
     if (result.success) {
-      await recargarHistorial()
+      await recargarDatos()
       if (onPagoRegistrado) onPagoRegistrado()
     }
     return result
@@ -112,7 +121,7 @@ export default function ModalDetalleDeuda({
   const handleAnular = async (tipo, id) => {
     const result = await anularMovimiento(tipo, id)
     if (result.success) {
-      await recargarHistorial()
+      await recargarDatos()
       if (onPagoRegistrado) onPagoRegistrado()
     }
     return result
@@ -121,7 +130,6 @@ export default function ModalDetalleDeuda({
   if (!isOpen || !cliente) return null
 
   const nombreCompleto = `${cliente.nombre} ${cliente.apellido || ''}`.trim()
-  const deudaTotal = parseFloat(cliente.deuda_total || 0)
 
   // Separar historial en cuenta corriente y pagos
   const cuentasCorrientes = historial.filter(h => h.tipo === 'fiado')
@@ -168,13 +176,13 @@ export default function ModalDetalleDeuda({
               </div>
 
               {/* Deuda total o saldo a favor */}
-              <div className={`mt-4 rounded-lg p-3 ${deudaTotal > 0 ? 'bg-red-50' : deudaTotal < 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
+              <div className={`mt-4 rounded-lg p-3 ${deudaActual > 0 ? 'bg-red-50' : deudaActual < 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
                 <div className="flex justify-between items-center">
-                  <span className={`text-sm ${deudaTotal > 0 ? 'text-red-700' : deudaTotal < 0 ? 'text-blue-700' : 'text-gray-700'}`}>
-                    {deudaTotal > 0 ? 'Deuda total:' : deudaTotal < 0 ? 'Saldo a favor:' : 'Saldo:'}
+                  <span className={`text-sm ${deudaActual > 0 ? 'text-red-700' : deudaActual < 0 ? 'text-blue-700' : 'text-gray-700'}`}>
+                    {deudaActual > 0 ? 'Deuda total:' : deudaActual < 0 ? 'Saldo a favor:' : 'Saldo:'}
                   </span>
-                  <span className={`text-2xl font-bold ${deudaTotal > 0 ? 'text-red-600' : deudaTotal < 0 ? 'text-blue-600' : 'text-gray-600'}`}>
-                    {formatearMonto(Math.abs(deudaTotal))}
+                  <span className={`text-2xl font-bold ${deudaActual > 0 ? 'text-red-600' : deudaActual < 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                    {formatearMonto(Math.abs(deudaActual))}
                   </span>
                 </div>
               </div>
@@ -196,23 +204,23 @@ export default function ModalDetalleDeuda({
                     className="w-full pl-8 pr-4 py-3 text-2xl font-bold border-2 border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-emerald-600 text-right"
                   />
                 </div>
-                {montoCobro > deudaTotal && deudaTotal > 0 && (
+                {montoCobro > deudaActual && deudaActual > 0 && (
                   <p className="text-xs text-blue-600 mt-1">
-                    Quedará saldo a favor: {formatearMonto(montoCobro - deudaTotal)}
+                    Quedará saldo a favor: {formatearMonto(montoCobro - deudaActual)}
                   </p>
                 )}
-                {deudaTotal > 0 && (
+                {deudaActual > 0 && (
                   <div className="flex gap-2 mt-2">
                     <button
                       type="button"
-                      onClick={() => setMontoCobro(deudaTotal)}
+                      onClick={() => setMontoCobro(deudaActual)}
                       className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200"
                     >
-                      Total ({formatearMonto(deudaTotal)})
+                      Total ({formatearMonto(deudaActual)})
                     </button>
                     <button
                       type="button"
-                      onClick={() => setMontoCobro(Math.floor(deudaTotal / 2))}
+                      onClick={() => setMontoCobro(Math.floor(deudaActual / 2))}
                       className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
                     >
                       Mitad
