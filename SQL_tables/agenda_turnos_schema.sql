@@ -58,9 +58,11 @@ CREATE TABLE IF NOT EXISTS public.agenda_clientes (
     creado_por UUID REFERENCES public.usuarios_free(id), -- quien lo creó (puede ser empleado)
     nombre VARCHAR(100) NOT NULL,
     apellido VARCHAR(100),
-    telefono VARCHAR(30),
+    telefono VARCHAR(30), -- DEPRECADO: usar whatsapp
     whatsapp VARCHAR(30),
     email VARCHAR(255),
+    instagram VARCHAR(50), -- usuario de Instagram sin @
+    origen VARCHAR(30) CHECK (origen IN ('recomendacion', 'instagram', 'facebook', 'tiktok', 'google', 'otros')),
     notas TEXT,
     es_cliente_empleado BOOLEAN DEFAULT false, -- true = cliente particular del empleado
     activo BOOLEAN DEFAULT true,
@@ -72,7 +74,8 @@ CREATE TABLE IF NOT EXISTS public.agenda_clientes (
 CREATE INDEX IF NOT EXISTS idx_agenda_clientes_duenio ON public.agenda_clientes(duenio_id);
 CREATE INDEX IF NOT EXISTS idx_agenda_clientes_creador ON public.agenda_clientes(creado_por);
 CREATE INDEX IF NOT EXISTS idx_agenda_clientes_nombre ON public.agenda_clientes(duenio_id, nombre);
-CREATE INDEX IF NOT EXISTS idx_agenda_clientes_telefono ON public.agenda_clientes(telefono);
+CREATE INDEX IF NOT EXISTS idx_agenda_clientes_instagram ON public.agenda_clientes(duenio_id, instagram) WHERE instagram IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_agenda_clientes_origen ON public.agenda_clientes(duenio_id, origen) WHERE origen IS NOT NULL;
 
 -- =====================================================
 -- TABLA: agenda_disponibilidad

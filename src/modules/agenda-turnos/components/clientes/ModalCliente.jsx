@@ -3,7 +3,17 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, User, Phone, Mail, FileText, Loader2, Briefcase, Home } from 'lucide-react'
+import { X, User, Mail, FileText, Loader2, Briefcase, Home, Instagram, ChevronDown, MapPin } from 'lucide-react'
+
+const ORIGENES = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'recomendacion', label: 'Recomendación' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'google', label: 'Google' },
+  { value: 'otros', label: 'Otros' }
+]
 
 export default function ModalCliente({
   isOpen,
@@ -18,9 +28,10 @@ export default function ModalCliente({
   const [form, setForm] = useState({
     nombre: '',
     apellido: '',
-    telefono: '',
     whatsapp: '',
     email: '',
+    instagram: '',
+    origen: '',
     notas: '',
     esClientePropio: false // Solo para empleados: true = cliente privado
   })
@@ -32,9 +43,10 @@ export default function ModalCliente({
         setForm({
           nombre: cliente.nombre || '',
           apellido: cliente.apellido || '',
-          telefono: cliente.telefono || '',
           whatsapp: cliente.whatsapp || '',
           email: cliente.email || '',
+          instagram: cliente.instagram || '',
+          origen: cliente.origen || '',
           notas: cliente.notas || '',
           esClientePropio: cliente.es_cliente_empleado || false
         })
@@ -42,9 +54,10 @@ export default function ModalCliente({
         setForm({
           nombre: '',
           apellido: '',
-          telefono: '',
           whatsapp: '',
           email: '',
+          instagram: '',
+          origen: '',
           notas: '',
           esClientePropio: false
         })
@@ -52,16 +65,6 @@ export default function ModalCliente({
       setError(null)
     }
   }, [isOpen, cliente])
-
-  // Auto-completar WhatsApp con teléfono
-  const handleTelefonoChange = (value) => {
-    setForm(f => ({
-      ...f,
-      telefono: value,
-      // Si WhatsApp está vacío, copiarlo del teléfono
-      whatsapp: f.whatsapp === '' || f.whatsapp === f.telefono ? value : f.whatsapp
-    }))
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -78,9 +81,10 @@ export default function ModalCliente({
       await onGuardar({
         nombre: form.nombre.trim(),
         apellido: form.apellido.trim() || null,
-        telefono: form.telefono.trim() || null,
         whatsapp: form.whatsapp.trim() || null,
         email: form.email.trim() || null,
+        instagram: form.instagram.trim() || null,
+        origen: form.origen || null,
         notas: form.notas.trim() || null,
         esClientePropio: esEmpleado ? form.esClientePropio : false
       })
@@ -153,21 +157,6 @@ export default function ModalCliente({
               </div>
             </div>
 
-            {/* Teléfono */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Phone className="w-4 h-4 inline mr-1" />
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                value={form.telefono}
-                onChange={(e) => handleTelefonoChange(e.target.value)}
-                placeholder="Ej: 1155667788"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-
             {/* WhatsApp */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -201,6 +190,44 @@ export default function ModalCliente({
                 placeholder="correo@ejemplo.com"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
+            </div>
+
+            {/* Instagram */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Instagram className="w-4 h-4 inline mr-1" />
+                Instagram
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">@</span>
+                <input
+                  type="text"
+                  value={form.instagram}
+                  onChange={(e) => setForm(f => ({ ...f, instagram: e.target.value.replace('@', '') }))}
+                  placeholder="usuario"
+                  className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Origen / Cómo nos conoció */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <MapPin className="w-4 h-4 inline mr-1" />
+                ¿Cómo nos conoció?
+              </label>
+              <div className="relative">
+                <select
+                  value={form.origen}
+                  onChange={(e) => setForm(f => ({ ...f, origen: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none bg-white"
+                >
+                  {ORIGENES.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
 
             {/* Notas */}

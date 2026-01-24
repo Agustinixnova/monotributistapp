@@ -31,6 +31,7 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 |---------|--------|-------------|
 | `agenda_turnos_schema.sql` | `agenda_servicios`, `agenda_servicio_profesionales`, `agenda_clientes`, `agenda_disponibilidad`, `agenda_excepciones`, `agenda_turnos`, `agenda_turno_servicios`, `agenda_turno_pagos` | Esquema completo del módulo de agenda y turnos |
 | `agenda_turnos_module.sql` | - | Configuración adicional, triggers y RLS policies del módulo |
+| `30_agenda_clientes_instagram_origen.sql` | `agenda_clientes` | Agrega campos instagram y origen (como nos conoció) |
 
 ## Diagrama de Relaciones
 
@@ -109,6 +110,7 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+24-01-2026 - Agregados campos instagram y origen a agenda_clientes
 24-01-2026 - Agregadas tablas del módulo Agenda & Turnos
 11-01-2026 - Agregada función y trigger para calcular automáticamente estado_pago_monotributo
 10-01-2026 - Agregada tabla client_notifications para notificaciones personalizadas a clientes

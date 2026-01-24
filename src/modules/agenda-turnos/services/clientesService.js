@@ -115,9 +115,10 @@ export async function createCliente(clienteData) {
         creado_por: user.id, // Quien realmente lo crea
         nombre: clienteData.nombre,
         apellido: clienteData.apellido || null,
-        telefono: clienteData.telefono || null,
         whatsapp: clienteData.whatsapp || null,
         email: clienteData.email || null,
+        instagram: clienteData.instagram || null,
+        origen: clienteData.origen || null,
         notas: clienteData.notas || null,
         es_cliente_empleado: !esDuenio && clienteData.esClientePropio, // Solo si es empleado y lo marca como propio
         activo: true
@@ -142,9 +143,10 @@ export async function updateCliente(id, clienteData) {
 
     if (clienteData.nombre !== undefined) updateData.nombre = clienteData.nombre
     if (clienteData.apellido !== undefined) updateData.apellido = clienteData.apellido
-    if (clienteData.telefono !== undefined) updateData.telefono = clienteData.telefono
     if (clienteData.whatsapp !== undefined) updateData.whatsapp = clienteData.whatsapp
     if (clienteData.email !== undefined) updateData.email = clienteData.email
+    if (clienteData.instagram !== undefined) updateData.instagram = clienteData.instagram
+    if (clienteData.origen !== undefined) updateData.origen = clienteData.origen
     if (clienteData.notas !== undefined) updateData.notas = clienteData.notas
     if (clienteData.activo !== undefined) updateData.activo = clienteData.activo
 
