@@ -1,5 +1,5 @@
 /**
- * Modal para registrar ventas divididas entre Eliana y Hugo
+ * Modal para registrar ventas divididas entre Eli y Hugo
  * Crea dos movimientos de entrada con un solo formulario
  * Cada persona puede tener su propio método de pago
  */
@@ -62,7 +62,7 @@ export default function ModalVentaDividida({
     }
 
     if (totalEliana > 0 && !metodoEliana) {
-      setError('Seleccioná el método de pago para Eliana')
+      setError('Seleccioná el método de pago para Eli')
       return
     }
 
@@ -94,7 +94,7 @@ export default function ModalVentaDividida({
         })
 
         if (!resultEliana.success) {
-          setError(resultEliana.error?.message || 'Error al registrar venta de Eliana')
+          setError(resultEliana.error?.message || 'Error al registrar venta de Eli')
           setLoading(false)
           return
         }
@@ -184,7 +184,7 @@ export default function ModalVentaDividida({
           {/* Input Eliana */}
           <div className="bg-gray-50 rounded-xl p-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Eliana (Venta en local)
+              Eli (Venta en local)
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -258,7 +258,7 @@ export default function ModalVentaDividida({
               <div className="mt-2 pt-2 border-t border-violet-200 text-sm text-violet-600 space-y-1">
                 {totalEliana > 0 && (
                   <div className="flex justify-between">
-                    <span>Eliana ({metodosPago?.find(m => m.id === metodoEliana)?.nombre || 'Efectivo'}):</span>
+                    <span>Eli ({metodosPago?.find(m => m.id === metodoEliana)?.nombre || 'Efectivo'}):</span>
                     <span>{formatearMonto(totalEliana)}</span>
                   </div>
                 )}

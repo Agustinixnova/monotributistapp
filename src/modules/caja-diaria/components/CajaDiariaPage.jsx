@@ -428,7 +428,7 @@ export default function CajaDiariaPage() {
               <button
                 onClick={() => setModalVentaDividida(true)}
                 className="p-2 bg-violet-100 hover:bg-violet-200 rounded-lg transition-colors"
-                title="Venta Dividida (Eliana/Hugo)"
+                title="Venta Dividida (Eli/Hugo)"
               >
                 <Users className="w-5 h-5 text-violet-600" />
               </button>
