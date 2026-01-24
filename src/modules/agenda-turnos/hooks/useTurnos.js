@@ -135,6 +135,15 @@ export function useTurnosSemana(fechaBase = null, options = {}) {
 
     // Calcular días de la semana dentro del callback para evitar stale closures
     const diasSemana = getDiasSemana(fechaActual)
+
+    // Validar que diasSemana sea un array válido
+    if (!Array.isArray(diasSemana) || diasSemana.length !== 7) {
+      console.error('getDiasSemana returned invalid value:', diasSemana, 'fechaActual:', fechaActual)
+      setError('Error al calcular días de la semana')
+      setLoading(false)
+      return
+    }
+
     setDiasSemanaState(diasSemana)
 
     const fechaInicio = diasSemana[0]
@@ -152,7 +161,7 @@ export function useTurnosSemana(fechaBase = null, options = {}) {
         agrupados[dia] = []
       })
 
-      (data || []).forEach(turno => {
+      ;(data || []).forEach(turno => {
         if (agrupados[turno.fecha]) {
           agrupados[turno.fecha].push(turno)
         }
