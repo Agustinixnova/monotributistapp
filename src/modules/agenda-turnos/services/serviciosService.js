@@ -177,8 +177,7 @@ export async function getProfesionalesServicio(servicioId) {
         id,
         profesional_id,
         precio_override,
-        activo,
-        profesional:usuarios_free!agenda_servicio_profesionales_profesional_id_fkey(id, nombre, apellido)
+        activo
       `)
       .eq('servicio_id', servicioId)
       .eq('activo', true)
@@ -330,8 +329,7 @@ export async function getServiciosConProfesionales() {
         profesionales:agenda_servicio_profesionales(
           profesional_id,
           precio_override,
-          activo,
-          profesional:usuarios_free!agenda_servicio_profesionales_profesional_id_fkey(id, nombre, apellido)
+          activo
         )
       `)
       .eq('duenio_id', userId)

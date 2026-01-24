@@ -26,7 +26,6 @@ export async function getTurnos(fechaInicio, fechaFin, options = {}) {
       .select(`
         *,
         cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp),
-        profesional:usuarios_free!agenda_turnos_profesional_id_fkey(id, nombre, apellido),
         servicios:agenda_turno_servicios(
           id,
           precio,
@@ -75,7 +74,6 @@ export async function getTurnoById(id) {
       .select(`
         *,
         cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, email, notas),
-        profesional:usuarios_free!agenda_turnos_profesional_id_fkey(id, nombre, apellido, email),
         servicios:agenda_turno_servicios(
           id,
           precio,
