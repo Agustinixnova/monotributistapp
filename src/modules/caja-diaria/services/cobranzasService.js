@@ -117,10 +117,10 @@ export async function editarPago(pagoId, nuevoMonto, nota = null) {
     const { userId, error: userError } = await getEffectiveUserId()
     if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
-    // Obtener el pago actual para ver si tiene movimiento asociado
+    // Obtener el pago actual para ver si tiene movimiento asociado y su fecha
     const { data: pagoActual, error: fetchError } = await supabase
       .from('caja_pagos_fiado')
-      .select('*, movimiento_id')
+      .select('*, movimiento_id, fecha')
       .eq('id', pagoId)
       .eq('user_id', userId)
       .single()
@@ -141,8 +141,12 @@ export async function editarPago(pagoId, nuevoMonto, nota = null) {
 
     if (error) throw error
 
-    // Si tiene movimiento de caja asociado, actualizarlo también
-    if (pagoActual.movimiento_id) {
+    // Solo actualizar caja_movimientos si el pago es de HOY
+    // Para no alterar cajas de días anteriores ya cerrados
+    const fechaHoy = getFechaHoyArgentina()
+    const esDeHoy = pagoActual.fecha === fechaHoy
+
+    if (pagoActual.movimiento_id && esDeHoy) {
       await supabase
         .from('caja_movimientos')
         .update({ monto: parseFloat(nuevoMonto) })
@@ -165,10 +169,10 @@ export async function anularPago(pagoId) {
     const { userId, error: userError } = await getEffectiveUserId()
     if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
-    // Obtener el pago para ver si tiene movimiento asociado
+    // Obtener el pago para ver si tiene movimiento asociado y su fecha
     const { data: pago, error: fetchError } = await supabase
       .from('caja_pagos_fiado')
-      .select('movimiento_id')
+      .select('movimiento_id, fecha')
       .eq('id', pagoId)
       .eq('user_id', userId)
       .single()
@@ -184,8 +188,12 @@ export async function anularPago(pagoId) {
 
     if (error) throw error
 
-    // Si tiene movimiento de caja asociado, eliminarlo también
-    if (pago.movimiento_id) {
+    // Solo eliminar caja_movimientos si el pago es de HOY
+    // Para no alterar cajas de días anteriores ya cerrados
+    const fechaHoy = getFechaHoyArgentina()
+    const esDeHoy = pago.fecha === fechaHoy
+
+    if (pago.movimiento_id && esDeHoy) {
       await supabase
         .from('caja_movimientos')
         .delete()
