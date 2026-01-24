@@ -137,23 +137,35 @@ export async function getProfesionales() {
   const { userId, esDuenio } = await getEffectiveUserId()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!esDuenio) {
-    // Empleado solo ve su propia agenda
-    const { data: perfil } = await supabase
+  // Helper para obtener perfil de un usuario (con fallback si no existe en usuarios_free)
+  const obtenerPerfil = async (id) => {
+    const { data } = await supabase
       .from('usuarios_free')
       .select('id, nombre, apellido')
-      .eq('id', user.id)
-      .single()
+      .eq('id', id)
+      .maybeSingle()
 
+    if (data) return data
+
+    // Fallback: usar email del usuario autenticado si es el mismo
+    if (id === user?.id && user?.email) {
+      return {
+        id: user.id,
+        nombre: user.user_metadata?.nombre || user.email.split('@')[0],
+        apellido: user.user_metadata?.apellido || ''
+      }
+    }
+    return null
+  }
+
+  if (!esDuenio) {
+    // Empleado solo ve su propia agenda
+    const perfil = await obtenerPerfil(user.id)
     return { data: perfil ? [perfil] : [], error: null }
   }
 
   // Dueño ve su agenda + empleados
-  const { data: propietario } = await supabase
-    .from('usuarios_free')
-    .select('id, nombre, apellido')
-    .eq('id', userId)
-    .single()
+  const propietario = await obtenerPerfil(userId)
 
   // Obtener empleados a través de caja_empleados
   const { data: empleadosVinculados } = await supabase
