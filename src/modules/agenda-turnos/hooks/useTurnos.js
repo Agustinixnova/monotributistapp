@@ -14,7 +14,7 @@ import {
   cambiarEstadoTurno,
   verificarDisponibilidad
 } from '../services/turnosService'
-import { getFechaHoyArgentina, getDiasSemana } from '../utils/dateUtils'
+import { getFechaHoyArgentina, getDiasSemana, getPrimerDiaMes, getUltimoDiaMes } from '../utils/dateUtils'
 
 /**
  * Hook para turnos de un día específico
@@ -179,6 +179,51 @@ export function useTurnosSemana(fechaBase = null, options = {}) {
     loading,
     error,
     totalTurnos,
+    recargar
+  }
+}
+
+/**
+ * Hook para turnos de un mes completo
+ */
+export function useTurnosMes(fechaBase = null, options = {}) {
+  const fechaActual = fechaBase || getFechaHoyArgentina()
+
+  const [turnos, setTurnos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetchTurnos = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    const fechaInicio = getPrimerDiaMes(fechaActual)
+    const fechaFin = getUltimoDiaMes(fechaActual)
+
+    const { data, error: fetchError } = await getTurnos(fechaInicio, fechaFin, options)
+
+    if (fetchError) {
+      setError(fetchError.message || 'Error al cargar turnos del mes')
+      setTurnos([])
+    } else {
+      setTurnos(data || [])
+    }
+
+    setLoading(false)
+  }, [fechaActual, options.profesionalId, options.estado])
+
+  useEffect(() => {
+    fetchTurnos()
+  }, [fetchTurnos])
+
+  const recargar = () => {
+    fetchTurnos()
+  }
+
+  return {
+    turnos,
+    loading,
+    error,
     recargar
   }
 }

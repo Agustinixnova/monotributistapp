@@ -264,3 +264,20 @@ export function formatMesAnio(fechaStr) {
     year: 'numeric'
   }).format(date)
 }
+
+/**
+ * Obtiene el primer día de un mes (YYYY-MM-01)
+ */
+export function getPrimerDiaMes(fechaStr) {
+  const [anio, mes] = fechaStr.split('-')
+  return `${anio}-${mes}-01`
+}
+
+/**
+ * Obtiene el último día de un mes
+ */
+export function getUltimoDiaMes(fechaStr) {
+  const [anio, mes] = fechaStr.split('-').map(Number)
+  const ultimoDia = new Date(anio, mes, 0).getDate()
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
+}

@@ -7,7 +7,7 @@ import { useState, useCallback } from 'react'
 import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3 } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { getFechaHoyArgentina, getPrimerDiaSemana } from '../utils/dateUtils'
-import { useTurnosDia, useTurnosSemana } from '../hooks/useTurnos'
+import { useTurnosDia, useTurnosSemana, useTurnosMes } from '../hooks/useTurnos'
 import { useServicios } from '../hooks/useServicios'
 import { useClientes } from '../hooks/useClientes'
 import CalendarioDia from '../components/calendario/CalendarioDia'
@@ -88,6 +88,13 @@ export default function AgendaTurnosPage() {
     loading: loadingTurnosSemana,
     recargar: recargarTurnosSemana
   } = useTurnosSemana(inicioSemana, filtrosProfesional)
+
+  // Hooks de datos - mes (solo carga cuando está en vista mes)
+  const {
+    turnos: turnosMes,
+    loading: loadingTurnosMes,
+    recargar: recargarTurnosMes
+  } = useTurnosMes(vistaCalendario === 'mes' ? fechaSeleccionada : null, filtrosProfesional)
 
   const {
     servicios,
@@ -372,8 +379,8 @@ export default function AgendaTurnosPage() {
                 <CalendarioMes
                   fecha={fechaSeleccionada}
                   onFechaChange={handleFechaChange}
-                  turnos={turnosSemana}
-                  loading={loadingTurnosSemana}
+                  turnos={turnosMes}
+                  loading={loadingTurnosMes}
                   onDiaClick={handleDiaClick}
                   onNuevoTurno={handleNuevoTurno}
                 />
