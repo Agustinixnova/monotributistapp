@@ -25,6 +25,13 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `28_estado_pago_automatico.sql` | Función + Trigger | Calculo automático de estado de pago basado en cuotas mensuales |
 | `29_deuda_inicial_y_periodos.sql` | Campos + Función + Trigger | Sistema de deuda inicial con períodos específicos y ajuste automático al pagar |
 
+## Tablas del Módulo Agenda & Turnos
+
+| Archivo | Tablas | Descripción |
+|---------|--------|-------------|
+| `agenda_turnos_schema.sql` | `agenda_servicios`, `agenda_servicio_profesionales`, `agenda_clientes`, `agenda_disponibilidad`, `agenda_excepciones`, `agenda_turnos`, `agenda_turno_servicios`, `agenda_turno_pagos` | Esquema completo del módulo de agenda y turnos |
+| `agenda_turnos_module.sql` | - | Configuración adicional, triggers y RLS policies del módulo |
+
 ## Diagrama de Relaciones
 
 ```
@@ -102,6 +109,7 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+24-01-2026 - Agregadas tablas del módulo Agenda & Turnos
 11-01-2026 - Agregada función y trigger para calcular automáticamente estado_pago_monotributo
 10-01-2026 - Agregada tabla client_notifications para notificaciones personalizadas a clientes
 07-01-2026 - Agregado modulo Educacion Impositiva (articulos, categorias, storage)
