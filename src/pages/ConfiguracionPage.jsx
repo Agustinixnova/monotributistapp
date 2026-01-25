@@ -1,6 +1,9 @@
+import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Layout } from '../components/layout/Layout'
-import { Settings, CreditCard, User, Bell, Shield, Palette, Scale } from 'lucide-react'
+import { Settings, CreditCard, User, Bell, Shield, Palette, Scale, FileText } from 'lucide-react'
+import { useAuth } from '../auth/hooks/useAuth'
+import { supabase } from '../lib/supabase'
 
 const configItems = [
   {
@@ -52,6 +55,39 @@ const configItems = [
 ]
 
 export function ConfiguracionPage() {
+  const { user } = useAuth()
+  const [userRole, setUserRole] = useState(null)
+
+  // Obtener rol del usuario desde profiles
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (!user?.id) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('roles(name)')
+        .eq('id', user.id)
+        .single()
+
+      setUserRole(profile?.roles?.name)
+    }
+    fetchRole()
+  }, [user?.id])
+
+  // Items adicionales para desarrollo (acepta 'desarrollo' o 'dev')
+  const esDesarrollo = userRole === 'desarrollo' || userRole === 'dev'
+  const desarrolloItems = esDesarrollo ? [
+    {
+      name: 'Documentos Legales',
+      description: 'Términos, condiciones y políticas de privacidad',
+      icon: FileText,
+      path: '/configuracion/documentos-legales',
+      color: 'bg-amber-100 text-amber-600'
+    }
+  ] : []
+
+  const allItems = [...configItems, ...desarrolloItems]
+
   return (
     <Layout>
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
@@ -68,7 +104,7 @@ export function ConfiguracionPage() {
 
         {/* Grid de opciones */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {configItems.map((item) => (
+          {allItems.map((item) => (
             item.disabled ? (
               <div
                 key={item.path}

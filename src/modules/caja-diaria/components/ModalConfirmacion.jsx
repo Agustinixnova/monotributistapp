@@ -2,7 +2,7 @@
  * Modal de confirmación reutilizable
  */
 
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle, X } from 'lucide-react'
 
 export default function ModalConfirmacion({
   isOpen,
@@ -27,6 +27,11 @@ export default function ModalConfirmacion({
       bg: 'bg-red-50',
       icon: 'text-red-600',
       boton: 'bg-red-600 hover:bg-red-700'
+    },
+    success: {
+      bg: 'bg-emerald-50',
+      icon: 'text-emerald-600',
+      boton: 'bg-emerald-600 hover:bg-emerald-700'
     }
   }
 
@@ -48,7 +53,11 @@ export default function ModalConfirmacion({
             {/* Icono y botón cerrar */}
             <div className="flex items-start justify-between mb-4">
               <div className={`w-12 h-12 ${color.bg} rounded-full flex items-center justify-center`}>
-                <AlertTriangle className={`w-6 h-6 ${color.icon}`} />
+                {variante === 'success' ? (
+                  <CheckCircle className={`w-6 h-6 ${color.icon}`} />
+                ) : (
+                  <AlertTriangle className={`w-6 h-6 ${color.icon}`} />
+                )}
               </div>
               <button
                 onClick={onClose}

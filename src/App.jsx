@@ -23,6 +23,10 @@ import CajaDiariaPage from './modules/caja-diaria/components/CajaDiariaPage'
 import AgendaTurnosPage from './modules/agenda-turnos/pages/AgendaTurnosPage'
 import { MiPerfil } from './pages/MiPerfil'
 import { PWAInstallPrompt, PWAUpdatePrompt } from './pwa'
+import { TerminosPage } from './pages/TerminosPage'
+import { PrivacidadPage } from './pages/PrivacidadPage'
+import { DocumentosLegalesPage } from './pages/DocumentosLegalesPage'
+import { CookieBanner } from './components/common/CookieBanner'
 
 function App() {
   return (
@@ -32,10 +36,15 @@ function App() {
         <PWAUpdatePrompt />
         <PWAInstallPrompt />
 
+        {/* Cookie Consent Banner */}
+        <CookieBanner />
+
         <Routes>
           {/* Rutas públicas */}
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
+          <Route path="/terminos" element={<TerminosPage />} />
+          <Route path="/privacidad" element={<PrivacidadPage />} />
 
           {/* Ruta principal - redirige a registro si no está autenticado */}
           <Route
@@ -200,6 +209,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ConfiguracionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/configuracion/documentos-legales"
+            element={
+              <ProtectedRoute>
+                <DocumentosLegalesPage />
               </ProtectedRoute>
             }
           />

@@ -56,8 +56,8 @@ export default function CajaDiariaPage() {
     refreshAll
   } = useCajaDiaria()
 
-  // Verificar si es usuario con acceso a venta dividida (Elizabeth y Pablo)
-  const esUsuarioVentaDividida = ['elizabeth3612@hotmail.com', 'pablo@gmail.com'].includes(user?.email)
+  // Verificar si es usuario con acceso a venta dividida (Elizabeth, Pablo y Ferrolon)
+  const esUsuarioVentaDividida = ['elizabeth3612@hotmail.com', 'pablo@gmail.com', 'ferrolon@gmail.com'].includes(user?.email)
 
   // Permisos del usuario (empleado o dueño)
   const { puede, esDuenio, dentroDeHorario, proximoHorario, alertaFinSesion, minutosRestantes } = usePermisosCaja()

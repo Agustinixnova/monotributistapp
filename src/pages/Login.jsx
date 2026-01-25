@@ -91,10 +91,18 @@ export function Login() {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-2">
           <p className="text-violet-200/60 text-sm">
             © 2026 Mimonotributo. Todos los derechos reservados.
           </p>
+          <div className="flex gap-4 text-sm">
+            <Link to="/terminos" className="text-violet-300/70 hover:text-white transition-colors">
+              Términos y Condiciones
+            </Link>
+            <Link to="/privacidad" className="text-violet-300/70 hover:text-white transition-colors">
+              Política de Privacidad
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -139,10 +147,18 @@ export function Login() {
         </div>
 
         {/* Mobile Footer */}
-        <div className="lg:hidden p-6 pt-0">
+        <div className="lg:hidden p-6 pt-0 space-y-2">
           <p className="text-gray-400 text-xs text-center">
             © 2026 Mimonotributo
           </p>
+          <div className="flex justify-center gap-4 text-xs">
+            <Link to="/terminos" className="text-gray-400 hover:text-gray-600">
+              Términos
+            </Link>
+            <Link to="/privacidad" className="text-gray-400 hover:text-gray-600">
+              Privacidad
+            </Link>
+          </div>
         </div>
       </div>
     </div>

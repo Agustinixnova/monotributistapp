@@ -45,6 +45,8 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const [subiendoQR, setSubiendoQR] = useState(false)
   const [confirmEliminarQR, setConfirmEliminarQR] = useState(false)
   const [eliminandoQR, setEliminandoQR] = useState(false)
+  const [confirmToggleEmpleado, setConfirmToggleEmpleado] = useState(null) // { empleado, nuevoEstado }
+  const [toggeandoEmpleado, setToggeandoEmpleado] = useState(false)
   const fileInputRef = useRef(null)
 
   // Configuración general
@@ -904,7 +906,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                             </button>
                             {/* Botón activar/desactivar */}
                             <button
-                              onClick={() => toggleActivo(emp.id, !emp.activo)}
+                              onClick={() => setConfirmToggleEmpleado({ empleado: emp, nuevoEstado: !emp.activo })}
                               className={`p-2 rounded-lg ${
                                 emp.activo
                                   ? 'text-gray-600 hover:text-amber-600 hover:bg-amber-50'
@@ -1042,6 +1044,28 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         textoConfirmar="Eliminar"
         variante="danger"
         loading={eliminandoQR}
+      />
+
+      {/* Modal Confirmación - Activar/Desactivar empleado */}
+      <ModalConfirmacion
+        isOpen={!!confirmToggleEmpleado}
+        onClose={() => setConfirmToggleEmpleado(null)}
+        onConfirm={async () => {
+          if (!confirmToggleEmpleado) return
+          setToggeandoEmpleado(true)
+          await toggleActivo(confirmToggleEmpleado.empleado.id, confirmToggleEmpleado.nuevoEstado)
+          setToggeandoEmpleado(false)
+          setConfirmToggleEmpleado(null)
+        }}
+        titulo={confirmToggleEmpleado?.nuevoEstado ? '¿Activar empleado?' : '¿Desactivar empleado?'}
+        mensaje={
+          confirmToggleEmpleado?.nuevoEstado
+            ? `${confirmToggleEmpleado?.empleado?.nombre} ${confirmToggleEmpleado?.empleado?.apellido} podrá volver a acceder a tu caja.`
+            : `${confirmToggleEmpleado?.empleado?.nombre} ${confirmToggleEmpleado?.empleado?.apellido} ya no podrá ver ni registrar movimientos en tu caja hasta que lo reactives.`
+        }
+        textoConfirmar={confirmToggleEmpleado?.nuevoEstado ? 'Activar' : 'Desactivar'}
+        variante={confirmToggleEmpleado?.nuevoEstado ? 'success' : 'warning'}
+        loading={toggeandoEmpleado}
       />
     </>
   )
