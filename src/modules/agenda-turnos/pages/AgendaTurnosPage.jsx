@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3 } from 'lucide-react'
+import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { getFechaHoyArgentina, getPrimerDiaSemana } from '../utils/dateUtils'
 import { useTurnosDia, useTurnosSemana, useTurnosMes } from '../hooks/useTurnos'
@@ -21,6 +21,7 @@ import ModalCliente from '../components/clientes/ModalCliente'
 import ConfigDisponibilidad from '../components/disponibilidad/ConfigDisponibilidad'
 import SelectorProfesional from '../components/disponibilidad/SelectorProfesional'
 import EstadisticasAgenda from '../components/estadisticas/EstadisticasAgenda'
+import CobrosAgenda from '../components/cobros/CobrosAgenda'
 import HistorialCliente from '../components/clientes/HistorialCliente'
 import { useProfesionales } from '../hooks/useDisponibilidad'
 import { formatearMonto } from '../utils/formatters'
@@ -30,6 +31,7 @@ import { supabase } from '../../../lib/supabase'
 // Tabs disponibles
 const TABS = {
   calendario: { id: 'calendario', label: 'Calendario', icon: Calendar },
+  cobros: { id: 'cobros', label: 'Cobros', icon: DollarSign },
   servicios: { id: 'servicios', label: 'Servicios', icon: Scissors },
   clientes: { id: 'clientes', label: 'Clientes', icon: Users },
   estadisticas: { id: 'estadisticas', label: 'Stats', icon: BarChart3 },
@@ -388,6 +390,13 @@ export default function AgendaTurnosPage() {
             </>
           )}
 
+          {/* Tab Cobros */}
+          {tabActiva === 'cobros' && (
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <CobrosAgenda />
+            </div>
+          )}
+
           {/* Tab Servicios */}
           {tabActiva === 'servicios' && (
             <div className="space-y-4">
@@ -587,6 +596,7 @@ export default function AgendaTurnosPage() {
           servicios={servicios}
           clientes={clientes}
           onNuevoCliente={() => setModalCliente({ abierto: true, cliente: null })}
+          turnosExistentes={Object.values(turnosPorDia).flat()}
         />
 
         <ModalTurnoRapido
@@ -597,6 +607,7 @@ export default function AgendaTurnosPage() {
           hora={modalTurnoRapido.hora}
           servicios={servicios}
           clientes={clientes}
+          turnosExistentes={turnosPorDia[modalTurnoRapido.fecha] || []}
         />
 
         <ModalDetalleTurno

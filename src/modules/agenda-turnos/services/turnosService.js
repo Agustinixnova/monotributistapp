@@ -5,6 +5,7 @@
 import { supabase } from '../../../lib/supabase'
 import { getEffectiveUserId } from '../../caja-diaria/services/empleadosService'
 import { generarFechasRecurrentes } from '../utils/recurrenciaUtils'
+import { transferirPagos } from './pagosService'
 
 /**
  * Obtener turnos por rango de fechas
@@ -146,6 +147,65 @@ export async function createTurno(turnoData) {
         // Rollback: eliminar el turno creado
         await supabase.from('agenda_turnos').delete().eq('id', turno.id)
         throw serviciosError
+      }
+    }
+
+    // Registrar pago de seña si se proporcionó
+    console.log('[createTurno] Verificando seña:', {
+      tieneSena: !!turnoData.sena,
+      senaData: turnoData.sena
+    })
+
+    if (turnoData.sena && turnoData.sena.monto > 0) {
+      // Mapeo de métodos de pago a nombres legibles
+      const metodosNombres = {
+        efectivo: 'Efectivo',
+        transferencia: 'Transferencia',
+        mercadopago: 'MercadoPago',
+        qr: 'QR',
+        otro: 'Otro'
+      }
+      const metodoNombre = metodosNombres[turnoData.sena.metodo_pago] || turnoData.sena.metodo_pago
+
+      console.log('[createTurno] Insertando seña:', {
+        turno_id: turno.id,
+        monto: turnoData.sena.monto,
+        metodo: metodoNombre
+      })
+
+      const { data: senaData, error: senaError } = await supabase
+        .from('agenda_turno_pagos')
+        .insert({
+          turno_id: turno.id,
+          tipo: 'sena',
+          monto: turnoData.sena.monto,
+          metodo_pago_id: null, // No usamos FK, guardamos el método en notas
+          fecha_pago: turnoData.sena.fecha_pago || turnoData.fecha,
+          notas: `Pago: ${metodoNombre}`,
+          registrado_en_caja: false
+        })
+        .select()
+
+      if (senaError) {
+        console.error('[createTurno] Error registrando seña:', senaError)
+      } else {
+        console.log('[createTurno] Seña registrada exitosamente:', senaData)
+      }
+    } else {
+      console.log('[createTurno] No se registra seña (condición no cumplida)')
+    }
+
+    // Transferir seña de turno cancelado si se especificó
+    if (turnoData.transferirSenaDe) {
+      console.log('[createTurno] Transfiriendo seña del turno:', turnoData.transferirSenaDe)
+      const { success, error: transferError, pagosTransferidos } = await transferirPagos(
+        turnoData.transferirSenaDe,
+        turno.id
+      )
+      if (success) {
+        console.log('[createTurno] Seña transferida exitosamente:', pagosTransferidos, 'pagos')
+      } else {
+        console.error('[createTurno] Error transfiriendo seña:', transferError)
       }
     }
 

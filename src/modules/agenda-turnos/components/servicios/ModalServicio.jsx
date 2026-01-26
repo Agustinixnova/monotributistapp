@@ -25,7 +25,7 @@ export default function ModalServicio({
     duracion_minima: 15,
     duracion_maxima: 60,
     precio: '',
-    costo_estimado: '',
+    precio_variable: false, // Precio "desde" que puede aumentar
     requiere_sena: false,
     porcentaje_sena: 30,
     color: '#3B82F6'
@@ -43,7 +43,7 @@ export default function ModalServicio({
           duracion_minima: servicio.duracion_minima || 15,
           duracion_maxima: servicio.duracion_maxima || 60,
           precio: servicio.precio?.toString() || '',
-          costo_estimado: servicio.costo_estimado?.toString() || '',
+          precio_variable: servicio.precio_variable || false,
           requiere_sena: servicio.requiere_sena || false,
           porcentaje_sena: servicio.porcentaje_sena || 30,
           color: servicio.color || '#3B82F6'
@@ -57,7 +57,7 @@ export default function ModalServicio({
           duracion_minima: 15,
           duracion_maxima: 60,
           precio: '',
-          costo_estimado: '',
+          precio_variable: false,
           requiere_sena: false,
           porcentaje_sena: 30,
           color: '#3B82F6'
@@ -91,7 +91,7 @@ export default function ModalServicio({
         duracion_minima: form.duracion_flexible ? parseInt(form.duracion_minima) : null,
         duracion_maxima: form.duracion_flexible ? parseInt(form.duracion_maxima) : null,
         precio: parseFloat(form.precio),
-        costo_estimado: form.costo_estimado ? parseFloat(form.costo_estimado) : null,
+        precio_variable: form.precio_variable,
         requiere_sena: form.requiere_sena,
         porcentaje_sena: form.requiere_sena ? parseInt(form.porcentaje_sena) : 0,
         color: form.color
@@ -233,7 +233,7 @@ export default function ModalServicio({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <DollarSign className="w-4 h-4 inline mr-1" />
-                Precio *
+                {form.precio_variable ? 'Precio base (desde) *' : 'Precio *'}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
@@ -247,31 +247,17 @@ export default function ModalServicio({
                   className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                 />
               </div>
-            </div>
 
-            {/* Costo estimado (opcional) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Costo estimado (opcional)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+              {/* Precio variable */}
+              <label className="flex items-center gap-2 text-sm text-gray-600 mt-2">
                 <input
-                  type="number"
-                  value={form.costo_estimado}
-                  onChange={(e) => setForm(f => ({ ...f, costo_estimado: e.target.value }))}
-                  placeholder="Para calcular margen"
-                  min={0}
-                  step={100}
-                  className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  type="checkbox"
+                  checked={form.precio_variable}
+                  onChange={(e) => setForm(f => ({ ...f, precio_variable: e.target.checked }))}
+                  className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
-              </div>
-              {form.precio && form.costo_estimado && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Margen: ${parseFloat(form.precio) - parseFloat(form.costo_estimado)} (
-                  {Math.round(((parseFloat(form.precio) - parseFloat(form.costo_estimado)) / parseFloat(form.precio)) * 100)}%)
-                </p>
-              )}
+                Precio variable (puede aumentar con adicionales)
+              </label>
             </div>
 
             {/* Seña */}

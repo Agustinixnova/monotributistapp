@@ -12,11 +12,12 @@ import { getEffectiveUserId } from '../../caja-diaria/services/empleadosService'
 export async function getMetodosPago() {
   const { userId } = await getEffectiveUserId()
 
+  // Obtener métodos del sistema (user_id IS NULL) y del dueño
   const { data, error } = await supabase
     .from('caja_metodos_pago')
     .select('*')
-    .eq('duenio_id', userId)
     .eq('activo', true)
+    .or(`user_id.is.null,user_id.eq.${userId}`)
     .order('orden', { ascending: true })
 
   return { data, error }
@@ -49,12 +50,13 @@ export async function registrarPago(turnoId, pagoData) {
 export async function getPagosTurno(turnoId) {
   const { data, error } = await supabase
     .from('agenda_turno_pagos')
-    .select(`
-      *,
-      metodo_pago:caja_metodos_pago(id, nombre, icono)
-    `)
+    .select('*')
     .eq('turno_id', turnoId)
     .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('Error obteniendo pagos del turno:', error)
+  }
 
   return { data, error }
 }
@@ -180,8 +182,11 @@ function generarDescripcionMovimiento(tipo, turnoInfo) {
  * Calcula el resumen de pagos de un turno
  */
 export function calcularResumenPagos(turno, pagos = []) {
-  const precioTotal = turno.precio_total ||
-    turno.agenda_turno_servicios?.reduce((sum, s) => sum + (s.precio || 0), 0) || 0
+  // Buscar servicios en diferentes formatos posibles
+  const servicios = turno.agenda_turno_servicios || turno.servicios || []
+
+  const precioServicios = turno.precio_total ||
+    servicios.reduce((sum, s) => sum + (s.precio || 0), 0) || 0
 
   const totalSenas = pagos
     .filter(p => p.tipo === 'sena')
@@ -195,10 +200,15 @@ export function calcularResumenPagos(turno, pagos = []) {
     .filter(p => p.tipo === 'devolucion')
     .reduce((sum, p) => sum + p.monto, 0)
 
+  // Si el total pagado es mayor al precio de servicios (por adicionales),
+  // usar el total pagado como precio real
+  const precioTotal = Math.max(precioServicios, totalPagado)
+
   const saldoPendiente = precioTotal - totalPagado + devoluciones
 
   return {
     precioTotal,
+    precioServicios, // Precio base de los servicios
     totalSenas,
     totalPagado,
     devoluciones,
@@ -227,5 +237,103 @@ export function calcularSenaRequerida(servicios) {
     requiereSena,
     montoSena: Math.round(totalSena),
     porcentajePromedio: requiereSena ? Math.round((totalSena / servicios.reduce((sum, s) => sum + (s.precio || s.servicio?.precio || 0), 0)) * 100) : 0
+  }
+}
+
+/**
+ * Obtiene seña disponible de turnos cancelados de un cliente
+ * (turnos cancelados que tienen seña pero no devolución)
+ */
+export async function getSenaDisponibleCliente(clienteId) {
+  if (!clienteId) return { data: null, error: null }
+
+  try {
+    // Buscar turnos cancelados del cliente
+    const { data: turnosCancelados, error: turnosError } = await supabase
+      .from('agenda_turnos')
+      .select(`
+        id,
+        fecha,
+        estado,
+        agenda_turno_servicios(
+          servicio:agenda_servicios(nombre)
+        )
+      `)
+      .eq('cliente_id', clienteId)
+      .eq('estado', 'cancelado')
+      .order('cancelado_at', { ascending: false })
+
+    if (turnosError) throw turnosError
+    if (!turnosCancelados || turnosCancelados.length === 0) {
+      return { data: null, error: null }
+    }
+
+    // Para cada turno cancelado, verificar si tiene seña sin devolver
+    for (const turno of turnosCancelados) {
+      const { data: pagos, error: pagosError } = await supabase
+        .from('agenda_turno_pagos')
+        .select('*')
+        .eq('turno_id', turno.id)
+
+      if (pagosError) continue
+
+      const senas = pagos?.filter(p => p.tipo === 'sena') || []
+      const devoluciones = pagos?.filter(p => p.tipo === 'devolucion') || []
+
+      // Si hay seña y no hay devolución, esta seña está disponible
+      if (senas.length > 0 && devoluciones.length === 0) {
+        const totalSena = senas.reduce((sum, p) => sum + p.monto, 0)
+        const servicioNombre = turno.agenda_turno_servicios?.[0]?.servicio?.nombre || 'Servicio'
+
+        return {
+          data: {
+            turnoId: turno.id,
+            turnoFecha: turno.fecha,
+            servicioNombre,
+            montoSena: totalSena,
+            pagosIds: senas.map(p => p.id)
+          },
+          error: null
+        }
+      }
+    }
+
+    return { data: null, error: null }
+  } catch (error) {
+    console.error('Error obteniendo seña disponible:', error)
+    return { data: null, error }
+  }
+}
+
+/**
+ * Transfiere pagos de un turno a otro
+ * Se usa cuando un cliente reprograma y mantiene la seña
+ */
+export async function transferirPagos(turnoOrigenId, turnoDestinoId) {
+  try {
+    // Obtener pagos del turno origen (solo seña, no devoluciones)
+    const { data: pagos, error: pagosError } = await supabase
+      .from('agenda_turno_pagos')
+      .select('*')
+      .eq('turno_id', turnoOrigenId)
+      .eq('tipo', 'sena')
+
+    if (pagosError) throw pagosError
+    if (!pagos || pagos.length === 0) {
+      return { success: false, error: 'No hay pagos para transferir' }
+    }
+
+    // Actualizar turno_id de los pagos al nuevo turno
+    const { error: updateError } = await supabase
+      .from('agenda_turno_pagos')
+      .update({ turno_id: turnoDestinoId })
+      .in('id', pagos.map(p => p.id))
+
+    if (updateError) throw updateError
+
+    return { success: true, error: null, pagosTransferidos: pagos.length }
+  } catch (error) {
+    console.error('Error transfiriendo pagos:', error)
+    return { success: false, error }
   }
 }

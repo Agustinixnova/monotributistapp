@@ -24,6 +24,7 @@ export default function ModalDetalleDeuda({
   const [historial, setHistorial] = useState([])
   const [loadingHistorial, setLoadingHistorial] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
+  const [errorHistorial, setErrorHistorial] = useState(null)
   const [deudaActual, setDeudaActual] = useState(0)
 
   // Form de cobro
@@ -46,12 +47,18 @@ export default function ModalDetalleDeuda({
       setError('')
       setMostrarHistorial(false)
       setHistorial([])
+      setErrorHistorial(null)
       setDeudaActual(parseFloat(cliente.deuda_total || 0))
 
       // Cargar historial
       const cargarHistorial = async () => {
         setLoadingHistorial(true)
-        const { historial: data } = await obtenerHistorial(cliente.id)
+        setErrorHistorial(null)
+        const { historial: data, error: err } = await obtenerHistorial(cliente.id)
+        if (err) {
+          console.error('Error cargando historial:', err)
+          setErrorHistorial('Error al cargar historial')
+        }
         setHistorial(data || [])
         setLoadingHistorial(false)
       }
@@ -63,11 +70,15 @@ export default function ModalDetalleDeuda({
   // Función para recargar historial y deuda actualizada
   const recargarDatos = async () => {
     setLoadingHistorial(true)
+    setErrorHistorial(null)
     // Cargar historial y cliente actualizado en paralelo
     const [historialResult, clienteResult] = await Promise.all([
       obtenerHistorial(cliente.id),
       obtenerCliente(cliente.id)
     ])
+    if (historialResult.error) {
+      setErrorHistorial('Error al cargar historial')
+    }
     setHistorial(historialResult.historial || [])
     if (clienteResult.success && clienteResult.cliente) {
       setDeudaActual(parseFloat(clienteResult.cliente.deuda_total || 0))
@@ -287,14 +298,28 @@ export default function ModalDetalleDeuda({
             </div>
 
             {/* Historial colapsable */}
-            <div className="border-t border-gray-200">
+            <div className="border-t border-gray-200" id="historial-section">
               <button
-                onClick={() => setMostrarHistorial(!mostrarHistorial)}
-                className="w-full px-5 py-3 flex items-center justify-between text-gray-600 hover:bg-gray-50"
+                type="button"
+                onClick={() => {
+                  setMostrarHistorial(!mostrarHistorial)
+                  // Auto-scroll para mostrar el historial cuando se abre
+                  if (!mostrarHistorial) {
+                    setTimeout(() => {
+                      document.getElementById('historial-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }, 100)
+                  }
+                }}
+                className="w-full px-5 py-3 flex items-center justify-between text-gray-600 hover:bg-gray-50 active:bg-gray-100"
               >
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4" />
-                  <span className="text-sm font-medium">Historial de movimientos</span>
+                  <span className="text-sm font-medium">
+                    Historial de movimientos
+                    {historial.length > 0 && (
+                      <span className="ml-1 text-xs text-gray-400">({historial.length})</span>
+                    )}
+                  </span>
                 </div>
                 {mostrarHistorial ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               </button>
@@ -305,12 +330,16 @@ export default function ModalDetalleDeuda({
                     <div className="flex items-center justify-center py-4">
                       <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full" />
                     </div>
+                  ) : errorHistorial ? (
+                    <p className="text-sm text-red-500 text-center py-4">
+                      {errorHistorial}
+                    </p>
                   ) : historial.length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-4">
                       Sin movimientos registrados
                     </p>
                   ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                    <div className="space-y-2 max-h-64 overflow-y-auto -mx-1 px-1">
                       {historial.map((item, idx) => (
                         <div
                           key={`${item.tipo}-${item.id}-${idx}`}

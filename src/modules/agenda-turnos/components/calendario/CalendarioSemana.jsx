@@ -1,16 +1,22 @@
 /**
- * Vista de calendario semanal con drag & drop
+ * Vista de calendario semanal
+ * - Mobile: Week Strip + Lista del día seleccionado
+ * - Desktop: Grid tradicional con drag & drop
  */
 
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Calendar, Loader2, Zap, Move } from 'lucide-react'
-import { formatFechaCorta, getFechaHoyArgentina, sumarDias, restarDias, esHoy, formatDiaSemana, diferenciaMinutos, getPrimerDiaSemana } from '../../utils/dateUtils'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, Plus, Calendar, Loader2, Zap, Move, Clock, User, Phone, MessageCircle } from 'lucide-react'
+import { formatFechaCorta, getFechaHoyArgentina, sumarDias, restarDias, esHoy, formatDiaSemana, diferenciaMinutos, formatFechaLarga } from '../../utils/dateUtils'
 import { useDragDrop } from '../../hooks/useDragDrop'
+import { formatearHora, getEstadoConfig, formatearMonto } from '../../utils/formatters'
+import { formatDuracion } from '../../utils/dateUtils'
 import TurnoCard from '../turnos/TurnoCard'
 
-// Horas del día a mostrar (cada 30 min para más precisión en drop)
+// Horas del día a mostrar
 const HORAS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']
-const SLOTS_HORA = ['00', '30'] // Slots dentro de cada hora
+
+// Días de la semana abreviados
+const DIAS_NOMBRES = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB']
 
 export default function CalendarioSemana({
   fechaInicio,
@@ -26,7 +32,25 @@ export default function CalendarioSemana({
   onCambiarEstado,
   onMoverTurno
 }) {
-  // Hook para drag & drop
+  // Estado para el día seleccionado en mobile
+  const [diaSeleccionadoMobile, setDiaSeleccionadoMobile] = useState(fechaSeleccionada)
+
+  // Actualizar día seleccionado cuando cambia la fecha
+  useEffect(() => {
+    if (diasSemana.includes(fechaSeleccionada)) {
+      setDiaSeleccionadoMobile(fechaSeleccionada)
+    } else if (diasSemana.length > 0) {
+      // Si la fecha seleccionada no está en la semana, seleccionar el primer día
+      const hoy = getFechaHoyArgentina()
+      if (diasSemana.includes(hoy)) {
+        setDiaSeleccionadoMobile(hoy)
+      } else {
+        setDiaSeleccionadoMobile(diasSemana[0])
+      }
+    }
+  }, [fechaSeleccionada, diasSemana])
+
+  // Hook para drag & drop (solo desktop)
   const { dragging, isDragging, isDragOver, handlers } = useDragDrop({ onMoverTurno })
   const hoy = getFechaHoyArgentina()
 
@@ -60,71 +84,319 @@ export default function CalendarioSemana({
   const calcularAlturaTurno = (horaInicio, horaFin) => {
     const duracion = diferenciaMinutos(horaInicio, horaFin)
     const pixelesPorHora = 60
-    return Math.max((duracion / 60) * pixelesPorHora, 30) // Mínimo 30px
+    return Math.max((duracion / 60) * pixelesPorHora, 30)
+  }
+
+  // Detectar turnos superpuestos y calcular posiciones
+  const calcularPosicionesSuperpuestos = (turnos) => {
+    if (!turnos || turnos.length === 0) return {}
+
+    // Convertir hora a minutos para comparar
+    const horaAMinutos = (hora) => {
+      const [h, m] = hora.split(':').map(Number)
+      return h * 60 + m
+    }
+
+    // Ordenar por hora de inicio
+    const turnosOrdenados = [...turnos].sort((a, b) =>
+      horaAMinutos(a.hora_inicio) - horaAMinutos(b.hora_inicio)
+    )
+
+    // Encontrar grupos de turnos superpuestos
+    const grupos = []
+    let grupoActual = []
+
+    turnosOrdenados.forEach((turno) => {
+      const inicioTurno = horaAMinutos(turno.hora_inicio)
+      const finTurno = horaAMinutos(turno.hora_fin)
+
+      // Verificar si se superpone con alguno del grupo actual
+      const seSuperpone = grupoActual.some((t) => {
+        const inicioT = horaAMinutos(t.hora_inicio)
+        const finT = horaAMinutos(t.hora_fin)
+        return inicioTurno < finT && finTurno > inicioT
+      })
+
+      if (seSuperpone || grupoActual.length === 0) {
+        grupoActual.push(turno)
+      } else {
+        if (grupoActual.length > 0) grupos.push([...grupoActual])
+        grupoActual = [turno]
+      }
+    })
+
+    if (grupoActual.length > 0) grupos.push(grupoActual)
+
+    // Calcular posiciones para cada turno
+    const posiciones = {}
+    grupos.forEach((grupo) => {
+      const totalEnGrupo = grupo.length
+      grupo.forEach((turno, index) => {
+        posiciones[turno.id] = {
+          width: totalEnGrupo > 1 ? `${100 / totalEnGrupo}%` : '100%',
+          left: totalEnGrupo > 1 ? `${(index * 100) / totalEnGrupo}%` : '0%',
+          zIndex: 5 + index
+        }
+      })
+    })
+
+    return posiciones
   }
 
   // Total de turnos de la semana
   const totalTurnos = Object.values(turnosPorDia).flat().length
 
+  // Turnos del día seleccionado (mobile)
+  const turnosDiaSeleccionado = turnosPorDia[diaSeleccionadoMobile] || []
+
+  // Ordenar turnos por hora
+  const turnosOrdenados = [...turnosDiaSeleccionado].sort((a, b) =>
+    a.hora_inicio.localeCompare(b.hora_inicio)
+  )
+
   return (
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-      {/* Header con navegación */}
-      <div className="px-4 py-3 border-b flex items-center justify-between bg-gray-50">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={irSemanaAnterior}
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
+      {/* ========== HEADER COMPARTIDO ========== */}
+      <div className="px-4 py-3 border-b bg-gray-50">
+        <div className="flex items-center justify-between">
+          {/* Navegación */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={irSemanaAnterior}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
 
-          <button
-            onClick={irHoy}
-            disabled={semanaContieneHoy}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              semanaContieneHoy
-                ? 'bg-blue-100 text-blue-700'
-                : 'hover:bg-gray-200 text-gray-600'
-            }`}
-          >
-            Hoy
-          </button>
+            <button
+              onClick={irHoy}
+              disabled={semanaContieneHoy}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                semanaContieneHoy
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'hover:bg-gray-200 text-gray-600'
+              }`}
+            >
+              Hoy
+            </button>
 
-          <button
-            onClick={irSemanaSiguiente}
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
+            <button
+              onClick={irSemanaSiguiente}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
 
-          <span className="ml-2 text-sm text-gray-600">
-            {formatFechaCorta(diasSemana[0])} - {formatFechaCorta(diasSemana[6])}
-          </span>
-        </div>
+          {/* Info - solo desktop */}
+          <div className="hidden md:flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              {formatFechaCorta(diasSemana[0])} - {formatFechaCorta(diasSemana[6])}
+            </span>
+            <span className="text-sm text-gray-500">
+              {totalTurnos} turno{totalTurnos !== 1 ? 's' : ''}
+            </span>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">
-            {totalTurnos} turno{totalTurnos !== 1 ? 's' : ''}
-          </span>
-          <button
-            onClick={() => onTurnoRapido?.(hoy)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Zap className="w-4 h-4" />
-            <span className="hidden sm:inline">Rápido</span>
-          </button>
-          <button
-            onClick={() => onNuevoTurno?.(fechaSeleccionada)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Nuevo</span>
-          </button>
+          {/* Botones de acción */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onTurnoRapido?.(diaSeleccionadoMobile || hoy)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">Rápido</span>
+            </button>
+            <button
+              onClick={() => onNuevoTurno?.(diaSeleccionadoMobile || fechaSeleccionada)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Nuevo</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Grid del calendario */}
-      <div className="relative">
+      {/* ========== VISTA MOBILE: Week Strip + Lista ========== */}
+      <div className="md:hidden">
+        {/* Week Strip */}
+        <div className="border-b bg-white">
+          <div className="flex">
+            {diasSemana.map((dia) => {
+              const esHoyDia = esHoy(dia)
+              const esSeleccionado = dia === diaSeleccionadoMobile
+              const turnosDia = turnosPorDia[dia] || []
+              const tieneTurnos = turnosDia.length > 0
+              const fecha = new Date(dia + 'T12:00:00')
+              const diaSemana = DIAS_NOMBRES[fecha.getDay()]
+              const numeroDia = fecha.getDate()
+
+              return (
+                <button
+                  key={dia}
+                  onClick={() => setDiaSeleccionadoMobile(dia)}
+                  className={`flex-1 py-3 px-1 text-center transition-all relative ${
+                    esSeleccionado
+                      ? 'bg-blue-50'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  {/* Nombre del día */}
+                  <div className={`text-[10px] font-medium uppercase ${
+                    esHoyDia ? 'text-blue-600' : 'text-gray-400'
+                  }`}>
+                    {diaSemana}
+                  </div>
+
+                  {/* Número del día */}
+                  <div className={`text-lg font-bold mt-0.5 ${
+                    esSeleccionado
+                      ? 'text-blue-600'
+                      : esHoyDia
+                        ? 'text-blue-600'
+                        : 'text-gray-900'
+                  }`}>
+                    {numeroDia}
+                  </div>
+
+                  {/* Indicador de turnos */}
+                  {tieneTurnos && (
+                    <div className={`w-1.5 h-1.5 rounded-full mx-auto mt-1 ${
+                      esSeleccionado ? 'bg-blue-500' : 'bg-gray-300'
+                    }`} />
+                  )}
+
+                  {/* Línea de selección */}
+                  {esSeleccionado && (
+                    <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-blue-500 rounded-full" />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Título del día seleccionado */}
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 capitalize">
+              {formatFechaLarga(diaSeleccionadoMobile)}
+            </h3>
+            <span className="text-sm text-gray-500">
+              {turnosDiaSeleccionado.length} turno{turnosDiaSeleccionado.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+
+        {/* Lista de turnos del día */}
+        <div className="divide-y divide-gray-100 max-h-[calc(100vh-380px)] overflow-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+            </div>
+          ) : turnosOrdenados.length === 0 ? (
+            <div className="py-12 text-center">
+              <Calendar className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">No hay turnos para este día</p>
+              <button
+                onClick={() => onNuevoTurno?.(diaSeleccionadoMobile)}
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              >
+                + Agregar turno
+              </button>
+            </div>
+          ) : (
+            turnosOrdenados.map((turno) => {
+              const estadoConfig = getEstadoConfig(turno.estado)
+              const primerServicio = turno.servicios?.[0]?.servicio
+              const colorServicio = primerServicio?.color || '#3B82F6'
+              const serviciosNombres = turno.servicios?.map(s => s.servicio?.nombre).filter(Boolean).join(', ') || 'Sin servicio'
+              const clienteNombre = turno.cliente
+                ? `${turno.cliente.nombre} ${turno.cliente.apellido || ''}`.trim()
+                : 'Cliente no asignado'
+              const duracion = diferenciaMinutos(turno.hora_inicio, turno.hora_fin)
+              const esCancelado = turno.estado === 'cancelado' || turno.estado === 'no_asistio'
+
+              return (
+                <div
+                  key={turno.id}
+                  onClick={() => onTurnoClick?.(turno)}
+                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    esCancelado ? 'opacity-60' : ''
+                  }`}
+                >
+                  <div className="flex gap-3">
+                    {/* Barra de color del servicio */}
+                    <div
+                      className="w-1 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: colorServicio }}
+                    />
+
+                    <div className="flex-1 min-w-0">
+                      {/* Hora y estado */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <span className="font-semibold text-gray-900">
+                            {formatearHora(turno.hora_inicio)} - {formatearHora(turno.hora_fin)}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            ({formatDuracion(duracion)})
+                          </span>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
+                          {estadoConfig.label}
+                        </span>
+                      </div>
+
+                      {/* Cliente */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
+                          style={{ backgroundColor: colorServicio }}
+                        >
+                          {turno.cliente?.nombre?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{clienteNombre}</p>
+                          {turno.cliente?.whatsapp && (
+                            <p className="text-xs text-gray-500">{turno.cliente.whatsapp}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Servicios */}
+                      <div className="flex flex-wrap gap-1">
+                        {turno.servicios?.map((s, i) => (
+                          <span
+                            key={i}
+                            className="text-xs px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: `${s.servicio?.color || colorServicio}20`,
+                              color: s.servicio?.color || colorServicio
+                            }}
+                          >
+                            {s.servicio?.nombre}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Notas */}
+                      {turno.notas && (
+                        <p className="text-xs text-gray-500 italic mt-2 truncate">{turno.notas}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ========== VISTA DESKTOP: Grid tradicional ========== */}
+      <div className="hidden md:block relative">
         {loading && (
           <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
@@ -133,7 +405,7 @@ export default function CalendarioSemana({
 
         {/* Header de días */}
         <div className="grid grid-cols-8 border-b sticky top-0 bg-white z-10">
-          <div className="w-14 flex-shrink-0" /> {/* Espacio para horas */}
+          <div className="w-14 flex-shrink-0" />
           {diasSemana.map((dia) => {
             const esHoyDia = esHoy(dia)
             const turnosDia = turnosPorDia[dia] || []
@@ -166,7 +438,7 @@ export default function CalendarioSemana({
         <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
           <div className="relative">
             {/* Líneas de hora */}
-            {HORAS.map((hora, index) => (
+            {HORAS.map((hora) => (
               <div key={hora} className="grid grid-cols-8 border-b border-gray-100" style={{ height: '60px' }}>
                 <div className="w-14 pr-2 pt-0 text-right">
                   <span className="text-xs text-gray-400 font-medium -mt-2 block">{hora}</span>
@@ -198,16 +470,19 @@ export default function CalendarioSemana({
             {/* Turnos posicionados absolutamente */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="grid grid-cols-8 h-full">
-                <div className="w-14" /> {/* Espacio para horas */}
+                <div className="w-14" />
                 {diasSemana.map((dia) => {
                   const turnosDia = turnosPorDia[dia] || []
+                  // Calcular posiciones para turnos superpuestos
+                  const posiciones = calcularPosicionesSuperpuestos(turnosDia)
 
                   return (
                     <div key={dia} className="relative border-l">
-                      {turnosDia.map((turno, index) => {
+                      {turnosDia.map((turno) => {
                         const top = calcularTopTurno(turno.hora_inicio)
                         const height = calcularAlturaTurno(turno.hora_inicio, turno.hora_fin)
                         const estaArrastrandose = dragging?.turnoId === turno.id
+                        const pos = posiciones[turno.id] || { width: '100%', left: '0%', zIndex: 5 }
 
                         return (
                           <div
@@ -215,13 +490,15 @@ export default function CalendarioSemana({
                             draggable={!['completado', 'cancelado'].includes(turno.estado)}
                             onDragStart={(e) => handlers.onDragStart(e, turno)}
                             onDragEnd={handlers.onDragEnd}
-                            className={`absolute left-0.5 right-0.5 pointer-events-auto cursor-grab active:cursor-grabbing ${
+                            className={`absolute pointer-events-auto cursor-grab active:cursor-grabbing px-0.5 overflow-hidden ${
                               estaArrastrandose ? 'opacity-50 ring-2 ring-blue-400' : ''
                             }`}
                             style={{
                               top: `${top}px`,
                               height: `${height}px`,
-                              zIndex: estaArrastrandose ? 100 : 5 + index
+                              width: pos.width,
+                              left: pos.left,
+                              zIndex: estaArrastrandose ? 100 : pos.zIndex
                             }}
                             onClick={(e) => {
                               e.stopPropagation()
@@ -230,10 +507,9 @@ export default function CalendarioSemana({
                           >
                             <TurnoCard
                               turno={turno}
-                              compact={true}
+                              compacto={true}
                               onClick={() => !isDragging && onTurnoClick?.(turno)}
                               onCambiarEstado={onCambiarEstado}
-                              draggable={!['completado', 'cancelado'].includes(turno.estado)}
                             />
                           </div>
                         )
@@ -255,22 +531,24 @@ export default function CalendarioSemana({
         )}
       </div>
 
-      {/* Resumen de la semana */}
+      {/* ========== RESUMEN DE LA SEMANA ========== */}
       {totalTurnos > 0 && (
-        <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-sm">
-          <span className="text-gray-600">
-            {totalTurnos} turno{totalTurnos !== 1 ? 's' : ''} esta semana
-          </span>
-          <div className="flex gap-3 text-xs">
-            <span className="text-yellow-600">
-              {Object.values(turnosPorDia).flat().filter(t => t.estado === 'pendiente').length} pendientes
-            </span>
-            <span className="text-green-600">
-              {Object.values(turnosPorDia).flat().filter(t => t.estado === 'confirmado').length} confirmados
-            </span>
+        <div className="px-4 py-3 border-t bg-gray-50">
+          <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">
-              {Object.values(turnosPorDia).flat().filter(t => t.estado === 'completado').length} completados
+              {totalTurnos} turno{totalTurnos !== 1 ? 's' : ''} esta semana
             </span>
+            <div className="flex gap-3 text-xs">
+              <span className="text-yellow-600">
+                {Object.values(turnosPorDia).flat().filter(t => t.estado === 'pendiente').length} pendientes
+              </span>
+              <span className="text-green-600">
+                {Object.values(turnosPorDia).flat().filter(t => t.estado === 'confirmado').length} confirmados
+              </span>
+              <span className="hidden sm:inline text-gray-600">
+                {Object.values(turnosPorDia).flat().filter(t => t.estado === 'completado').length} completados
+              </span>
+            </div>
           </div>
         </div>
       )}

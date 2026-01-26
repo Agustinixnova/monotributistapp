@@ -6,9 +6,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check } from 'lucide-react'
+import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet } from 'lucide-react'
 import { formatFechaCorta, sumarMinutosAHora } from '../../utils/dateUtils'
 import { formatearMonto, formatearHora } from '../../utils/formatters'
+import { getSenaDisponibleCliente } from '../../services/pagosService'
 
 const PASOS = {
   CLIENTE: 1,
@@ -23,7 +24,8 @@ export default function ModalTurnoRapido({
   fecha,
   hora,
   servicios = [],
-  clientes = []
+  clientes = [],
+  turnosExistentes = [] // Turnos del día para verificar superposiciones
 }) {
   const [paso, setPaso] = useState(PASOS.CLIENTE)
   const [busquedaCliente, setBusquedaCliente] = useState('')
@@ -32,6 +34,17 @@ export default function ModalTurnoRapido({
   const [horaInicio, setHoraInicio] = useState(hora || '09:00')
   const [guardando, setGuardando] = useState(false)
   const [nombreNuevoCliente, setNombreNuevoCliente] = useState('')
+
+  // Seña disponible de turno cancelado
+  const [senaDisponible, setSenaDisponible] = useState(null)
+  const [usarSenaExistente, setUsarSenaExistente] = useState(true) // Por defecto usar la seña
+
+  // Modal de alerta de superposición
+  const [alertaSuperposicion, setAlertaSuperposicion] = useState({
+    mostrar: false,
+    turnosSuperpuestos: [],
+    datosParaGuardar: null
+  })
 
   const inputRef = useRef(null)
 
@@ -44,6 +57,8 @@ export default function ModalTurnoRapido({
       setServicioSeleccionado(null)
       setHoraInicio(hora || '09:00')
       setNombreNuevoCliente('')
+      setSenaDisponible(null)
+      setUsarSenaExistente(true)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [isOpen, hora])
@@ -59,8 +74,18 @@ export default function ModalTurnoRapido({
     ? sumarMinutosAHora(horaInicio, servicioSeleccionado.duracion_minutos)
     : null
 
-  const handleSeleccionarCliente = (cliente) => {
+  const handleSeleccionarCliente = async (cliente) => {
     setClienteSeleccionado(cliente)
+
+    // Verificar si el cliente tiene seña disponible de turno cancelado
+    if (cliente.id) {
+      const { data: sena } = await getSenaDisponibleCliente(cliente.id)
+      setSenaDisponible(sena)
+      setUsarSenaExistente(!!sena) // Por defecto usar si existe
+    } else {
+      setSenaDisponible(null)
+    }
+
     setPaso(PASOS.SERVICIO)
   }
 
@@ -79,34 +104,96 @@ export default function ModalTurnoRapido({
     setPaso(PASOS.CONFIRMAR)
   }
 
+  // Verificar superposición de turnos
+  const verificarSuperposicion = (horaInicioNuevo, horaFinNuevo) => {
+    // Convertir hora a minutos para comparar
+    const horaAMinutos = (hora) => {
+      const [h, m] = hora.split(':').map(Number)
+      return h * 60 + m
+    }
+
+    const inicioNuevo = horaAMinutos(horaInicioNuevo)
+    const finNuevo = horaAMinutos(horaFinNuevo)
+
+    // Filtrar turnos del mismo día
+    const turnosDelDia = turnosExistentes.filter(t => {
+      if (t.fecha !== fecha) return false // Solo turnos del mismo día
+      if (t.estado === 'cancelado' || t.estado === 'no_asistio') return false // Excluir cancelados
+      return true
+    })
+
+    // Buscar superposiciones
+    const superpuestos = turnosDelDia.filter(t => {
+      const inicioExistente = horaAMinutos(t.hora_inicio)
+      const finExistente = horaAMinutos(t.hora_fin)
+      return inicioNuevo < finExistente && finNuevo > inicioExistente
+    })
+
+    return superpuestos
+  }
+
   const handleGuardar = async () => {
     if (!servicioSeleccionado) return
 
+    const turnoData = {
+      fecha,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      cliente_id: clienteSeleccionado?.id || null,
+      cliente_nombre: clienteSeleccionado?.esNuevo ? clienteSeleccionado.nombre : null,
+      servicios: [{
+        servicio_id: servicioSeleccionado.id,
+        precio: servicioSeleccionado.precio,
+        duracion: servicioSeleccionado.duracion_minutos
+      }],
+      estado: 'pendiente',
+      notas: clienteSeleccionado?.esNuevo ? `Cliente nuevo: ${clienteSeleccionado.nombre}` : '',
+      // Si hay seña disponible y el usuario quiere usarla, incluir el turno origen
+      transferirSenaDe: (senaDisponible && usarSenaExistente) ? senaDisponible.turnoId : null
+    }
+
+    // Verificar superposiciones
+    const superpuestos = verificarSuperposicion(horaInicio, horaFin)
+
+    if (superpuestos.length > 0) {
+      // Mostrar alerta de superposición
+      setAlertaSuperposicion({
+        mostrar: true,
+        turnosSuperpuestos: superpuestos,
+        datosParaGuardar: turnoData
+      })
+      return
+    }
+
+    // Si no hay superposición, guardar directamente
+    await guardarTurno(turnoData)
+  }
+
+  // Función para guardar el turno
+  const guardarTurno = async (turnoData) => {
     setGuardando(true)
 
     try {
-      const turnoData = {
-        fecha,
-        hora_inicio: horaInicio,
-        hora_fin: horaFin,
-        cliente_id: clienteSeleccionado?.id || null,
-        cliente_nombre: clienteSeleccionado?.esNuevo ? clienteSeleccionado.nombre : null,
-        servicios: [{
-          servicio_id: servicioSeleccionado.id,
-          precio: servicioSeleccionado.precio,
-          duracion: servicioSeleccionado.duracion_minutos
-        }],
-        estado: 'pendiente',
-        notas: clienteSeleccionado?.esNuevo ? `Cliente nuevo: ${clienteSeleccionado.nombre}` : ''
-      }
-
       await onGuardar(turnoData)
+      setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
       onClose()
     } catch (error) {
       console.error('Error guardando turno rápido:', error)
     } finally {
       setGuardando(false)
     }
+  }
+
+  // Confirmar guardar a pesar de superposición
+  const handleConfirmarSuperposicion = () => {
+    if (alertaSuperposicion.datosParaGuardar) {
+      guardarTurno(alertaSuperposicion.datosParaGuardar)
+    }
+  }
+
+  // Cancelar y cerrar alerta de superposición
+  const handleCancelarSuperposicion = () => {
+    setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
   }
 
   const handleVolver = () => {
@@ -122,13 +209,13 @@ export default function ModalTurnoRapido({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
 
-      <div className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="relative bg-white w-full max-w-md rounded-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50">
           <div className="flex items-center gap-2">
@@ -151,28 +238,30 @@ export default function ModalTurnoRapido({
         </div>
 
         {/* Indicador de pasos */}
-        <div className="flex items-center justify-center gap-2 py-3 bg-gray-50 border-b">
-          {[1, 2, 3].map((p) => (
-            <div
-              key={p}
-              className={`flex items-center ${p < 3 ? 'flex-1' : ''}`}
-            >
+        <div className="flex items-center justify-center py-3 px-6 bg-gray-50 border-b">
+          <div className="flex items-center gap-1 max-w-[200px] w-full">
+            {[1, 2, 3].map((p) => (
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  paso >= p
-                    ? 'bg-amber-500 text-white'
-                    : 'bg-gray-200 text-gray-500'
-                }`}
+                key={p}
+                className={`flex items-center ${p < 3 ? 'flex-1' : ''}`}
               >
-                {paso > p ? <Check className="w-4 h-4" /> : p}
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors flex-shrink-0 ${
+                    paso >= p
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}
+                >
+                  {paso > p ? <Check className="w-3 h-3" /> : p}
+                </div>
+                {p < 3 && (
+                  <div className={`flex-1 h-0.5 mx-1 rounded ${
+                    paso > p ? 'bg-amber-500' : 'bg-gray-200'
+                  }`} />
+                )}
               </div>
-              {p < 3 && (
-                <div className={`flex-1 h-1 mx-2 rounded ${
-                  paso > p ? 'bg-amber-500' : 'bg-gray-200'
-                }`} />
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Contenido según paso */}
@@ -268,6 +357,34 @@ export default function ModalTurnoRapido({
                 </span>
               </div>
 
+              {/* Banner de seña disponible */}
+              {senaDisponible && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <Wallet className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-emerald-800">
+                        Seña disponible: {formatearMonto(senaDisponible.montoSena)}
+                      </p>
+                      <p className="text-xs text-emerald-600 mt-0.5">
+                        De turno cancelado ({senaDisponible.servicioNombre})
+                      </p>
+                      <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={usarSenaExistente}
+                          onChange={(e) => setUsarSenaExistente(e.target.checked)}
+                          className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-xs text-emerald-700">Usar esta seña para el nuevo turno</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Lista de servicios */}
               <div className="space-y-2">
                 {servicios.map((servicio) => (
@@ -281,11 +398,21 @@ export default function ModalTurnoRapido({
                       style={{ backgroundColor: servicio.color }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{servicio.nombre}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">{servicio.nombre}</p>
+                        {servicio.precio_variable && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">
+                            Variable
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500">{servicio.duracion_minutos} min</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900">{formatearMonto(servicio.precio)}</p>
+                      <p className="font-semibold text-gray-900">
+                        {servicio.precio_variable && <span className="text-xs font-normal text-gray-500">desde </span>}
+                        {formatearMonto(servicio.precio)}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -345,6 +472,27 @@ export default function ModalTurnoRapido({
                     {formatearMonto(servicioSeleccionado?.precio)}
                   </span>
                 </div>
+
+                {/* Seña que se aplicará */}
+                {senaDisponible && usarSenaExistente && (
+                  <div className="border-t pt-3 mt-3">
+                    <div className="flex items-center justify-between text-emerald-700">
+                      <span className="flex items-center gap-1.5">
+                        <Wallet className="w-4 h-4" />
+                        Seña a aplicar
+                      </span>
+                      <span className="font-semibold">
+                        -{formatearMonto(senaDisponible.montoSena)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-gray-600">Saldo pendiente</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {formatearMonto(Math.max(0, (servicioSeleccionado?.precio || 0) - senaDisponible.montoSena))}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Selector de hora */}
@@ -388,6 +536,93 @@ export default function ModalTurnoRapido({
                 </>
               )}
             </button>
+          </div>
+        )}
+
+        {/* Modal alerta de superposición */}
+        {alertaSuperposicion.mostrar && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/60 rounded-2xl" onClick={handleCancelarSuperposicion} />
+
+            <div className="relative bg-white rounded-xl shadow-xl w-[90%] max-w-sm overflow-hidden">
+              {/* Header con icono de alerta */}
+              <div className="bg-amber-50 px-4 py-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-semibold text-gray-900">
+                    Turno Superpuesto
+                  </h3>
+                  <p className="text-xs text-amber-700">
+                    Ya existe {alertaSuperposicion.turnosSuperpuestos.length === 1 ? 'un turno' : 'turnos'} en este horario
+                  </p>
+                </div>
+              </div>
+
+              {/* Lista de turnos superpuestos */}
+              <div className="p-4">
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {alertaSuperposicion.turnosSuperpuestos.map((t) => {
+                    const clienteNombre = t.cliente
+                      ? `${t.cliente.nombre} ${t.cliente.apellido || ''}`.trim()
+                      : 'Sin cliente'
+                    const servicio = t.servicios?.[0]?.servicio?.nombre || 'Sin servicio'
+                    const colorServicio = t.servicios?.[0]?.servicio?.color || '#6B7280'
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200"
+                      >
+                        <div
+                          className="w-1 h-8 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: colorServicio }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-800">
+                            {formatearHora(t.hora_inicio)} - {formatearHora(t.hora_fin)}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {clienteNombre} • {servicio}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <p className="text-xs text-gray-500 mt-3">
+                  ¿Agendar de todas formas?
+                </p>
+              </div>
+
+              {/* Footer con botones */}
+              <div className="border-t border-gray-200 px-4 py-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelarSuperposicion}
+                  className="flex-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarSuperposicion}
+                  disabled={guardando}
+                  className="flex-1 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {guardando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Agendar igual'
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

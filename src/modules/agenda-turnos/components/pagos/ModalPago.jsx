@@ -1,12 +1,24 @@
 /**
  * Modal para registrar pago de turno (seña o pago final)
+ * Versión simplificada con métodos de pago predefinidos
  */
 
 import { useState, useEffect } from 'react'
-import { X, DollarSign, CreditCard, Wallet, Loader2, Check, AlertCircle } from 'lucide-react'
-import { useMetodosPago } from '../../hooks/usePagos'
+import {
+  X, DollarSign, Wallet, Loader2, Check, AlertCircle,
+  Banknote, CreditCard, Smartphone, QrCode
+} from 'lucide-react'
 import { formatearMonto } from '../../utils/formatters'
 import { getFechaHoyArgentina } from '../../utils/dateUtils'
+
+// Métodos de pago predefinidos
+const METODOS_PAGO = [
+  { id: 'efectivo', nombre: 'Efectivo', icono: Banknote, color: 'bg-green-100 text-green-700 border-green-300' },
+  { id: 'transferencia', nombre: 'Transferencia', icono: CreditCard, color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  { id: 'mercadopago', nombre: 'MercadoPago', icono: Smartphone, color: 'bg-sky-100 text-sky-700 border-sky-300' },
+  { id: 'qr', nombre: 'QR', icono: QrCode, color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { id: 'otro', nombre: 'Otro', icono: Wallet, color: 'bg-gray-100 text-gray-700 border-gray-300' }
+]
 
 export default function ModalPago({
   isOpen,
@@ -17,16 +29,8 @@ export default function ModalPago({
   saldoPendiente = 0,
   turnoInfo = {}
 }) {
-  const { metodos, loading: loadingMetodos } = useMetodosPago()
-
-  const [form, setForm] = useState({
-    monto: 0,
-    metodo_pago_id: null,
-    fecha_pago: getFechaHoyArgentina(),
-    notas: '',
-    registrarEnCaja: true
-  })
-
+  const [monto, setMonto] = useState(0)
+  const [metodoPago, setMetodoPago] = useState('efectivo')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
 
@@ -34,33 +38,21 @@ export default function ModalPago({
   useEffect(() => {
     if (isOpen) {
       const montoInicial = tipo === 'pago_final' ? saldoPendiente : montoSugerido
-      setForm({
-        monto: montoInicial,
-        metodo_pago_id: metodos[0]?.id || null,
-        fecha_pago: getFechaHoyArgentina(),
-        notas: '',
-        registrarEnCaja: true
-      })
+      setMonto(montoInicial || 0)
+      setMetodoPago('efectivo')
       setError(null)
     }
-  }, [isOpen, tipo, montoSugerido, saldoPendiente, metodos])
-
-  // Actualizar método de pago cuando carguen los métodos
-  useEffect(() => {
-    if (metodos.length > 0 && !form.metodo_pago_id) {
-      setForm(f => ({ ...f, metodo_pago_id: metodos[0].id }))
-    }
-  }, [metodos])
+  }, [isOpen, tipo, montoSugerido, saldoPendiente])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!form.monto || form.monto <= 0) {
+    if (!monto || monto <= 0) {
       setError('Ingresá un monto válido')
       return
     }
 
-    if (!form.metodo_pago_id) {
+    if (!metodoPago) {
       setError('Seleccioná un método de pago')
       return
     }
@@ -69,13 +61,15 @@ export default function ModalPago({
     setError(null)
 
     try {
+      const metodoNombre = METODOS_PAGO.find(m => m.id === metodoPago)?.nombre || metodoPago
+
       await onGuardar({
         tipo,
-        monto: parseFloat(form.monto),
-        metodo_pago_id: form.metodo_pago_id,
-        fecha_pago: form.fecha_pago,
-        notas: form.notas || null,
-        registrarEnCaja: form.registrarEnCaja
+        monto: parseFloat(monto),
+        metodo_pago_id: null, // No usamos FK
+        fecha_pago: getFechaHoyArgentina(),
+        notas: `Pago: ${metodoNombre}`,
+        registrarEnCaja: false // Por ahora no registramos en caja diaria compleja
       })
       onClose()
     } catch (err) {
@@ -85,28 +79,25 @@ export default function ModalPago({
     }
   }
 
-  // Títulos según tipo
-  const titulos = {
-    sena: { titulo: 'Registrar Seña', color: 'amber', icon: Wallet },
-    pago_final: { titulo: 'Cobrar Turno', color: 'green', icon: DollarSign },
-    devolucion: { titulo: 'Devolver Seña', color: 'red', icon: AlertCircle }
-  }
-
-  const config = titulos[tipo] || titulos.pago_final
-  const Icon = config.icon
+  // Configuración según tipo
+  const config = {
+    sena: { titulo: 'Registrar Seña', color: 'amber', bgHeader: 'bg-amber-50', Icon: Wallet },
+    pago_final: { titulo: 'Completar Pago', color: 'green', bgHeader: 'bg-green-50', Icon: DollarSign },
+    devolucion: { titulo: 'Devolver Seña', color: 'red', bgHeader: 'bg-red-50', Icon: AlertCircle }
+  }[tipo] || { titulo: 'Registrar Pago', color: 'green', bgHeader: 'bg-green-50', Icon: DollarSign }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
         {/* Header */}
-        <div className={`px-5 py-4 flex items-center justify-between bg-${config.color}-50 border-b border-${config.color}-100`}>
+        <div className={`px-5 py-4 flex items-center justify-between ${config.bgHeader} border-b`}>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full bg-${config.color}-500 flex items-center justify-center`}>
-              <Icon className="w-5 h-5 text-white" />
+              <config.Icon className="w-5 h-5 text-white" />
             </div>
             <div>
               <h3 className="font-heading font-semibold text-gray-900">{config.titulo}</h3>
@@ -115,7 +106,7 @@ export default function ModalPago({
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-white/50 rounded-lg">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
@@ -128,111 +119,70 @@ export default function ModalPago({
             </div>
           )}
 
-          {/* Info del turno */}
-          {turnoInfo.servicios_nombres && (
-            <div className="bg-gray-50 rounded-lg p-3 text-sm">
-              <p className="text-gray-600">Servicio: <span className="font-medium text-gray-900">{turnoInfo.servicios_nombres}</span></p>
-              {saldoPendiente > 0 && tipo !== 'sena' && (
-                <p className="text-gray-600 mt-1">Saldo pendiente: <span className="font-medium text-gray-900">{formatearMonto(saldoPendiente)}</span></p>
-              )}
-            </div>
-          )}
-
           {/* Monto */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Monto
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Monto a cobrar
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">$</span>
               <input
                 type="number"
-                value={form.monto}
-                onChange={(e) => setForm(f => ({ ...f, monto: e.target.value }))}
-                className="w-full pl-8 pr-4 py-3 text-xl font-semibold border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                className="w-full pl-10 pr-4 py-4 text-2xl font-bold border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
                 placeholder="0"
                 min="0"
-                step="0.01"
+                step="1"
+                autoFocus
               />
             </div>
             {tipo === 'sena' && montoSugerido > 0 && (
-              <p className="mt-1 text-xs text-amber-600">
-                Seña sugerida: {formatearMonto(montoSugerido)}
-              </p>
+              <button
+                type="button"
+                onClick={() => setMonto(montoSugerido)}
+                className="mt-2 text-sm text-amber-600 hover:text-amber-700"
+              >
+                Usar sugerido: {formatearMonto(montoSugerido)}
+              </button>
+            )}
+            {tipo === 'pago_final' && saldoPendiente > 0 && monto !== saldoPendiente && (
+              <button
+                type="button"
+                onClick={() => setMonto(saldoPendiente)}
+                className="mt-2 text-sm text-green-600 hover:text-green-700"
+              >
+                Usar saldo completo: {formatearMonto(saldoPendiente)}
+              </button>
             )}
           </div>
 
           {/* Método de pago */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Método de pago
+              ¿Cómo pagó?
             </label>
-            {loadingMetodos ? (
-              <div className="text-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin inline text-gray-400" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {metodos.map(metodo => (
+            <div className="grid grid-cols-2 gap-2">
+              {METODOS_PAGO.map(metodo => {
+                const Icono = metodo.icono
+                const seleccionado = metodoPago === metodo.id
+                return (
                   <button
                     key={metodo.id}
                     type="button"
-                    onClick={() => setForm(f => ({ ...f, metodo_pago_id: metodo.id }))}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      form.metodo_pago_id === metodo.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                    onClick={() => setMetodoPago(metodo.id)}
+                    className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                      seleccionado
+                        ? metodo.color + ' border-current'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-gray-500" />
-                      <span className="font-medium text-sm">{metodo.nombre}</span>
-                    </div>
+                    <Icono className="w-5 h-5" />
+                    <span className="text-sm font-medium">{metodo.nombre}</span>
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Fecha */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha del pago
-            </label>
-            <input
-              type="date"
-              value={form.fecha_pago}
-              onChange={(e) => setForm(f => ({ ...f, fecha_pago: e.target.value }))}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* Registrar en caja */}
-          <label className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.registrarEnCaja}
-              onChange={(e) => setForm(f => ({ ...f, registrarEnCaja: e.target.checked }))}
-              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <div>
-              <p className="font-medium text-gray-900">Registrar en Caja Diaria</p>
-              <p className="text-xs text-gray-500">El pago aparecerá como movimiento en tu caja</p>
+                )
+              })}
             </div>
-          </label>
-
-          {/* Notas */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notas (opcional)
-            </label>
-            <input
-              type="text"
-              value={form.notas}
-              onChange={(e) => setForm(f => ({ ...f, notas: e.target.value }))}
-              placeholder="Observaciones del pago..."
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
           </div>
 
           {/* Botones */}
@@ -241,29 +191,26 @@ export default function ModalPago({
               type="button"
               onClick={onClose}
               disabled={guardando}
-              className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+              className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={guardando || !form.monto || !form.metodo_pago_id}
-              className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+              disabled={guardando || !monto || monto <= 0}
+              className={`flex-1 px-4 py-3 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
                 tipo === 'devolucion'
                   ? 'bg-red-600 hover:bg-red-700'
                   : tipo === 'sena'
-                    ? 'bg-amber-600 hover:bg-amber-700'
+                    ? 'bg-amber-500 hover:bg-amber-600'
                     : 'bg-green-600 hover:bg-green-700'
               } disabled:opacity-50`}
             >
               {guardando ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
-                </>
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  <Check className="w-4 h-4" />
+                  <Check className="w-5 h-5" />
                   {tipo === 'sena' ? 'Cobrar seña' : tipo === 'devolucion' ? 'Devolver' : 'Cobrar'}
                 </>
               )}

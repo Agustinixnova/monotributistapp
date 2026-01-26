@@ -43,16 +43,24 @@ export function usePagosTurno(turnoId, turno = null) {
   const [error, setError] = useState(null)
 
   const fetchPagos = useCallback(async () => {
-    if (!turnoId) return
+    if (!turnoId) {
+      console.log('[usePagosTurno] No turnoId provided')
+      return
+    }
 
+    console.log('[usePagosTurno] Fetching pagos for turno:', turnoId)
     setLoading(true)
     setError(null)
 
     const { data, error: fetchError } = await getPagosTurno(turnoId)
 
+    console.log('[usePagosTurno] Result:', { data, error: fetchError })
+
     if (fetchError) {
+      console.error('[usePagosTurno] Error:', fetchError)
       setError(fetchError.message)
     } else {
+      console.log('[usePagosTurno] Pagos loaded:', data?.length || 0, 'registros')
       setPagos(data || [])
     }
 
@@ -65,6 +73,17 @@ export function usePagosTurno(turnoId, turno = null) {
 
   // Calcular resumen
   const resumen = turno ? calcularResumenPagos(turno, pagos) : null
+
+  // Debug: mostrar cálculo del resumen
+  if (turno && resumen) {
+    console.log('[usePagosTurno] Resumen calculado:', {
+      precioTotal: resumen.precioTotal,
+      totalPagado: resumen.totalPagado,
+      totalSenas: resumen.totalSenas,
+      saldoPendiente: resumen.saldoPendiente,
+      pagosCount: pagos.length
+    })
+  }
 
   // Registrar nuevo pago
   const agregarPago = async (pagoData) => {

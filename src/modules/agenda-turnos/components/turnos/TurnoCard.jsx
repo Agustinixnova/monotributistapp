@@ -49,17 +49,50 @@ export default function TurnoCard({
   const acciones = accionesRapidas[turno.estado] || []
 
   if (compacto) {
-    // Versión compacta para vista semanal
+    // Versión compacta para vista semanal - máximo 2 líneas
+    const esCancelado = turno.estado === 'cancelado' || turno.estado === 'no_asistio'
+    const esCompletado = turno.estado === 'completado'
+    const primerNombreCliente = turno.cliente?.nombre?.split(' ')[0] || 'Cliente'
+    const primerServicio = turno.servicios?.[0]?.servicio?.nombre || ''
+    // Acortar servicio si es muy largo
+    const servicioCorto = primerServicio.length > 12 ? primerServicio.slice(0, 10) + '..' : primerServicio
+
     return (
       <div
         onClick={() => onClick?.(turno)}
-        className={`px-2 py-1 rounded text-xs cursor-pointer transition-all hover:shadow-md ${colorClasses.bgLight} border-l-4`}
-        style={{ borderLeftColor: colorServicio }}
+        className={`h-full rounded text-[11px] cursor-pointer transition-all hover:shadow-md overflow-hidden ${
+          esCancelado ? 'opacity-50' : ''
+        } ${esCompletado ? 'opacity-70' : ''}`}
+        style={{
+          backgroundColor: `${colorServicio}20`,
+          borderLeft: `3px solid ${colorServicio}`
+        }}
       >
-        <div className="font-medium truncate" style={{ color: colorServicio }}>
-          {formatearHora(turno.hora_inicio)} - {clienteNombre}
+        <div className="px-1.5 py-0.5 h-full flex flex-col justify-center overflow-hidden">
+          {/* Línea 1: Hora + Cliente */}
+          <div className="flex items-center gap-1 truncate">
+            <span className="font-bold text-gray-800 flex-shrink-0">
+              {formatearHora(turno.hora_inicio)}
+            </span>
+            <span className="font-medium text-gray-700 truncate">
+              {primerNombreCliente}
+            </span>
+            {(esCancelado || esCompletado) && (
+              <span className={`text-[9px] px-1 rounded flex-shrink-0 ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
+                {turno.estado === 'cancelado' ? 'X' : turno.estado === 'no_asistio' ? '!' : '✓'}
+              </span>
+            )}
+          </div>
+          {/* Línea 2: Servicio (solo si hay espacio) */}
+          {servicioCorto && (
+            <p
+              className="text-[10px] truncate leading-tight opacity-80"
+              style={{ color: colorServicio }}
+            >
+              {servicioCorto}
+            </p>
+          )}
         </div>
-        <div className="text-gray-500 truncate">{serviciosNombres}</div>
       </div>
     )
   }

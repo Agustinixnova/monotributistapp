@@ -1,15 +1,26 @@
 /**
  * Modal para crear/editar turnos
+ * Con soporte para precios editables y seña opcional
  */
 
 import { useState, useEffect } from 'react'
-import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat } from 'lucide-react'
-import { formatearMonto, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
+import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet } from 'lucide-react'
+import { formatearMonto, formatearHora, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
 import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
 import { TIPOS_RECURRENCIA, generarFechasRecurrentes } from '../../utils/recurrenciaUtils'
 import useServicios from '../../hooks/useServicios'
 import useClientes from '../../hooks/useClientes'
 import ModalCliente from '../clientes/ModalCliente'
+import { getSenaDisponibleCliente } from '../../services/pagosService'
+
+// Métodos de pago para seña (simplificado, no usa caja_metodos_pago)
+const METODOS_PAGO_SENA = [
+  { id: 'efectivo', nombre: 'Efectivo', icono: Banknote, color: 'bg-green-100 text-green-700' },
+  { id: 'transferencia', nombre: 'Transferencia', icono: CreditCard, color: 'bg-blue-100 text-blue-700' },
+  { id: 'mercadopago', nombre: 'MercadoPago', icono: Smartphone, color: 'bg-sky-100 text-sky-700' },
+  { id: 'qr', nombre: 'QR', icono: QrCode, color: 'bg-purple-100 text-purple-700' },
+  { id: 'otro', nombre: 'Otro', icono: Wallet, color: 'bg-gray-100 text-gray-700' }
+]
 
 export default function ModalTurno({
   isOpen,
@@ -18,9 +29,10 @@ export default function ModalTurno({
   turno = null, // null = crear nuevo
   fechaInicial = null,
   horaInicial = null,
-  servicios: serviciosProp = null, // Pasar servicios externos o cargar internamente
+  servicios: serviciosProp = null,
   clientes: clientesProp = null,
-  onNuevoCliente = null // Callback para crear cliente desde padre
+  onNuevoCliente = null,
+  turnosExistentes = [] // Turnos del día para verificar superposiciones
 }) {
   // Usar props si están disponibles, sino cargar internamente
   const { servicios: serviciosInterno, loading: loadingServiciosInterno } = useServicios()
@@ -46,11 +58,30 @@ export default function ModalTurno({
     estado: 'pendiente'
   })
 
+  // Estado de seña
+  const [sena, setSena] = useState({
+    pedir: false,
+    cobrada: false,
+    monto: 0,
+    metodo_pago: null
+  })
+
+  // Seña disponible de turno cancelado
+  const [senaDisponible, setSenaDisponible] = useState(null)
+  const [usarSenaExistente, setUsarSenaExistente] = useState(true)
+
   // Configuración de recurrencia (solo para nuevos turnos)
   const [esRecurrente, setEsRecurrente] = useState(false)
   const [recurrencia, setRecurrencia] = useState({
     tipo: 'semanal',
     cantidad: 4
+  })
+
+  // Modal de alerta de superposición
+  const [alertaSuperposicion, setAlertaSuperposicion] = useState({
+    mostrar: false,
+    turnosSuperpuestos: [],
+    datosParaGuardar: null
   })
 
   // Reset form cuando se abre/cierra o cambia el turno
@@ -72,6 +103,8 @@ export default function ModalTurno({
           notas: turno.notas || '',
           estado: turno.estado || 'pendiente'
         })
+        // Reset seña al editar
+        setSena({ pedir: false, cobrada: false, monto: 0, metodo_pago: null })
       } else {
         // Nuevo turno
         setForm({
@@ -83,9 +116,11 @@ export default function ModalTurno({
           notas: '',
           estado: 'pendiente'
         })
-        // Reset recurrencia
+        setSena({ pedir: false, cobrada: false, monto: 0, metodo_pago: null })
         setEsRecurrente(false)
         setRecurrencia({ tipo: 'semanal', cantidad: 4 })
+        setSenaDisponible(null)
+        setUsarSenaExistente(true)
       }
       setError(null)
       setBusquedaCliente('')
@@ -103,7 +138,6 @@ export default function ModalTurno({
 
       setBuscandoClientes(true)
       try {
-        // Si tenemos clientes del padre, filtrar localmente
         if (clientesProp) {
           const filtrados = clientesProp.filter(c => {
             const nombre = `${c.nombre} ${c.apellido || ''}`.toLowerCase()
@@ -111,7 +145,6 @@ export default function ModalTurno({
           }).slice(0, 6)
           setClientesBuscados(filtrados)
         } else {
-          // Buscar en el servidor
           const resultados = await buscarClientes(busquedaCliente)
           setClientesBuscados(resultados)
         }
@@ -130,16 +163,46 @@ export default function ModalTurno({
   const horaFin = sumarMinutosAHora(form.hora_inicio, duracionTotal)
   const precioTotal = form.servicios_seleccionados.reduce((sum, s) => sum + (s.precio || 0), 0)
 
+  // Calcular seña sugerida basada en servicios seleccionados
+  const senaSugerida = form.servicios_seleccionados.reduce((sum, s) => {
+    const servicio = s.servicio
+    if (servicio?.requiere_sena && servicio?.porcentaje_sena > 0) {
+      return sum + Math.round((s.precio * servicio.porcentaje_sena) / 100)
+    }
+    return sum
+  }, 0)
+
+  // Verificar si algún servicio sugiere seña
+  const algunServicioRequiereSena = form.servicios_seleccionados.some(
+    s => s.servicio?.requiere_sena
+  )
+
+  // Actualizar monto de seña cuando cambian los servicios
+  useEffect(() => {
+    if (senaSugerida > 0 && !sena.pedir) {
+      setSena(prev => ({ ...prev, monto: senaSugerida }))
+    }
+  }, [senaSugerida])
+
   // Seleccionar cliente
-  const handleSelectCliente = (cliente) => {
+  const handleSelectCliente = async (cliente) => {
     setForm(f => ({ ...f, cliente_id: cliente.id, cliente }))
     setBusquedaCliente('')
     setClientesBuscados([])
+
+    // Verificar si el cliente tiene seña disponible de turno cancelado (solo para nuevos turnos)
+    if (!turno && cliente.id) {
+      const { data: sena } = await getSenaDisponibleCliente(cliente.id)
+      setSenaDisponible(sena)
+      setUsarSenaExistente(!!sena)
+    }
   }
 
   // Quitar cliente
   const handleQuitarCliente = () => {
     setForm(f => ({ ...f, cliente_id: null, cliente: null }))
+    setSenaDisponible(null)
+    setUsarSenaExistente(true)
   }
 
   // Toggle servicio
@@ -165,15 +228,57 @@ export default function ModalTurno({
     })
   }
 
+  // Actualizar precio de un servicio seleccionado
+  const handlePrecioChange = (servicioId, nuevoPrecio) => {
+    setForm(f => ({
+      ...f,
+      servicios_seleccionados: f.servicios_seleccionados.map(s =>
+        s.servicio_id === servicioId
+          ? { ...s, precio: parseFloat(nuevoPrecio) || 0 }
+          : s
+      )
+    }))
+  }
+
   // Crear nuevo cliente desde el modal
   const handleNuevoCliente = async (clienteData) => {
-    // El cliente se creará y seleccionará
     setForm(f => ({
       ...f,
       cliente_id: clienteData.id,
       cliente: clienteData
     }))
     setMostrarNuevoCliente(false)
+  }
+
+  // Verificar superposición de turnos
+  const verificarSuperposicion = (horaInicioNuevo, horaFinNuevo, fechaNueva) => {
+    // Convertir hora a minutos para comparar
+    const horaAMinutos = (hora) => {
+      const [h, m] = hora.split(':').map(Number)
+      return h * 60 + m
+    }
+
+    const inicioNuevo = horaAMinutos(horaInicioNuevo)
+    const finNuevo = horaAMinutos(horaFinNuevo)
+
+    // Filtrar turnos del mismo día y que no sean el turno que estamos editando
+    const turnosDelDia = turnosExistentes.filter(t => {
+      if (turno && t.id === turno.id) return false // Excluir el turno actual si estamos editando
+      if (t.fecha !== fechaNueva) return false // Solo turnos del mismo día
+      if (t.estado === 'cancelado' || t.estado === 'no_asistio') return false // Excluir cancelados
+      return true
+    })
+
+    // Buscar superposiciones
+    const superpuestos = turnosDelDia.filter(t => {
+      const inicioExistente = horaAMinutos(t.hora_inicio)
+      const finExistente = horaAMinutos(t.hora_fin)
+      // Hay superposición si el nuevo turno empieza antes de que termine el existente
+      // Y termina después de que empiece el existente
+      return inicioNuevo < finExistente && finNuevo > inicioExistente
+    })
+
+    return superpuestos
   }
 
   const handleSubmit = async (e) => {
@@ -184,40 +289,90 @@ export default function ModalTurno({
       return
     }
 
+    if (sena.pedir && sena.cobrada && !sena.metodo_pago) {
+      setError('Seleccioná el método de pago de la seña')
+      return
+    }
+
+    // Preparar datos del turno
+    const turnoData = {
+      fecha: form.fecha,
+      hora_inicio: form.hora_inicio + ':00',
+      hora_fin: horaFin + ':00',
+      cliente_id: form.cliente_id,
+      servicios: form.servicios_seleccionados.map(s => ({
+        servicio_id: s.servicio_id,
+        precio: s.precio,
+        duracion: s.duracion
+      })),
+      notas: form.notas || null,
+      estado: form.estado,
+      precio_total: precioTotal,
+      // Si hay seña disponible de turno cancelado y el usuario quiere usarla
+      transferirSenaDe: (senaDisponible && usarSenaExistente) ? senaDisponible.turnoId : null
+    }
+
+    // Agregar datos de seña si se cobró
+    if (sena.pedir && sena.cobrada && sena.monto > 0) {
+      turnoData.sena = {
+        monto: sena.monto,
+        metodo_pago: sena.metodo_pago,
+        fecha_pago: form.fecha
+      }
+    }
+
+    // Agregar datos de recurrencia si aplica
+    if (esRecurrente && !turno) {
+      turnoData.es_recurrente = true
+      turnoData.recurrencia = {
+        tipo: recurrencia.tipo,
+        cantidad: recurrencia.cantidad
+      }
+    }
+
+    // Verificar superposiciones
+    const superpuestos = verificarSuperposicion(form.hora_inicio, horaFin, form.fecha)
+
+    if (superpuestos.length > 0) {
+      // Mostrar alerta de superposición
+      setAlertaSuperposicion({
+        mostrar: true,
+        turnosSuperpuestos: superpuestos,
+        datosParaGuardar: turnoData
+      })
+      return
+    }
+
+    // Si no hay superposición, guardar directamente
+    await guardarTurno(turnoData)
+  }
+
+  // Función para guardar el turno (llamada después de verificar superposición)
+  const guardarTurno = async (turnoData) => {
     setLoading(true)
     setError(null)
 
     try {
-      const turnoData = {
-        fecha: form.fecha,
-        hora_inicio: form.hora_inicio + ':00', // Agregar segundos
-        hora_fin: horaFin + ':00',
-        cliente_id: form.cliente_id,
-        servicios: form.servicios_seleccionados.map(s => ({
-          servicio_id: s.servicio_id,
-          precio: s.precio,
-          duracion: s.duracion
-        })),
-        notas: form.notas || null,
-        estado: form.estado
-      }
-
-      // Agregar datos de recurrencia si aplica
-      if (esRecurrente && !turno) {
-        turnoData.es_recurrente = true
-        turnoData.recurrencia = {
-          tipo: recurrencia.tipo,
-          cantidad: recurrencia.cantidad
-        }
-      }
-
       await onGuardar(turnoData)
+      setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
       onClose()
     } catch (err) {
       setError(err.message || 'Error al guardar turno')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Confirmar guardar a pesar de superposición
+  const handleConfirmarSuperposicion = () => {
+    if (alertaSuperposicion.datosParaGuardar) {
+      guardarTurno(alertaSuperposicion.datosParaGuardar)
+    }
+  }
+
+  // Cancelar y cerrar alerta de superposición
+  const handleCancelarSuperposicion = () => {
+    setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
   }
 
   // Horarios disponibles para el día
@@ -298,7 +453,6 @@ export default function ModalTurno({
                 </label>
 
                 {form.cliente ? (
-                  // Cliente seleccionado
                   <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-medium">
@@ -321,7 +475,6 @@ export default function ModalTurno({
                     </button>
                   </div>
                 ) : (
-                  // Buscador de cliente
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -332,7 +485,6 @@ export default function ModalTurno({
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
 
-                    {/* Resultados de búsqueda */}
                     {(busquedaCliente.length >= 2 || clientesBuscados.length > 0) && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
                         {buscandoClientes ? (
@@ -366,7 +518,6 @@ export default function ModalTurno({
                           </div>
                         ) : null}
 
-                        {/* Botón crear nuevo */}
                         <button
                           onClick={() => {
                             if (onNuevoCliente) {
@@ -384,9 +535,37 @@ export default function ModalTurno({
                     )}
                   </div>
                 )}
+
+                {/* Banner de seña disponible de turno cancelado */}
+                {!turno && senaDisponible && (
+                  <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <Wallet className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-emerald-800">
+                          Seña disponible: {formatearMonto(senaDisponible.montoSena)}
+                        </p>
+                        <p className="text-xs text-emerald-600 mt-0.5">
+                          De turno cancelado ({senaDisponible.servicioNombre})
+                        </p>
+                        <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={usarSenaExistente}
+                            onChange={(e) => setUsarSenaExistente(e.target.checked)}
+                            className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="text-sm text-emerald-700">Usar esta seña para el nuevo turno</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Servicios */}
+              {/* Servicios con precio editable */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Scissors className="w-4 h-4 inline mr-1" />
@@ -406,34 +585,188 @@ export default function ModalTurno({
                     {servicios.map(servicio => {
                       const seleccionado = form.servicios_seleccionados.find(s => s.servicio_id === servicio.id)
                       return (
-                        <button
+                        <div
                           key={servicio.id}
-                          onClick={() => handleToggleServicio(servicio)}
-                          className={`w-full p-3 rounded-lg border-2 transition-all text-left flex items-center gap-3 ${
+                          className={`p-3 rounded-lg border-2 transition-all ${
                             seleccionado
                               ? 'border-blue-500 bg-blue-50'
                               : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
-                          <div
-                            className="w-3 h-10 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: servicio.color }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900">{servicio.nombre}</p>
-                            <p className="text-xs text-gray-500">
-                              {formatDuracion(servicio.duracion_minutos)} • {formatearMonto(servicio.precio)}
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleServicio(servicio)}
+                              className="flex items-center gap-3 flex-1 text-left"
+                            >
+                              <div
+                                className="w-3 h-10 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: servicio.color }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-medium text-gray-900">{servicio.nombre}</p>
+                                  {servicio.precio_variable && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded">
+                                      Variable
+                                    </span>
+                                  )}
+                                  {servicio.requiere_sena && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
+                                      Seña {servicio.porcentaje_sena}%
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                  {formatDuracion(servicio.duracion_minutos)}
+                                </p>
+                              </div>
+                              {seleccionado && (
+                                <Check className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                              )}
+                            </button>
+
+                            {/* Precio editable cuando está seleccionado */}
+                            {seleccionado ? (
+                              <div className="flex flex-col items-end gap-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-400 text-sm">$</span>
+                                  <input
+                                    type="number"
+                                    value={seleccionado.precio}
+                                    onChange={(e) => handlePrecioChange(servicio.id, e.target.value)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-20 px-2 py-1 text-right font-semibold text-gray-900 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    min={0}
+                                    step={100}
+                                  />
+                                </div>
+                                {servicio.precio_variable && (
+                                  <span className="text-[10px] text-violet-600">Ajustá según extras</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm font-medium text-gray-600">
+                                {servicio.precio_variable ? 'desde ' : ''}{formatearMonto(servicio.precio)}
+                              </span>
+                            )}
                           </div>
-                          {seleccionado && (
-                            <Check className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                          )}
-                        </button>
+                        </div>
                       )
                     })}
                   </div>
                 )}
               </div>
+
+              {/* Sección de Seña (solo si hay servicios seleccionados) */}
+              {form.servicios_seleccionados.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sena.pedir}
+                        onChange={(e) => setSena(prev => ({
+                          ...prev,
+                          pedir: e.target.checked,
+                          monto: e.target.checked ? (prev.monto || senaSugerida) : 0
+                        }))}
+                        className="w-5 h-5 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                      />
+                      <span className="font-medium text-amber-800">Pedir seña</span>
+                    </label>
+
+                    {algunServicioRequiereSena && !sena.pedir && (
+                      <span className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Sugerido: {formatearMonto(senaSugerida)}
+                      </span>
+                    )}
+                  </div>
+
+                  {sena.pedir && (
+                    <>
+                      {/* Monto de seña editable */}
+                      <div>
+                        <label className="block text-xs font-medium text-amber-700 mb-1">
+                          Monto de seña
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600">$</span>
+                            <input
+                              type="number"
+                              value={sena.monto}
+                              onChange={(e) => setSena(prev => ({ ...prev, monto: parseFloat(e.target.value) || 0 }))}
+                              className="w-full pl-8 pr-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                              min={0}
+                              step={100}
+                            />
+                          </div>
+                          {senaSugerida > 0 && sena.monto !== senaSugerida && (
+                            <button
+                              type="button"
+                              onClick={() => setSena(prev => ({ ...prev, monto: senaSugerida }))}
+                              className="text-xs text-amber-600 hover:text-amber-700 underline whitespace-nowrap"
+                            >
+                              Usar sugerido ({formatearMonto(senaSugerida)})
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ¿Ya se cobró? */}
+                      <div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={sena.cobrada}
+                            onChange={(e) => setSena(prev => ({
+                              ...prev,
+                              cobrada: e.target.checked,
+                              metodo_pago: e.target.checked ? prev.metodo_pago : null
+                            }))}
+                            className="w-5 h-5 text-emerald-600 border-amber-300 rounded focus:ring-emerald-500"
+                          />
+                          <span className="text-sm text-amber-800">Ya se cobró la seña</span>
+                        </label>
+                      </div>
+
+                      {/* Método de pago (si se cobró) */}
+                      {sena.cobrada && (
+                        <div>
+                          <label className="block text-xs font-medium text-amber-700 mb-2">
+                            ¿Cómo pagó?
+                          </label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {METODOS_PAGO_SENA.map(metodo => (
+                              <button
+                                key={metodo.id}
+                                type="button"
+                                onClick={() => setSena(prev => ({ ...prev, metodo_pago: metodo.id }))}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all ${
+                                  sena.metodo_pago === metodo.id
+                                    ? 'border-emerald-500 bg-emerald-50'
+                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                }`}
+                              >
+                                <metodo.icono className={`w-5 h-5 ${
+                                  sena.metodo_pago === metodo.id ? 'text-emerald-600' : 'text-gray-500'
+                                }`} />
+                                <span className={`text-xs font-medium ${
+                                  sena.metodo_pago === metodo.id ? 'text-emerald-700' : 'text-gray-600'
+                                }`}>
+                                  {metodo.nombre}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Notas */}
               <div>
@@ -500,7 +833,6 @@ export default function ModalTurno({
                         </div>
                       </div>
 
-                      {/* Preview de fechas */}
                       <div className="text-xs text-purple-700">
                         <p className="font-medium mb-1">Fechas:</p>
                         <div className="flex flex-wrap gap-1">
@@ -535,13 +867,13 @@ export default function ModalTurno({
                     {Object.entries(ESTADOS_TURNO).map(([key, config]) => (
                       <button
                         key={key}
+                        type="button"
                         onClick={() => setForm(f => ({ ...f, estado: key }))}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                           form.estado === key
                             ? `${config.bgClass} ${config.textClass} ring-2 ring-offset-1`
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
-                        style={form.estado === key ? { ringColor: config.borderClass?.replace('border-', '') } : {}}
                       >
                         {config.label}
                       </button>
@@ -565,12 +897,41 @@ export default function ModalTurno({
                       {form.hora_inicio} - {horaFin}
                     </span>
                   </div>
+                  {sena.pedir && sena.monto > 0 && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-blue-700">
+                        Seña {sena.cobrada ? '(cobrada)' : '(pendiente)'}
+                      </span>
+                      <span className={`font-medium ${sena.cobrada ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {formatearMonto(sena.monto)}
+                      </span>
+                    </div>
+                  )}
+                  {senaDisponible && usarSenaExistente && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-emerald-700 flex items-center gap-1">
+                        <Wallet className="w-3.5 h-3.5" />
+                        Seña a transferir
+                      </span>
+                      <span className="font-medium text-emerald-600">
+                        {formatearMonto(senaDisponible.montoSena)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center pt-2 border-t border-blue-200">
                     <span className="font-medium text-blue-700">Total</span>
                     <span className="text-xl font-bold text-blue-800">
                       {formatearMonto(precioTotal)}
                     </span>
                   </div>
+                  {((sena.pedir && sena.cobrada && sena.monto > 0) || (senaDisponible && usarSenaExistente)) && (
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-sm text-gray-500">Restante a cobrar</span>
+                      <span className="font-medium text-gray-700">
+                        {formatearMonto(precioTotal - (sena.cobrada ? sena.monto : 0) - (senaDisponible && usarSenaExistente ? senaDisponible.montoSena : 0))}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -604,13 +965,109 @@ export default function ModalTurno({
         </div>
       </div>
 
-      {/* Modal nuevo cliente (solo si no hay callback externo) */}
+      {/* Modal nuevo cliente */}
       {!onNuevoCliente && (
         <ModalCliente
           isOpen={mostrarNuevoCliente}
           onClose={() => setMostrarNuevoCliente(false)}
           onGuardar={handleNuevoCliente}
         />
+      )}
+
+      {/* Modal alerta de superposición */}
+      {alertaSuperposicion.mostrar && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCancelarSuperposicion} />
+
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+              {/* Header con icono de alerta */}
+              <div className="bg-amber-50 px-5 py-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-semibold text-lg text-gray-900">
+                    Turno Superpuesto
+                  </h3>
+                  <p className="text-sm text-amber-700">
+                    Ya existe {alertaSuperposicion.turnosSuperpuestos.length === 1 ? 'un turno' : 'turnos'} en este horario
+                  </p>
+                </div>
+              </div>
+
+              {/* Lista de turnos superpuestos */}
+              <div className="p-5">
+                <p className="text-sm text-gray-600 mb-3">
+                  El turno que querés crear se superpone con:
+                </p>
+
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {alertaSuperposicion.turnosSuperpuestos.map((t) => {
+                    const clienteNombre = t.cliente
+                      ? `${t.cliente.nombre} ${t.cliente.apellido || ''}`.trim()
+                      : 'Sin cliente'
+                    const servicio = t.servicios?.[0]?.servicio?.nombre || 'Sin servicio'
+                    const colorServicio = t.servicios?.[0]?.servicio?.color || '#6B7280'
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                      >
+                        <div
+                          className="w-1 h-10 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: colorServicio }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <Clock className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="font-semibold text-gray-800 text-sm">
+                              {formatearHora(t.hora_inicio)} - {formatearHora(t.hora_fin)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 truncate">
+                            {clienteNombre} • {servicio}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <p className="text-sm text-gray-500 mt-4">
+                  ¿Querés agendar el turno de todas formas?
+                </p>
+              </div>
+
+              {/* Footer con botones */}
+              <div className="border-t border-gray-200 px-5 py-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelarSuperposicion}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarSuperposicion}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Agendar igual'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
