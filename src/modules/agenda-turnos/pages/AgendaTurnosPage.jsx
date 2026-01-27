@@ -275,43 +275,46 @@ export default function AgendaTurnosPage() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
         {/* Header */}
         <div className="bg-white border-b sticky top-0 z-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center justify-between h-16">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6">
+            {/* Título y tabs - en mobile vertical, en desktop horizontal */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 py-3 sm:py-0 sm:h-16">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-white" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="font-heading font-bold text-xl text-gray-900">Agenda & Turnos</h1>
-                  <p className="text-xs text-gray-500">Gestión de citas y servicios</p>
+                  <h1 className="font-heading font-bold text-lg sm:text-xl text-gray-900">Agenda & Turnos</h1>
+                  <p className="text-xs text-gray-500 hidden sm:block">Gestión de citas y servicios</p>
                 </div>
               </div>
 
-              {/* Tabs principales */}
-              <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-                {Object.values(TABS).map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setTabActiva(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      tabActiva === tab.id
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <tab.icon className="w-4 h-4" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </button>
-                ))}
+              {/* Tabs principales - scrollable en mobile */}
+              <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-hide">
+                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg w-max sm:w-auto">
+                  {Object.values(TABS).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setTabActiva(tab.id)}
+                      className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        tabActiva === tab.id
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <tab.icon className="w-4 h-4" />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Subtabs de vistas de calendario */}
             {tabActiva === 'calendario' && (
-              <div className="flex items-center justify-between pb-3 -mt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 -mt-1">
                 <div className="flex items-center gap-2">
                   {Object.values(VISTAS_CALENDARIO).map(vista => (
                     <button

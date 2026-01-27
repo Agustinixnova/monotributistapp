@@ -6,10 +6,12 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet } from 'lucide-react'
-import { formatFechaCorta, sumarMinutosAHora } from '../../utils/dateUtils'
+import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet, Plus } from 'lucide-react'
+import { formatFechaCorta, sumarMinutosAHora, getFechaHoyArgentina } from '../../utils/dateUtils'
 import { formatearMonto, formatearHora } from '../../utils/formatters'
 import { getSenaDisponibleCliente } from '../../services/pagosService'
+import { createCliente } from '../../services/clientesService'
+import ModalCliente from '../clientes/ModalCliente'
 
 const PASOS = {
   CLIENTE: 1,
@@ -34,6 +36,7 @@ export default function ModalTurnoRapido({
   const [horaInicio, setHoraInicio] = useState(hora || '09:00')
   const [guardando, setGuardando] = useState(false)
   const [nombreNuevoCliente, setNombreNuevoCliente] = useState('')
+  const [mostrarModalCliente, setMostrarModalCliente] = useState(false)
 
   // Seña disponible de turno cancelado
   const [senaDisponible, setSenaDisponible] = useState(null)
@@ -57,6 +60,7 @@ export default function ModalTurnoRapido({
       setServicioSeleccionado(null)
       setHoraInicio(hora || '09:00')
       setNombreNuevoCliente('')
+      setMostrarModalCliente(false)
       setSenaDisponible(null)
       setUsarSenaExistente(true)
       setTimeout(() => inputRef.current?.focus(), 100)
@@ -73,6 +77,25 @@ export default function ModalTurnoRapido({
   const horaFin = servicioSeleccionado
     ? sumarMinutosAHora(horaInicio, servicioSeleccionado.duracion_minutos)
     : null
+
+  // Calcular hora mínima si la fecha es hoy
+  const horaMinima = (() => {
+    const hoy = getFechaHoyArgentina()
+    if (fecha !== hoy) return '08:00'
+
+    const ahora = new Date()
+    // Convertir a hora Argentina (UTC-3)
+    const horaArgentina = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000) + (-3 * 3600000))
+    const h = horaArgentina.getHours()
+    const m = horaArgentina.getMinutes()
+    // Redondear al próximo slot de 30 min
+    const minRedondeado = m < 30 ? 30 : 0
+    const horaRedondeada = m < 30 ? h : h + 1
+    return `${String(horaRedondeada).padStart(2, '0')}:${String(minRedondeado).padStart(2, '0')}`
+  })()
+
+  // Verificar si la hora seleccionada es válida
+  const horaEsValida = horaInicio >= horaMinima
 
   const handleSeleccionarCliente = async (cliente) => {
     setClienteSeleccionado(cliente)
@@ -97,6 +120,25 @@ export default function ModalTurnoRapido({
       esNuevo: true
     })
     setPaso(PASOS.SERVICIO)
+  }
+
+  // Handler para cuando se crea un cliente desde el modal
+  const handleNuevoClienteCreado = async (clienteData) => {
+    try {
+      // Guardar el cliente en la base de datos
+      const { data: clienteGuardado, error } = await createCliente(clienteData)
+
+      if (error) {
+        console.error('Error guardando cliente:', error)
+        return
+      }
+
+      setMostrarModalCliente(false)
+      // Seleccionar el cliente recién creado (con su ID real) y pasar al siguiente paso
+      await handleSeleccionarCliente(clienteGuardado)
+    } catch (err) {
+      console.error('Error creando cliente:', err)
+    }
   }
 
   const handleSeleccionarServicio = (servicio) => {
@@ -270,10 +312,20 @@ export default function ModalTurnoRapido({
           {paso === PASOS.CLIENTE && (
             <div className="space-y-4">
               <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                  <User className="w-4 h-4" />
-                  ¿Quién viene?
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <User className="w-4 h-4" />
+                    ¿Quién viene?
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarModalCliente(true)}
+                    className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 font-medium"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nuevo cliente
+                  </button>
+                </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -503,10 +555,19 @@ export default function ModalTurnoRapido({
                 <input
                   type="time"
                   value={horaInicio}
+                  min={horaMinima}
                   onChange={(e) => setHoraInicio(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-lg font-medium"
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-lg font-medium ${
+                    !horaEsValida ? 'border-red-300 bg-red-50' : ''
+                  }`}
                 />
-                {horaFin && (
+                {!horaEsValida && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    La hora debe ser posterior a {horaMinima}
+                  </p>
+                )}
+                {horaFin && horaEsValida && (
                   <p className="mt-2 text-sm text-gray-500">
                     Termina a las {formatearHora(horaFin)}
                   </p>
@@ -521,8 +582,8 @@ export default function ModalTurnoRapido({
           <div className="p-4 border-t bg-gray-50">
             <button
               onClick={handleGuardar}
-              disabled={guardando}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white rounded-xl font-medium transition-colors"
+              disabled={guardando || !horaEsValida}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
             >
               {guardando ? (
                 <>
@@ -626,6 +687,13 @@ export default function ModalTurnoRapido({
           </div>
         )}
       </div>
+
+      {/* Modal para crear nuevo cliente */}
+      <ModalCliente
+        isOpen={mostrarModalCliente}
+        onClose={() => setMostrarModalCliente(false)}
+        onGuardar={handleNuevoClienteCreado}
+      />
     </div>
   )
 }

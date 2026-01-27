@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet } from 'lucide-react'
+import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle } from 'lucide-react'
 import { formatearMonto, formatearHora, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
 import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
 import { TIPOS_RECURRENCIA, generarFechasRecurrentes } from '../../utils/recurrenciaUtils'
@@ -12,6 +12,7 @@ import useServicios from '../../hooks/useServicios'
 import useClientes from '../../hooks/useClientes'
 import ModalCliente from '../clientes/ModalCliente'
 import { getSenaDisponibleCliente } from '../../services/pagosService'
+import { createCliente } from '../../services/clientesService'
 
 // Métodos de pago para seña (simplificado, no usa caja_metodos_pago)
 const METODOS_PAGO_SENA = [
@@ -42,6 +43,7 @@ export default function ModalTurno({
   const loadingServicios = serviciosProp ? false : loadingServiciosInterno
 
   const [loading, setLoading] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
   const [error, setError] = useState(null)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clientesBuscados, setClientesBuscados] = useState([])
@@ -242,12 +244,26 @@ export default function ModalTurno({
 
   // Crear nuevo cliente desde el modal
   const handleNuevoCliente = async (clienteData) => {
-    setForm(f => ({
-      ...f,
-      cliente_id: clienteData.id,
-      cliente: clienteData
-    }))
-    setMostrarNuevoCliente(false)
+    try {
+      // Guardar el cliente en la base de datos
+      const { data: clienteGuardado, error } = await createCliente(clienteData)
+
+      if (error) {
+        console.error('Error guardando cliente:', error)
+        setError('Error al crear el cliente')
+        return
+      }
+
+      setForm(f => ({
+        ...f,
+        cliente_id: clienteGuardado.id,
+        cliente: clienteGuardado
+      }))
+      setMostrarNuevoCliente(false)
+    } catch (err) {
+      console.error('Error creando cliente:', err)
+      setError('Error al crear el cliente')
+    }
   }
 
   // Verificar superposición de turnos
@@ -292,6 +308,21 @@ export default function ModalTurno({
     if (sena.pedir && sena.cobrada && !sena.metodo_pago) {
       setError('Seleccioná el método de pago de la seña')
       return
+    }
+
+    // Validar que la hora no sea pasada si es hoy
+    const hoy = getFechaHoyArgentina()
+    if (form.fecha === hoy) {
+      const ahora = new Date()
+      const horaArgentina = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000) + (-3 * 3600000))
+      const horaActual = horaArgentina.getHours()
+      const minutosActuales = horaArgentina.getMinutes()
+      const [h, m] = form.hora_inicio.split(':').map(Number)
+
+      if (h < horaActual || (h === horaActual && m <= minutosActuales)) {
+        setError('No podés agendar un turno en una hora que ya pasó')
+        return
+      }
     }
 
     // Preparar datos del turno
@@ -375,8 +406,46 @@ export default function ModalTurno({
     setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
   }
 
-  // Horarios disponibles para el día
-  const horariosDisponibles = generarSlotsTiempo('08:00', '21:00', 30)
+  // Cancelar el turno (cambiar estado a cancelado)
+  const handleCancelarTurno = async () => {
+    if (!turno) return
+
+    setCancelando(true)
+    setError(null)
+
+    try {
+      // Solo pasar el estado, el servicio maneja cancelado_at automáticamente
+      await onGuardar({ estado: 'cancelado' })
+      onClose()
+    } catch (err) {
+      console.error('Error cancelando turno:', err)
+      setError('Error al cancelar el turno')
+    } finally {
+      setCancelando(false)
+    }
+  }
+
+  // Horarios disponibles para el día (filtrar pasados si es hoy)
+  const horariosDisponibles = (() => {
+    const todos = generarSlotsTiempo('08:00', '21:00', 30)
+    const hoy = getFechaHoyArgentina()
+
+    // Si no es hoy, mostrar todos los horarios
+    if (form.fecha !== hoy) return todos
+
+    // Si es hoy, filtrar horarios pasados
+    const ahora = new Date()
+    // Convertir a hora Argentina (UTC-3)
+    const horaArgentina = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000) + (-3 * 3600000))
+    const horaActual = horaArgentina.getHours()
+    const minutosActuales = horaArgentina.getMinutes()
+
+    return todos.filter(hora => {
+      const [h, m] = hora.split(':').map(Number)
+      // Solo mostrar horarios futuros (con al menos 30 min de anticipación)
+      return (h > horaActual) || (h === horaActual && m > minutosActuales)
+    })
+  })()
 
   if (!isOpen) return null
 
@@ -447,10 +516,28 @@ export default function ModalTurno({
 
               {/* Cliente */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="w-4 h-4 inline mr-1" />
-                  Cliente
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    <User className="w-4 h-4 inline mr-1" />
+                    Cliente
+                  </label>
+                  {!form.cliente && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onNuevoCliente) {
+                          onNuevoCliente()
+                        } else {
+                          setMostrarNuevoCliente(true)
+                        }
+                      }}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Nuevo cliente
+                    </button>
+                  )}
+                </div>
 
                 {form.cliente ? (
                   <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg p-3">
@@ -937,29 +1024,53 @@ export default function ModalTurno({
             </div>
 
             {/* Footer */}
-            <div className="border-t border-gray-200 px-5 py-4 flex gap-3 flex-shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={loading || form.servicios_seleccionados.length === 0}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  turno ? 'Guardar cambios' : 'Crear turno'
-                )}
-              </button>
+            <div className="border-t border-gray-200 px-5 py-4 flex flex-col gap-3 flex-shrink-0">
+              {/* Botón cancelar turno - solo si es edición y el turno no está cancelado */}
+              {turno && turno.estado !== 'cancelado' && (
+                <button
+                  type="button"
+                  onClick={handleCancelarTurno}
+                  disabled={loading || cancelando}
+                  className="w-full px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {cancelando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Cancelando...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      Cancelar turno
+                    </>
+                  )}
+                </button>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={loading || cancelando}
+                  className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading || cancelando || form.servicios_seleccionados.length === 0}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    turno ? 'Guardar cambios' : 'Crear turno'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

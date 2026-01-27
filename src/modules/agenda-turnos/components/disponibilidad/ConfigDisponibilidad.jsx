@@ -69,15 +69,15 @@ export default function ConfigDisponibilidad({ profesionalId = null, profesional
     <div className="space-y-6">
       {/* Horario semanal */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-gray-500" />
-            <h3 className="font-medium text-gray-900">Horario Semanal</h3>
+        <div className="px-3 sm:px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="w-5 h-5 text-gray-500 flex-shrink-0" />
+            <h3 className="font-medium text-gray-900 truncate">Horario Semanal</h3>
           </div>
           <button
             onClick={handleGuardar}
             disabled={guardando}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors text-sm flex-shrink-0 ${
               guardado
                 ? 'bg-green-100 text-green-700'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -86,23 +86,23 @@ export default function ConfigDisponibilidad({ profesionalId = null, profesional
             {guardando ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Guardando...
+                <span className="hidden sm:inline">Guardando...</span>
               </>
             ) : guardado ? (
               <>
                 <Check className="w-4 h-4" />
-                Guardado
+                <span className="hidden sm:inline">Guardado</span>
               </>
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                Guardar
+                <span className="hidden sm:inline">Guardar</span>
               </>
             )}
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
           {DIAS_SEMANA.map(dia => {
             const config = disponibilidad.find(d => d.dia_semana === dia.id) || {
               activo: false,
@@ -113,50 +113,52 @@ export default function ConfigDisponibilidad({ profesionalId = null, profesional
             return (
               <div
                 key={dia.id}
-                className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
+                className={`p-3 rounded-lg border transition-colors ${
                   config.activo ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
                 }`}
               >
-                {/* Toggle día */}
-                <label className="flex items-center gap-3 cursor-pointer min-w-[120px]">
-                  <input
-                    type="checkbox"
-                    checked={config.activo}
-                    onChange={(e) => actualizarDia(dia.id, { activo: e.target.checked })}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className={`font-medium ${config.activo ? 'text-gray-900' : 'text-gray-400'}`}>
-                    {dia.nombre}
-                  </span>
-                </label>
+                <div className="flex items-center justify-between">
+                  {/* Toggle día */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.activo}
+                      onChange={(e) => actualizarDia(dia.id, { activo: e.target.checked })}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className={`font-medium ${config.activo ? 'text-gray-900' : 'text-gray-400'}`}>
+                      {dia.nombre}
+                    </span>
+                  </label>
 
-                {/* Horarios */}
+                  {!config.activo && (
+                    <span className="text-gray-400 text-sm">No trabaja</span>
+                  )}
+                </div>
+
+                {/* Horarios - debajo en mobile */}
                 {config.activo && (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 mt-2 ml-8">
                     <select
                       value={config.hora_inicio}
                       onChange={(e) => actualizarDia(dia.id, { hora_inicio: e.target.value })}
-                      className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       {horasDisponibles.map(hora => (
                         <option key={hora} value={hora}>{hora}</option>
                       ))}
                     </select>
-                    <span className="text-gray-400">a</span>
+                    <span className="text-gray-400 text-sm">a</span>
                     <select
                       value={config.hora_fin}
                       onChange={(e) => actualizarDia(dia.id, { hora_fin: e.target.value })}
-                      className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       {horasDisponibles.map(hora => (
                         <option key={hora} value={hora}>{hora}</option>
                       ))}
                     </select>
                   </div>
-                )}
-
-                {!config.activo && (
-                  <span className="text-gray-400 text-sm">No trabaja</span>
                 )}
               </div>
             )
@@ -166,32 +168,36 @@ export default function ConfigDisponibilidad({ profesionalId = null, profesional
 
       {/* Excepciones */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-4 py-3 border-b bg-gray-50 flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-gray-500" />
-          <h3 className="font-medium text-gray-900">Días Bloqueados</h3>
-          <span className="text-sm text-gray-500">(Feriados, vacaciones, etc.)</span>
+        <div className="px-3 sm:px-4 py-3 border-b bg-gray-50">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-gray-500 flex-shrink-0" />
+            <h3 className="font-medium text-gray-900">Días Bloqueados</h3>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 ml-7">Feriados, vacaciones, etc.</p>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-3 sm:p-4 space-y-3">
           {/* Agregar nueva excepción */}
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={nuevaExcepcion.fecha}
-              onChange={(e) => setNuevaExcepcion(prev => ({ ...prev, fecha: e.target.value }))}
-              className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <input
-              type="text"
-              value={nuevaExcepcion.motivo}
-              onChange={(e) => setNuevaExcepcion(prev => ({ ...prev, motivo: e.target.value }))}
-              placeholder="Motivo (opcional)"
-              className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex gap-2 flex-1">
+              <input
+                type="date"
+                value={nuevaExcepcion.fecha}
+                onChange={(e) => setNuevaExcepcion(prev => ({ ...prev, fecha: e.target.value }))}
+                className="flex-1 sm:flex-none px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+              <input
+                type="text"
+                value={nuevaExcepcion.motivo}
+                onChange={(e) => setNuevaExcepcion(prev => ({ ...prev, motivo: e.target.value }))}
+                placeholder="Motivo (opcional)"
+                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
             <button
               onClick={handleAgregarExcepcion}
               disabled={!nuevaExcepcion.fecha}
-              className="flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium disabled:opacity-50 text-sm"
             >
               <Plus className="w-4 h-4" />
               Bloquear

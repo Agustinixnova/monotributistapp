@@ -141,8 +141,9 @@ export default function ModalDetalleTurno({
     if (tieneSenaPagada) {
       setModalCancelar(true)
     } else {
-      // Cancelar directamente
+      // Cancelar directamente y cerrar modal
       onCambiarEstado?.(turno.id, 'cancelado')
+      onClose?.()
     }
   }
 
