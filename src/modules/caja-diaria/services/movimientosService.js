@@ -267,16 +267,19 @@ export async function actualizarComentario(id, descripcion) {
 
 /**
  * Obtener resumen del día usando función RPC
+ * La función SQL usa get_caja_owner_id() internamente para soportar empleados
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  */
 export async function getResumenDia(fecha) {
   try {
-    const { userId, error: userError } = await getEffectiveUserId()
-    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
 
+    // NO pasar p_user_id - la función SQL usa get_caja_owner_id() internamente
+    // Esto permite que empleados vean la caja de su dueño correctamente
     const { data, error } = await supabase
       .rpc('caja_resumen_dia', {
-        p_user_id: userId,
         p_fecha: fecha || getFechaHoyArgentina()
       })
 
@@ -290,16 +293,18 @@ export async function getResumenDia(fecha) {
 
 /**
  * Obtener totales por método de pago usando función RPC
+ * La función SQL usa get_caja_owner_id() internamente para soportar empleados
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  */
 export async function getTotalesPorMetodo(fecha) {
   try {
-    const { userId, error: userError } = await getEffectiveUserId()
-    if (userError || !userId) throw userError || new Error('Usuario no autenticado')
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
 
+    // NO pasar p_user_id - la función SQL usa get_caja_owner_id() internamente
     const { data, error } = await supabase
       .rpc('caja_totales_por_metodo', {
-        p_user_id: userId,
         p_fecha: fecha || getFechaHoyArgentina()
       })
 

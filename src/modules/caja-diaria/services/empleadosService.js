@@ -244,6 +244,24 @@ export async function eliminarEmpleado(id) {
 }
 
 /**
+ * Obtener historial de activación/desactivación de un empleado
+ * @param {string} empleadoRelId - ID de la relación caja_empleados
+ * @returns {Promise<{data: Array, error: Error|null}>}
+ */
+export async function getHistorialEmpleado(empleadoRelId) {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_historial_empleado', { p_empleado_rel_id: empleadoRelId })
+
+    if (error) throw error
+    return { data: data || [], error: null }
+  } catch (error) {
+    console.error('Error obteniendo historial empleado:', error)
+    return { data: [], error }
+  }
+}
+
+/**
  * Verificar si el usuario actual es empleado de alguien
  * @returns {Promise<{esEmpleado: boolean, duenio: object|null, permisos: object|null}>}
  */

@@ -21,6 +21,10 @@ import { usePermisosCaja } from '../hooks/usePermisosCaja'
 import { useAliasPago } from '../hooks/useAliasPago'
 import { useClientesFiado } from '../hooks/useClientesFiado'
 import { formatearMonto } from '../utils/formatters'
+import { supabase } from '../../../lib/supabase'
+
+// Email del desarrollador que puede ver funciones de debug/historial
+const DEV_EMAIL = 'agustin@ixnova.com.ar'
 
 export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) {
   const [tab, setTab] = useState('general') // 'general' | 'categorias' | 'metodos' | 'empleados' | 'pagos'
@@ -47,7 +51,19 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const [eliminandoQR, setEliminandoQR] = useState(false)
   const [confirmToggleEmpleado, setConfirmToggleEmpleado] = useState(null) // { empleado, nuevoEstado }
   const [toggeandoEmpleado, setToggeandoEmpleado] = useState(false)
+  const [historialEmpleado, setHistorialEmpleado] = useState(null) // { empleado, historial: [] }
+  const [cargandoHistorial, setCargandoHistorial] = useState(false)
+  const [esDesarrollador, setEsDesarrollador] = useState(false)
   const fileInputRef = useRef(null)
+
+  // Verificar si el usuario real es el desarrollador (ignora impersonación)
+  useEffect(() => {
+    const checkDev = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setEsDesarrollador(user?.email === DEV_EMAIL)
+    }
+    checkDev()
+  }, [])
 
   // Configuración general
   const { configuracion, nombreNegocio, qrUrl, actualizarNombreNegocio, refresh: refreshConfig, loading: loadingConfig } = useConfiguracion()
@@ -56,7 +72,7 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
   const { alias: aliasPago, crear: crearAlias, actualizar: actualizarAlias, eliminar: eliminarAlias, subirQR, eliminarQR } = useAliasPago()
 
   // Empleados (solo se carga si el usuario es dueño)
-  const { empleados, crear: crearEmpleado, actualizarPermisos, actualizarHorarios, toggleActivo, eliminar: eliminarEmpleado, loading: loadingEmpleados } = useEmpleados()
+  const { empleados, crear: crearEmpleado, actualizarPermisos, actualizarHorarios, toggleActivo, eliminar: eliminarEmpleado, loading: loadingEmpleados, obtenerHistorial } = useEmpleados()
   const { esDuenio, puede } = usePermisosCaja()
   const [nombreNegocioInput, setNombreNegocioInput] = useState('')
   const [guardandoNombre, setGuardandoNombre] = useState(false)
@@ -904,6 +920,21 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
                             >
                               <Shield className="w-4 h-4" />
                             </button>
+                            {/* Botón historial - solo visible para desarrollador */}
+                            {esDesarrollador && (
+                              <button
+                                onClick={async () => {
+                                  setCargandoHistorial(true)
+                                  const { data } = await obtenerHistorial(emp.id)
+                                  setHistorialEmpleado({ empleado: emp, historial: data })
+                                  setCargandoHistorial(false)
+                                }}
+                                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                                title="Ver historial de activación"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                            )}
                             {/* Botón activar/desactivar */}
                             <button
                               onClick={() => setConfirmToggleEmpleado({ empleado: emp, nuevoEstado: !emp.activo })}
@@ -1067,6 +1098,95 @@ export default function ModalConfiguracion({ isOpen, onClose, onConfigChange }) 
         variante={confirmToggleEmpleado?.nuevoEstado ? 'success' : 'warning'}
         loading={toggeandoEmpleado}
       />
+
+      {/* Modal Historial de empleado */}
+      {historialEmpleado && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="font-semibold text-gray-900">Historial de activación</h3>
+                <p className="text-sm text-gray-500">
+                  {historialEmpleado.empleado.nombre} {historialEmpleado.empleado.apellido}
+                </p>
+              </div>
+              <button
+                onClick={() => setHistorialEmpleado(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {cargandoHistorial ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+                </div>
+              ) : historialEmpleado.historial.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">
+                  No hay registros de cambios
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {historialEmpleado.historial.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className={`p-3 rounded-lg border-l-4 ${
+                        item.accion === 'activado'
+                          ? 'bg-emerald-50 border-emerald-500'
+                          : item.accion === 'desactivado'
+                          ? 'bg-amber-50 border-amber-500'
+                          : 'bg-blue-50 border-blue-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-medium text-sm ${
+                          item.accion === 'activado'
+                            ? 'text-emerald-700'
+                            : item.accion === 'desactivado'
+                            ? 'text-amber-700'
+                            : 'text-blue-700'
+                        }`}>
+                          {item.accion === 'activado' && 'Activado'}
+                          {item.accion === 'desactivado' && 'Desactivado'}
+                          {item.accion === 'creado' && 'Creado'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(item.fecha_hora).toLocaleDateString('es-AR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      {item.realizado_por_nombre && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          Por: {item.realizado_por_nombre}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t">
+              <button
+                onClick={() => setHistorialEmpleado(null)}
+                className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -9,7 +9,8 @@ import {
   actualizarPermisos,
   actualizarHorarios,
   toggleEmpleadoActivo,
-  eliminarEmpleado
+  eliminarEmpleado,
+  getHistorialEmpleado
 } from '../services/empleadosService'
 
 export function useEmpleados() {
@@ -108,6 +109,15 @@ export function useEmpleados() {
     return { success: true, data }
   }
 
+  // Obtener historial de activación/desactivación
+  const obtenerHistorial = async (empleadoRelId) => {
+    const { data, error: err } = await getHistorialEmpleado(empleadoRelId)
+    if (err) {
+      return { success: false, error: err, data: [] }
+    }
+    return { success: true, data }
+  }
+
   return {
     empleados,
     loading,
@@ -117,6 +127,7 @@ export function useEmpleados() {
     actualizarPermisos: actualizarPermisosEmpleado,
     actualizarHorarios: actualizarHorariosEmpleado,
     toggleActivo,
-    eliminar
+    eliminar,
+    obtenerHistorial
   }
 }
