@@ -32,6 +32,7 @@ import ModalCobranzas from './ModalCobranzas'
 import ModalVentaDividida from './ModalVentaDividida'
 import AlertaDiasSinCerrar from './AlertaDiasSinCerrar'
 import CajaNoDisponible from './CajaNoDisponible'
+import SelectorContextoCaja from './SelectorContextoCaja'
 import { useAliasPago } from '../hooks/useAliasPago'
 import { useClientesConDeuda } from '../hooks/useClientesFiado'
 import { actualizarComentario } from '../services/movimientosService'
@@ -364,6 +365,11 @@ export default function CajaDiariaPage() {
               <Wallet className="w-5 h-5 text-violet-600" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Caja Diaria</h1>
+            {/* Selector de contexto para empleados */}
+            <SelectorContextoCaja onCambioContexto={() => {
+              // Recargar toda la página para actualizar los datos con el nuevo contexto
+              window.location.reload()
+            }} />
           </div>
 
           {/* Botones de acción superiores */}

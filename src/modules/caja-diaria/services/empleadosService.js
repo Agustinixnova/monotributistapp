@@ -307,16 +307,25 @@ export async function verificarSiEsEmpleado() {
   }
 }
 
+// Key para localStorage del contexto de caja
+const STORAGE_KEY_CONTEXTO = 'caja_contexto_seleccionado'
+
 /**
  * Obtiene el user_id efectivo para operaciones de caja
  * - Si es dueño: retorna su propio user.id
- * - Si es empleado: retorna el duenio_id
- * Esto permite que los empleados vean/operen la caja del dueño
+ * - Si es empleado Y contexto es 'empleador': retorna el duenio_id (comportamiento original)
+ * - Si es empleado Y contexto es 'propio': retorna su propio user.id (caja personal)
+ *
+ * El contexto se lee de localStorage para permitir que el empleado elija
+ * entre ver su propia caja o la del empleador.
  */
 export async function getEffectiveUserId() {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { userId: null, esDuenio: false, permisos: null, error: new Error('No autenticado') }
+
+    // Leer contexto seleccionado (por defecto 'empleador' para mantener compatibilidad)
+    const contextoSeleccionado = localStorage.getItem(STORAGE_KEY_CONTEXTO) || 'empleador'
 
     // Verificar si es empleado
     const { data, error } = await supabase
@@ -328,13 +337,38 @@ export async function getEffectiveUserId() {
 
     if (error) throw error
 
-    // Si es empleado, usar el ID del dueño
+    // Si es empleado
     if (data) {
+      // Si eligió ver su propia caja, usar su propio ID
+      if (contextoSeleccionado === 'propio') {
+        return {
+          userId: user.id,
+          esDuenio: true, // Es dueño de su propia caja
+          permisos: {
+            anular_movimientos: true,
+            eliminar_arqueos: true,
+            editar_saldo_inicial: true,
+            agregar_categorias: true,
+            agregar_metodos_pago: true,
+            editar_cierre: true,
+            reabrir_dia: true,
+            editar_movimientos_cc: true,
+            editar_cuentas_corrientes: true,
+            eliminar_clientes_cc: true,
+            ver_dias_anteriores: true
+          },
+          error: null,
+          usandoCajaPropia: true
+        }
+      }
+
+      // Por defecto o si eligió 'empleador', usar el ID del dueño
       return {
         userId: data.duenio_id,
         esDuenio: false,
         permisos: data.permisos,
-        error: null
+        error: null,
+        usandoCajaPropia: false
       }
     }
 
@@ -350,7 +384,10 @@ export async function getEffectiveUserId() {
         agregar_metodos_pago: true,
         editar_cierre: true,
         reabrir_dia: true,
-        editar_movimientos_cc: true
+        editar_movimientos_cc: true,
+        editar_cuentas_corrientes: true,
+        eliminar_clientes_cc: true,
+        ver_dias_anteriores: true
       },
       error: null
     }
@@ -361,12 +398,16 @@ export async function getEffectiveUserId() {
 }
 
 /**
- * Obtener permisos del usuario actual (si es empleado)
+ * Obtener permisos del usuario actual
+ * Respeta el contexto seleccionado (caja propia vs caja del empleador)
  */
 export async function getMisPermisos() {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { data: null, error: new Error('No autenticado') }
+
+    // Leer contexto seleccionado
+    const contextoSeleccionado = localStorage.getItem(STORAGE_KEY_CONTEXTO) || 'empleador'
 
     // Intentar con horarios_acceso, si falla (columna no existe), intentar sin ella
     let data, error
@@ -394,38 +435,56 @@ export async function getMisPermisos() {
 
     if (error) throw error
 
-    // Si no es empleado, tiene todos los permisos (es dueño)
+    // Permisos completos de dueño
+    const permisosCompletos = {
+      anular_movimientos: true,
+      eliminar_arqueos: true,
+      editar_saldo_inicial: true,
+      agregar_categorias: true,
+      agregar_metodos_pago: true,
+      editar_cierre: true,
+      reabrir_dia: true,
+      ver_reportes: true,
+      ver_total_dia: true,
+      ver_estadisticas: true,
+      editar_cuentas_corrientes: true,
+      eliminar_clientes_cc: true,
+      editar_movimientos_cc: true,
+      ver_dias_anteriores: true
+    }
+
+    // Si no es empleado de nadie, tiene todos los permisos (es dueño)
     if (!data) {
       return {
         data: {
           esDuenio: true,
-          permisos: {
-            anular_movimientos: true,
-            eliminar_arqueos: true,
-            editar_saldo_inicial: true,
-            agregar_categorias: true,
-            agregar_metodos_pago: true,
-            editar_cierre: true,
-            reabrir_dia: true,
-            ver_reportes: true,
-            ver_total_dia: true,
-            ver_estadisticas: true,
-            editar_cuentas_corrientes: true,
-            eliminar_clientes_cc: true,
-            editar_movimientos_cc: true,
-            ver_dias_anteriores: true
-          },
-          horariosAcceso: null // Dueño no tiene restricciones
+          permisos: permisosCompletos,
+          horariosAcceso: null
         },
         error: null
       }
     }
 
+    // Es empleado de alguien, pero eligió ver su propia caja
+    if (contextoSeleccionado === 'propio') {
+      return {
+        data: {
+          esDuenio: true, // Es dueño de su propia caja
+          permisos: permisosCompletos,
+          horariosAcceso: null, // Sin restricciones en su propia caja
+          usandoCajaPropia: true
+        },
+        error: null
+      }
+    }
+
+    // Es empleado y está viendo la caja del empleador
     return {
       data: {
         esDuenio: false,
         permisos: data.permisos,
-        horariosAcceso: data.horarios_acceso || null
+        horariosAcceso: data.horarios_acceso || null,
+        usandoCajaPropia: false
       },
       error: null
     }
