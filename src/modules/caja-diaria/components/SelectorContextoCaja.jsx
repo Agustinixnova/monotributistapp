@@ -21,50 +21,67 @@ export default function SelectorContextoCaja({ onCambioContexto }) {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
+          console.log('[SelectorContexto] No hay usuario autenticado')
           setLoading(false)
           return
         }
 
-        // Buscar si es empleado activo de alguien
-        const { data, error } = await supabase
+        console.log('[SelectorContexto] Verificando si', user.email, 'es empleado...')
+
+        // Primero buscar si es empleado (sin join para evitar errores)
+        const { data: empleadoData, error: empleadoError } = await supabase
           .from('caja_empleados')
-          .select(`
-            duenio_id,
-            usuarios_free!caja_empleados_duenio_id_fkey (
-              nombre,
-              apellido,
-              email
-            )
-          `)
+          .select('duenio_id, activo')
           .eq('empleado_id', user.id)
-          .eq('activo', true)
           .maybeSingle()
 
-        if (error) {
-          console.error('Error verificando estado:', error)
+        if (empleadoError) {
+          console.error('[SelectorContexto] Error buscando empleado:', empleadoError)
           setLoading(false)
           return
         }
 
-        if (data) {
-          setEsEmpleado(true)
-          setInfoEmpleador({
-            id: data.duenio_id,
-            nombre: data.usuarios_free?.nombre || '',
-            apellido: data.usuarios_free?.apellido || '',
-            email: data.usuarios_free?.email || ''
-          })
+        console.log('[SelectorContexto] Resultado empleado:', empleadoData)
 
-          // Recuperar contexto guardado
-          const contextoGuardado = localStorage.getItem(STORAGE_KEY)
-          if (contextoGuardado === 'propio' || contextoGuardado === 'empleador') {
-            setContexto(contextoGuardado)
-          }
+        // Si no existe registro o no está activo
+        if (!empleadoData) {
+          console.log('[SelectorContexto] No es empleado de nadie')
+          setLoading(false)
+          return
+        }
+
+        if (!empleadoData.activo) {
+          console.log('[SelectorContexto] Es empleado pero está INACTIVO')
+          setLoading(false)
+          return
+        }
+
+        // Es empleado activo, buscar info del dueño
+        const { data: duenioData } = await supabase
+          .from('usuarios_free')
+          .select('nombre, apellido, email')
+          .eq('id', empleadoData.duenio_id)
+          .maybeSingle()
+
+        console.log('[SelectorContexto] Info dueño:', duenioData)
+
+        setEsEmpleado(true)
+        setInfoEmpleador({
+          id: empleadoData.duenio_id,
+          nombre: duenioData?.nombre || '',
+          apellido: duenioData?.apellido || '',
+          email: duenioData?.email || ''
+        })
+
+        // Recuperar contexto guardado
+        const contextoGuardado = localStorage.getItem(STORAGE_KEY)
+        if (contextoGuardado === 'propio' || contextoGuardado === 'empleador') {
+          setContexto(contextoGuardado)
         }
 
         setLoading(false)
       } catch (err) {
-        console.error('Error:', err)
+        console.error('[SelectorContexto] Error:', err)
         setLoading(false)
       }
     }
@@ -104,22 +121,15 @@ export default function SelectorContextoCaja({ onCambioContexto }) {
       {/* Botón del selector */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors text-sm"
+        className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors text-sm"
+        title={contexto === 'propio' ? 'Mi caja personal' : `Caja de ${nombreEmpleador}`}
       >
         {contexto === 'propio' ? (
-          <>
-            <User className="w-4 h-4 text-violet-600" />
-            <span className="text-violet-700 font-medium hidden sm:inline">Mi Caja</span>
-          </>
+          <User className="w-4 h-4 text-violet-600 flex-shrink-0" />
         ) : (
-          <>
-            <Store className="w-4 h-4 text-violet-600" />
-            <span className="text-violet-700 font-medium hidden sm:inline truncate max-w-[120px]">
-              {nombreEmpleador}
-            </span>
-          </>
+          <Store className="w-4 h-4 text-violet-600 flex-shrink-0" />
         )}
-        <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-violet-500 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown */}
@@ -131,8 +141,8 @@ export default function SelectorContextoCaja({ onCambioContexto }) {
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Menu */}
-          <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
+          {/* Menu - se abre hacia la izquierda en mobile para no salirse de pantalla */}
+          <div className="absolute top-full right-0 sm:left-0 sm:right-auto mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
             <div className="p-2 border-b border-gray-100">
               <p className="text-xs text-gray-500 font-medium px-2">Seleccionar caja</p>
             </div>
