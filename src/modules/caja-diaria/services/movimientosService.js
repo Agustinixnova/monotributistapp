@@ -268,6 +268,7 @@ export async function actualizarComentario(id, descripcion) {
 /**
  * Obtener resumen del día usando función RPC
  * Usa getEffectiveUserId() para respetar el contexto seleccionado (caja propia vs empleador)
+ * Fallback a función original si v2 no existe
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  */
 export async function getResumenDia(fecha) {
@@ -276,14 +277,25 @@ export async function getResumenDia(fecha) {
     const { userId, error: userError } = await getEffectiveUserId()
     if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
-    console.log('[getResumenDia] Usando userId:', userId)
+    const fechaParam = fecha || getFechaHoyArgentina()
 
-    // Usar la función v2 que acepta user_id como parámetro
-    const { data, error } = await supabase
+    // Intentar usar la función v2 primero (con user_id explícito)
+    let { data, error } = await supabase
       .rpc('caja_resumen_dia_v2', {
         p_user_id: userId,
-        p_fecha: fecha || getFechaHoyArgentina()
+        p_fecha: fechaParam
       })
+
+    // Si falla porque la función no existe, usar la versión original
+    if (error && (error.message?.includes('does not exist') || error.code === '42883')) {
+      console.log('[getResumenDia] Función v2 no existe, usando versión original')
+      const fallback = await supabase
+        .rpc('caja_resumen_dia', {
+          p_fecha: fechaParam
+        })
+      data = fallback.data
+      error = fallback.error
+    }
 
     if (error) throw error
     return { data: data?.[0] || null, error: null }
@@ -296,6 +308,7 @@ export async function getResumenDia(fecha) {
 /**
  * Obtener totales por método de pago usando función RPC
  * Usa getEffectiveUserId() para respetar el contexto seleccionado (caja propia vs empleador)
+ * Fallback a función original si v2 no existe
  * @param {string} fecha - Fecha en formato YYYY-MM-DD
  */
 export async function getTotalesPorMetodo(fecha) {
@@ -304,14 +317,25 @@ export async function getTotalesPorMetodo(fecha) {
     const { userId, error: userError } = await getEffectiveUserId()
     if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
-    console.log('[getTotalesPorMetodo] Usando userId:', userId)
+    const fechaParam = fecha || getFechaHoyArgentina()
 
-    // Usar la función v2 que acepta user_id como parámetro
-    const { data, error } = await supabase
+    // Intentar usar la función v2 primero (con user_id explícito)
+    let { data, error } = await supabase
       .rpc('caja_totales_por_metodo_v2', {
         p_user_id: userId,
-        p_fecha: fecha || getFechaHoyArgentina()
+        p_fecha: fechaParam
       })
+
+    // Si falla porque la función no existe, usar la versión original
+    if (error && (error.message?.includes('does not exist') || error.code === '42883')) {
+      console.log('[getTotalesPorMetodo] Función v2 no existe, usando versión original')
+      const fallback = await supabase
+        .rpc('caja_totales_por_metodo', {
+          p_fecha: fechaParam
+        })
+      data = fallback.data
+      error = fallback.error
+    }
 
     if (error) throw error
     return { data, error: null }
