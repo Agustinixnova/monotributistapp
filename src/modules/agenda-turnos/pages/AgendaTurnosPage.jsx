@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock } from 'lucide-react'
+import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock, MessageCircle } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { getFechaHoyArgentina, getPrimerDiaSemana } from '../utils/dateUtils'
 import { useTurnosDia, useTurnosSemana, useTurnosMes } from '../hooks/useTurnos'
@@ -23,6 +23,7 @@ import ModalCliente from '../components/clientes/ModalCliente'
 import ModalFichaCliente from '../components/clientes/ModalFichaCliente'
 import ConfigDisponibilidad from '../components/disponibilidad/ConfigDisponibilidad'
 import ConfigNegocio from '../components/config/ConfigNegocio'
+import ConfigWhatsApp from '../components/config/ConfigWhatsApp'
 import SelectorProfesional from '../components/disponibilidad/SelectorProfesional'
 import EstadisticasAgenda from '../components/estadisticas/EstadisticasAgenda'
 import CobrosAgenda from '../components/cobros/CobrosAgenda'
@@ -759,10 +760,10 @@ export default function AgendaTurnosPage() {
           {tabActiva === 'config' && (
             <div className="space-y-4">
               {/* Sub-tabs de configuración */}
-              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-xl overflow-x-auto">
                 <button
                   onClick={() => setConfigSubTab('negocio')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                     configSubTab === 'negocio'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
@@ -773,14 +774,25 @@ export default function AgendaTurnosPage() {
                 </button>
                 <button
                   onClick={() => setConfigSubTab('disponibilidad')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                     configSubTab === 'disponibilidad'
                       ? 'bg-white text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   <Clock className="w-4 h-4" />
-                  Disponibilidad
+                  Horarios
+                </button>
+                <button
+                  onClick={() => setConfigSubTab('whatsapp')}
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                    configSubTab === 'whatsapp'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
                 </button>
               </div>
 
@@ -810,6 +822,11 @@ export default function AgendaTurnosPage() {
                     profesionalNombre={profesionales.find(p => p.id === profesionalActivo)?.nombre}
                   />
                 </div>
+              )}
+
+              {/* Contenido de WhatsApp */}
+              {configSubTab === 'whatsapp' && (
+                <ConfigWhatsApp />
               )}
             </div>
           )}

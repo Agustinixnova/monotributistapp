@@ -31,7 +31,7 @@ export async function getTurnos(fechaInicio, fechaFin, options = {}) {
           id,
           precio,
           duracion,
-          servicio:agenda_servicios(id, nombre, color, duracion_minutos)
+          servicio:agenda_servicios(id, nombre, color, duracion_minutos, instrucciones_previas, requiere_sena, porcentaje_sena)
         )
       `)
       .eq('duenio_id', userId)
@@ -79,7 +79,7 @@ export async function getTurnoById(id) {
           id,
           precio,
           duracion,
-          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio)
+          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio, instrucciones_previas, requiere_sena, porcentaje_sena)
         ),
         pagos:agenda_turno_pagos(*)
       `)

@@ -7,6 +7,7 @@ import { X, Check, Clock, User, Scissors, MessageCircle, Calendar, AlertCircle, 
 import { formatFechaCorta, formatDuracion } from '../../utils/dateUtils'
 import { formatearHora } from '../../utils/formatters'
 import { generarLinkConfirmacion, abrirWhatsApp } from '../../utils/whatsappUtils'
+import { useNegocio } from '../../hooks/useNegocio'
 
 export default function ModalConfirmarPendientes({
   isOpen,
@@ -17,6 +18,9 @@ export default function ModalConfirmarPendientes({
   const [turnoConfirmando, setTurnoConfirmando] = useState(null)
   const [confirmando, setConfirmando] = useState(false)
 
+  // Obtener datos del negocio para plantillas de WhatsApp
+  const { negocio } = useNegocio()
+
   if (!isOpen) return null
 
   const handleConfirmarConWhatsApp = async (turno) => {
@@ -25,10 +29,14 @@ export default function ModalConfirmarPendientes({
       const cliente = turno.cliente || turno.agenda_clientes
       const servicios = turno.servicios || turno.agenda_turno_servicios || []
       const serviciosInfo = servicios.map(s => ({
-        nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio'
+        nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio',
+        instrucciones_previas: s.servicio?.instrucciones_previas || s.agenda_servicios?.instrucciones_previas || null,
+        requiere_sena: s.servicio?.requiere_sena || s.agenda_servicios?.requiere_sena || false,
+        porcentaje_sena: s.servicio?.porcentaje_sena || s.agenda_servicios?.porcentaje_sena || 0,
+        precio: s.precio || s.servicio?.precio || 0
       }))
 
-      const link = generarLinkConfirmacion(turno, cliente, serviciosInfo)
+      const link = generarLinkConfirmacion(turno, cliente, serviciosInfo, negocio)
       if (link) {
         abrirWhatsApp(link)
       }

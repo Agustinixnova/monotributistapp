@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Scissors, Clock, DollarSign, Percent, Palette, Loader2 } from 'lucide-react'
+import { X, Scissors, Clock, DollarSign, Percent, Palette, Loader2, AlertTriangle } from 'lucide-react'
 import { COLORES_SERVICIOS } from '../../utils/formatters'
 import { formatDuracion } from '../../utils/dateUtils'
 import AsignarProfesionales from './AsignarProfesionales'
@@ -28,7 +28,8 @@ export default function ModalServicio({
     precio_variable: false, // Precio "desde" que puede aumentar
     requiere_sena: false,
     porcentaje_sena: 30,
-    color: '#3B82F6'
+    color: '#3B82F6',
+    instrucciones_previas: '' // Instrucciones especiales para el cliente antes del turno
   })
 
   // Reset form cuando se abre/cierra o cambia el servicio
@@ -46,7 +47,8 @@ export default function ModalServicio({
           precio_variable: servicio.precio_variable || false,
           requiere_sena: servicio.requiere_sena || false,
           porcentaje_sena: servicio.porcentaje_sena || 30,
-          color: servicio.color || '#3B82F6'
+          color: servicio.color || '#3B82F6',
+          instrucciones_previas: servicio.instrucciones_previas || ''
         })
       } else {
         setForm({
@@ -60,7 +62,8 @@ export default function ModalServicio({
           precio_variable: false,
           requiere_sena: false,
           porcentaje_sena: 30,
-          color: '#3B82F6'
+          color: '#3B82F6',
+          instrucciones_previas: ''
         })
       }
       setError(null)
@@ -94,7 +97,8 @@ export default function ModalServicio({
         precio_variable: form.precio_variable,
         requiere_sena: form.requiere_sena,
         porcentaje_sena: form.requiere_sena ? parseInt(form.porcentaje_sena) : 0,
-        color: form.color
+        color: form.color,
+        instrucciones_previas: form.instrucciones_previas.trim() || null
       })
       onClose()
     } catch (err) {
@@ -297,6 +301,24 @@ export default function ModalServicio({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Instrucciones previas al turno */}
+            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+              <label className="block text-sm font-medium text-amber-800 mb-2">
+                <AlertTriangle className="w-4 h-4 inline mr-1" />
+                Instrucciones previas al turno (opcional)
+              </label>
+              <textarea
+                value={form.instrucciones_previas}
+                onChange={(e) => setForm(f => ({ ...f, instrucciones_previas: e.target.value }))}
+                placeholder="Ej: Concurrir sin maquillaje ni rimmel. Evitar cremas en el rostro las 24hs previas."
+                rows={3}
+                className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none text-sm"
+              />
+              <p className="text-xs text-amber-600 mt-2">
+                Estas instrucciones se incluirán automáticamente en los recordatorios de WhatsApp para este servicio.
+              </p>
             </div>
 
             {/* Color */}

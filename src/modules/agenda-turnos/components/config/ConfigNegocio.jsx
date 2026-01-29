@@ -297,6 +297,7 @@ export default function ConfigNegocio() {
             Este texto se mostrará a tus clientes en la página de reservas
           </p>
         </div>
+
       </div>
 
       {/* Footer con botón guardar */}

@@ -12,6 +12,7 @@ import {
 import { formatearMonto, formatearHora, ESTADOS_TURNO } from '../../utils/formatters'
 import { formatFechaLarga, formatDuracion, getFechaHoyArgentina, generarSlotsTiempo } from '../../utils/dateUtils'
 import { usePagosTurno, useSenaRequerida } from '../../hooks/usePagos'
+import { useNegocio } from '../../hooks/useNegocio'
 import { generarLinkRecordatorio, generarLinkConfirmacion, abrirWhatsApp } from '../../utils/whatsappUtils'
 import { createTurno, getTurnosDia } from '../../services/turnosService'
 import ModalPago from '../pagos/ModalPago'
@@ -60,6 +61,9 @@ export default function ModalDetalleTurno({
     anularPagosSena
   } = usePagosTurno(turno?.id, turno)
 
+  // Obtener datos del negocio para plantillas de WhatsApp
+  const { negocio } = useNegocio()
+
   // Calcular seña requerida
   const servicios = turno?.agenda_turno_servicios || turno?.servicios || []
   const { requiereSena, montoSena } = useSenaRequerida(servicios)
@@ -72,10 +76,14 @@ export default function ModalDetalleTurno({
   // Handler para enviar recordatorio WhatsApp
   const handleEnviarRecordatorio = () => {
     const serviciosInfo = servicios.map(s => ({
-      nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio'
+      nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio',
+      instrucciones_previas: s.servicio?.instrucciones_previas || s.agenda_servicios?.instrucciones_previas || null,
+      requiere_sena: s.servicio?.requiere_sena || s.agenda_servicios?.requiere_sena || false,
+      porcentaje_sena: s.servicio?.porcentaje_sena || s.agenda_servicios?.porcentaje_sena || 0,
+      precio: s.precio || s.servicio?.precio || 0
     }))
 
-    const link = generarLinkRecordatorio(turno, cliente, serviciosInfo)
+    const link = generarLinkRecordatorio(turno, cliente, serviciosInfo, negocio)
     if (link) {
       abrirWhatsApp(link)
       // Marcar como enviado
@@ -1098,9 +1106,13 @@ export default function ModalDetalleTurno({
                     <button
                       onClick={() => {
                         const serviciosInfo = servicios.map(s => ({
-                          nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio'
+                          nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio',
+                          instrucciones_previas: s.servicio?.instrucciones_previas || s.agenda_servicios?.instrucciones_previas || null,
+                          requiere_sena: s.servicio?.requiere_sena || s.agenda_servicios?.requiere_sena || false,
+                          porcentaje_sena: s.servicio?.porcentaje_sena || s.agenda_servicios?.porcentaje_sena || 0,
+                          precio: s.precio || s.servicio?.precio || 0
                         }))
-                        const link = generarLinkConfirmacion(turno, cliente, serviciosInfo)
+                        const link = generarLinkConfirmacion(turno, cliente, serviciosInfo, negocio)
                         if (link) {
                           abrirWhatsApp(link)
                         }
