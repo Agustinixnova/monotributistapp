@@ -19,7 +19,7 @@ ALTER TABLE public.agenda_negocio
 ADD COLUMN IF NOT EXISTS alias_pago TEXT;
 
 ALTER TABLE public.agenda_negocio
-ADD COLUMN IF NOT EXISTS cuit TEXT;
+ADD COLUMN IF NOT EXISTS cuit VARCHAR(11);
 
 -- Dirección mejorada (piso y departamento)
 ALTER TABLE public.agenda_negocio

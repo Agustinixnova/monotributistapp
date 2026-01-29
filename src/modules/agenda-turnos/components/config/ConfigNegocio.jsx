@@ -263,10 +263,18 @@ export default function ConfigNegocio() {
               <input
                 type="text"
                 value={form.cuit}
-                onChange={(e) => handleChange('cuit', e.target.value)}
-                placeholder="Ej: 20-12345678-9"
+                onChange={(e) => {
+                  // Solo números, máximo 11 dígitos
+                  const valor = e.target.value.replace(/[^0-9]/g, '').slice(0, 11)
+                  handleChange('cuit', valor)
+                }}
+                placeholder="20123456789 (solo números, 11 dígitos)"
+                maxLength="11"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Ingresá solo los 11 dígitos sin guiones
+              </p>
             </div>
           </div>
         </div>
