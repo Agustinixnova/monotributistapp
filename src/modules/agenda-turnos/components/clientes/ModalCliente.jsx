@@ -24,9 +24,12 @@ export default function ModalCliente({
   cliente = null, // null = crear nuevo
   esEmpleado = false // Si el usuario actual es empleado
 }) {
-  const { tieneDomicilio } = useNegocio()
+  const { tieneDomicilio, tieneLocal, tieneVideollamada } = useNegocio()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Si solo trabaja a domicilio, la dirección es obligatoria
+  const direccionObligatoria = tieneDomicilio && !tieneLocal && !tieneVideollamada
 
   const [form, setForm] = useState({
     nombre: '',
@@ -90,6 +93,12 @@ export default function ModalCliente({
 
     if (!form.nombre.trim()) {
       setError('El nombre es obligatorio')
+      return
+    }
+
+    // Validar dirección si solo trabaja a domicilio
+    if (direccionObligatoria && !form.direccion.trim()) {
+      setError('La dirección es obligatoria para servicios a domicilio')
       return
     }
 
@@ -260,10 +269,12 @@ export default function ModalCliente({
               <div className="border-t pt-4 space-y-3">
                 <label className="block text-sm font-medium text-gray-700">
                   <Navigation className="w-4 h-4 inline mr-1" />
-                  Dirección del cliente
+                  Dirección del cliente {direccionObligatoria ? '*' : '(opcional)'}
                 </label>
                 <p className="text-xs text-gray-500 -mt-2">
-                  Para servicios a domicilio
+                  {direccionObligatoria
+                    ? 'Requerida para todos los servicios'
+                    : 'Solo para turnos a domicilio'}
                 </p>
 
                 <div>
