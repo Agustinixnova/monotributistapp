@@ -84,7 +84,8 @@ export default function CalendarioSemana({
   const calcularAlturaTurno = (horaInicio, horaFin) => {
     const duracion = diferenciaMinutos(horaInicio, horaFin)
     const pixelesPorHora = 60
-    return Math.max((duracion / 60) * pixelesPorHora, 30)
+    // Mínimo 40px para que quepan las 2 líneas de texto
+    return Math.max((duracion / 60) * pixelesPorHora, 40)
   }
 
   // Detectar turnos superpuestos y calcular posiciones
@@ -403,43 +404,51 @@ export default function CalendarioSemana({
           </div>
         )}
 
-        {/* Header de días */}
-        <div className="grid grid-cols-8 border-b sticky top-0 bg-white z-10">
-          <div className="w-14 flex-shrink-0" />
-          {diasSemana.map((dia) => {
-            const esHoyDia = esHoy(dia)
-            const turnosDia = turnosPorDia[dia] || []
+        {/* Contenedor scrolleable que incluye header y body */}
+        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+          {/* Header de días - sticky dentro del scroll */}
+          <div
+            className="grid border-b sticky top-0 bg-white z-10"
+            style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}
+          >
+            <div className="w-14" />
+            {diasSemana.map((dia) => {
+              const esHoyDia = esHoy(dia)
+              const turnosDia = turnosPorDia[dia] || []
 
-            return (
-              <div
-                key={dia}
-                onClick={() => onDiaClick?.(dia)}
-                className={`p-2 text-center border-l cursor-pointer hover:bg-gray-50 transition-colors ${
-                  esHoyDia ? 'bg-blue-50' : ''
-                }`}
-              >
-                <div className={`text-xs uppercase font-medium ${esHoyDia ? 'text-blue-600' : 'text-gray-500'}`}>
-                  {formatDiaSemana(dia)}
-                </div>
-                <div className={`text-lg font-bold ${esHoyDia ? 'text-blue-600' : 'text-gray-900'}`}>
-                  {new Date(dia + 'T12:00:00').getDate()}
-                </div>
-                {turnosDia.length > 0 && (
-                  <div className="text-xs text-gray-400">
-                    {turnosDia.length} turno{turnosDia.length !== 1 ? 's' : ''}
+              return (
+                <div
+                  key={dia}
+                  onClick={() => onDiaClick?.(dia)}
+                  className={`p-2 text-center border-l cursor-pointer hover:bg-gray-50 transition-colors ${
+                    esHoyDia ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  <div className={`text-xs uppercase font-medium ${esHoyDia ? 'text-blue-600' : 'text-gray-500'}`}>
+                    {formatDiaSemana(dia)}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                  <div className={`text-lg font-bold ${esHoyDia ? 'text-blue-600' : 'text-gray-900'}`}>
+                    {new Date(dia + 'T12:00:00').getDate()}
+                  </div>
+                  {turnosDia.length > 0 && (
+                    <div className="text-xs text-gray-400">
+                      {turnosDia.length} turno{turnosDia.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
 
-        {/* Grid de horas y turnos */}
-        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+          {/* Grid de horas y turnos */}
           <div className="relative">
             {/* Líneas de hora */}
             {HORAS.map((hora) => (
-              <div key={hora} className="grid grid-cols-8 border-b border-gray-100" style={{ height: '60px' }}>
+              <div
+                key={hora}
+                className="grid border-b border-gray-100"
+                style={{ height: '60px', gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}
+              >
                 <div className="w-14 pr-2 pt-0 text-right">
                   <span className="text-xs text-gray-400 font-medium -mt-2 block">{hora}</span>
                 </div>
@@ -469,10 +478,13 @@ export default function CalendarioSemana({
 
             {/* Turnos posicionados absolutamente */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="grid grid-cols-8 h-full">
+              <div className="grid h-full" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
                 <div className="w-14" />
                 {diasSemana.map((dia) => {
-                  const turnosDia = turnosPorDia[dia] || []
+                  // Filtrar turnos cancelados y no asistidos del calendario
+                  const turnosDia = (turnosPorDia[dia] || []).filter(t =>
+                    !['cancelado', 'no_asistio'].includes(t.estado)
+                  )
                   // Calcular posiciones para turnos superpuestos
                   const posiciones = calcularPosicionesSuperpuestos(turnosDia)
 
@@ -532,26 +544,33 @@ export default function CalendarioSemana({
       </div>
 
       {/* ========== RESUMEN DE LA SEMANA ========== */}
-      {totalTurnos > 0 && (
-        <div className="px-4 py-3 border-t bg-gray-50">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">
-              {totalTurnos} turno{totalTurnos !== 1 ? 's' : ''} esta semana
-            </span>
-            <div className="flex gap-3 text-xs">
-              <span className="text-yellow-600">
-                {Object.values(turnosPorDia).flat().filter(t => t.estado === 'pendiente').length} pendientes
+      {(() => {
+        // Excluir cancelados y no asistidos del conteo
+        const turnosActivos = Object.values(turnosPorDia).flat().filter(t =>
+          !['cancelado', 'no_asistio'].includes(t.estado)
+        )
+        const totalActivos = turnosActivos.length
+        return totalActivos > 0 && (
+          <div className="px-4 py-3 border-t bg-gray-50">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">
+                {totalActivos} turno{totalActivos !== 1 ? 's' : ''} esta semana
               </span>
-              <span className="text-green-600">
-                {Object.values(turnosPorDia).flat().filter(t => t.estado === 'confirmado').length} confirmados
-              </span>
-              <span className="hidden sm:inline text-gray-600">
-                {Object.values(turnosPorDia).flat().filter(t => t.estado === 'completado').length} completados
-              </span>
+              <div className="flex gap-3 text-xs">
+                <span className="text-yellow-600">
+                  {turnosActivos.filter(t => t.estado === 'pendiente').length} pendientes
+                </span>
+                <span className="text-green-600">
+                  {turnosActivos.filter(t => t.estado === 'confirmado').length} confirmados
+                </span>
+                <span className="hidden sm:inline text-gray-600">
+                  {turnosActivos.filter(t => t.estado === 'completado').length} completados
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

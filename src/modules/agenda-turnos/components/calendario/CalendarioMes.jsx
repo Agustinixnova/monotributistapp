@@ -43,15 +43,17 @@ export default function CalendarioMes({
     return diasArray
   }, [anio, mes])
 
-  // Agrupar turnos por fecha
+  // Agrupar turnos por fecha (excluyendo cancelados y no asistidos)
   const turnosPorFecha = useMemo(() => {
     const agrupados = {}
-    turnos.forEach(turno => {
-      if (!agrupados[turno.fecha]) {
-        agrupados[turno.fecha] = []
-      }
-      agrupados[turno.fecha].push(turno)
-    })
+    turnos
+      .filter(t => !['cancelado', 'no_asistio'].includes(t.estado))
+      .forEach(turno => {
+        if (!agrupados[turno.fecha]) {
+          agrupados[turno.fecha] = []
+        }
+        agrupados[turno.fecha].push(turno)
+      })
     return agrupados
   }, [turnos])
 

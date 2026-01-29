@@ -25,9 +25,14 @@ export default function CalendarioDia({
   // Generar slots de hora
   const slots = generarSlotsTiempo(horaInicio, horaFin, 60) // Cada hora
 
+  // Filtrar turnos cancelados y no asistidos
+  const turnosActivos = turnos.filter(t =>
+    !['cancelado', 'no_asistio'].includes(t.estado)
+  )
+
   // Agrupar turnos por hora de inicio (para posicionamiento)
   const turnosPorHora = {}
-  turnos.forEach(turno => {
+  turnosActivos.forEach(turno => {
     const hora = turno.hora_inicio?.substring(0, 2) + ':00'
     if (!turnosPorHora[hora]) {
       turnosPorHora[hora] = []
@@ -168,7 +173,7 @@ export default function CalendarioDia({
         </div>
 
         {/* Sin turnos */}
-        {!loading && turnos.length === 0 && (
+        {!loading && turnosActivos.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
               <Calendar className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -185,20 +190,20 @@ export default function CalendarioDia({
       </div>
 
       {/* Resumen del día */}
-      {turnos.length > 0 && (
+      {turnosActivos.length > 0 && (
         <div className="px-4 py-3 border-t bg-gray-50 flex items-center justify-between text-sm">
           <span className="text-gray-600">
-            {turnos.length} turno{turnos.length !== 1 ? 's' : ''} programado{turnos.length !== 1 ? 's' : ''}
+            {turnosActivos.length} turno{turnosActivos.length !== 1 ? 's' : ''} programado{turnosActivos.length !== 1 ? 's' : ''}
           </span>
           <div className="flex gap-3 text-xs">
             <span className="text-yellow-600">
-              {turnos.filter(t => t.estado === 'pendiente').length} pendientes
+              {turnosActivos.filter(t => t.estado === 'pendiente').length} pendientes
             </span>
             <span className="text-green-600">
-              {turnos.filter(t => t.estado === 'confirmado').length} confirmados
+              {turnosActivos.filter(t => t.estado === 'confirmado').length} confirmados
             </span>
             <span className="text-gray-600">
-              {turnos.filter(t => t.estado === 'completado').length} completados
+              {turnosActivos.filter(t => t.estado === 'completado').length} completados
             </span>
           </div>
         </div>

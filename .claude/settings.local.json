@@ -58,7 +58,9 @@
       "Bash(git reset:*)",
       "Bash(supabase:*)",
       "Bash(del check-category.js)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git checkout:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

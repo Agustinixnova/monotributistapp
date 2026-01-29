@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ToastProvider } from './context/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PublicRedirect } from './components/PublicRedirect'
 import { Login } from './pages/Login'
@@ -21,6 +22,7 @@ import { MisFinanzasPage } from './modules/finanzas-personales/components'
 import { PanelEconomicoPage } from './modules/panel-economico/components'
 import CajaDiariaPage from './modules/caja-diaria/components/CajaDiariaPage'
 import AgendaTurnosPage from './modules/agenda-turnos/pages/AgendaTurnosPage'
+import ReservarPage from './modules/agenda-turnos/pages/ReservarPage'
 import { MiPerfil } from './pages/MiPerfil'
 import { PWAInstallPrompt, PWAUpdatePrompt } from './pwa'
 import { TerminosPage } from './pages/TerminosPage'
@@ -28,23 +30,38 @@ import { PrivacidadPage } from './pages/PrivacidadPage'
 import { DocumentosLegalesPage } from './pages/DocumentosLegalesPage'
 import { CookieBanner } from './components/common/CookieBanner'
 
+// Componente para mostrar PWA y cookies solo en rutas internas
+function GlobalComponents() {
+  const location = useLocation()
+  const isPublicReservation = location.pathname.startsWith('/reservar/')
+
+  // No mostrar en página pública de reservas
+  if (isPublicReservation) return null
+
+  return (
+    <>
+      <PWAUpdatePrompt />
+      <PWAInstallPrompt />
+      <CookieBanner />
+    </>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        {/* PWA Prompts */}
-        <PWAUpdatePrompt />
-        <PWAInstallPrompt />
+        <ToastProvider>
+          {/* PWA Prompts y Cookie Banner - solo en rutas internas */}
+          <GlobalComponents />
 
-        {/* Cookie Consent Banner */}
-        <CookieBanner />
-
-        <Routes>
+          <Routes>
           {/* Rutas públicas */}
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
           <Route path="/terminos" element={<TerminosPage />} />
           <Route path="/privacidad" element={<PrivacidadPage />} />
+          <Route path="/reservar/:token" element={<ReservarPage />} />
 
           {/* Ruta principal - redirige a registro si no está autenticado */}
           <Route
@@ -306,7 +323,8 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Routes>
+          </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   )

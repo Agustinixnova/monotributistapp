@@ -6,8 +6,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet, Plus } from 'lucide-react'
-import { formatFechaCorta, sumarMinutosAHora, getFechaHoyArgentina } from '../../utils/dateUtils'
+import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet, Plus, Calendar } from 'lucide-react'
+import { formatFechaCorta, sumarMinutosAHora, getFechaHoyArgentina, generarSlotsTiempo } from '../../utils/dateUtils'
 import { formatearMonto, formatearHora } from '../../utils/formatters'
 import { getSenaDisponibleCliente } from '../../services/pagosService'
 import { createCliente } from '../../services/clientesService'
@@ -33,6 +33,7 @@ export default function ModalTurnoRapido({
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
   const [servicioSeleccionado, setServicioSeleccionado] = useState(null)
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(fecha || getFechaHoyArgentina())
   const [horaInicio, setHoraInicio] = useState(hora || '09:00')
   const [guardando, setGuardando] = useState(false)
   const [nombreNuevoCliente, setNombreNuevoCliente] = useState('')
@@ -58,6 +59,7 @@ export default function ModalTurnoRapido({
       setBusquedaCliente('')
       setClienteSeleccionado(null)
       setServicioSeleccionado(null)
+      setFechaSeleccionada(fecha || getFechaHoyArgentina())
       setHoraInicio(hora || '09:00')
       setNombreNuevoCliente('')
       setMostrarModalCliente(false)
@@ -65,7 +67,7 @@ export default function ModalTurnoRapido({
       setUsarSenaExistente(true)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [isOpen, hora])
+  }, [isOpen, fecha, hora])
 
   // Filtrar clientes
   const clientesFiltrados = clientes.filter(c => {
@@ -78,24 +80,40 @@ export default function ModalTurnoRapido({
     ? sumarMinutosAHora(horaInicio, servicioSeleccionado.duracion_minutos)
     : null
 
-  // Calcular hora mínima si la fecha es hoy
-  const horaMinima = (() => {
+  // Generar horarios disponibles para el selector (filtrar según restricción de 2 horas antes si es hoy)
+  const horariosDisponibles = (() => {
+    const todos = generarSlotsTiempo('08:00', '21:00', 30)
     const hoy = getFechaHoyArgentina()
-    if (fecha !== hoy) return '08:00'
 
+    // Si no es hoy, mostrar todos los horarios
+    if (fechaSeleccionada !== hoy) return todos
+
+    // Si es hoy, filtrar horarios anteriores a 2 horas antes de ahora
     const ahora = new Date()
     // Convertir a hora Argentina (UTC-3)
     const horaArgentina = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000) + (-3 * 3600000))
-    const h = horaArgentina.getHours()
-    const m = horaArgentina.getMinutes()
-    // Redondear al próximo slot de 30 min
-    const minRedondeado = m < 30 ? 30 : 0
-    const horaRedondeada = m < 30 ? h : h + 1
-    return `${String(horaRedondeada).padStart(2, '0')}:${String(minRedondeado).padStart(2, '0')}`
+    const horaActual = horaArgentina.getHours()
+    const minutosActuales = horaArgentina.getMinutes()
+    const minutosLimite = (horaActual * 60 + minutosActuales) - 120 // 2 horas antes
+
+    return todos.filter(hora => {
+      const [h, m] = hora.split(':').map(Number)
+      const minutosHora = h * 60 + m
+      // Permitir horarios desde 2 horas antes de la hora actual
+      return minutosHora >= minutosLimite
+    })
   })()
 
-  // Verificar si la hora seleccionada es válida
-  const horaEsValida = horaInicio >= horaMinima
+  // Verificar si la hora seleccionada es válida (no anterior a 2 horas antes de ahora)
+  const horaEsValida = (() => {
+    const hoy = getFechaHoyArgentina()
+    // Si es fecha pasada, no es válido
+    if (fechaSeleccionada < hoy) return false
+    // Si no es hoy, cualquier hora es válida
+    if (fechaSeleccionada !== hoy) return true
+    // Si es hoy, verificar que la hora esté en los horarios disponibles
+    return horariosDisponibles.includes(horaInicio)
+  })()
 
   const handleSeleccionarCliente = async (cliente) => {
     setClienteSeleccionado(cliente)
@@ -159,7 +177,7 @@ export default function ModalTurnoRapido({
 
     // Filtrar turnos del mismo día
     const turnosDelDia = turnosExistentes.filter(t => {
-      if (t.fecha !== fecha) return false // Solo turnos del mismo día
+      if (t.fecha !== fechaSeleccionada) return false // Solo turnos del mismo día
       if (t.estado === 'cancelado' || t.estado === 'no_asistio') return false // Excluir cancelados
       return true
     })
@@ -178,7 +196,7 @@ export default function ModalTurnoRapido({
     if (!servicioSeleccionado) return
 
     const turnoData = {
-      fecha,
+      fecha: fechaSeleccionada,
       hora_inicio: horaInicio,
       hora_fin: horaFin,
       cliente_id: clienteSeleccionado?.id || null,
@@ -267,7 +285,7 @@ export default function ModalTurnoRapido({
             <div>
               <h2 className="font-heading font-semibold text-gray-900">Turno Rápido</h2>
               <p className="text-xs text-gray-500">
-                {formatFechaCorta(fecha)} - {horaInicio}
+                {formatFechaCorta(fechaSeleccionada)} - {horaInicio}
               </p>
             </div>
           </div>
@@ -547,32 +565,52 @@ export default function ModalTurnoRapido({
                 )}
               </div>
 
-              {/* Selector de hora */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hora de inicio
-                </label>
-                <input
-                  type="time"
-                  value={horaInicio}
-                  min={horaMinima}
-                  onChange={(e) => setHoraInicio(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-lg font-medium ${
-                    !horaEsValida ? 'border-red-300 bg-red-50' : ''
-                  }`}
-                />
-                {!horaEsValida && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    La hora debe ser posterior a {horaMinima}
-                  </p>
-                )}
-                {horaFin && horaEsValida && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    Termina a las {formatearHora(horaFin)}
-                  </p>
-                )}
+              {/* Selector de fecha y hora */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    Fecha
+                  </label>
+                  <input
+                    type="date"
+                    value={fechaSeleccionada}
+                    min={getFechaHoyArgentina()}
+                    onChange={(e) => setFechaSeleccionada(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Hora
+                  </label>
+                  <select
+                    value={horaInicio}
+                    onChange={(e) => setHoraInicio(e.target.value)}
+                    className={`w-full px-3 py-2.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${
+                      !horaEsValida ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                  >
+                    {horariosDisponibles.map(hora => (
+                      <option key={hora} value={hora}>{hora}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {!horaEsValida && (
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  No podés agendar más de 2 horas antes de la hora actual
+                </p>
+              )}
+
+              {horaFin && horaEsValida && (
+                <p className="text-sm text-gray-500">
+                  Termina a las {formatearHora(horaFin)}
+                </p>
+              )}
             </div>
           )}
         </div>

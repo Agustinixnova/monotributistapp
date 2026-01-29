@@ -9,7 +9,8 @@ import {
   registrarPago,
   registrarEnCaja,
   calcularResumenPagos,
-  calcularSenaRequerida
+  calcularSenaRequerida,
+  anularPagosSenaTurno
 } from '../services/pagosService'
 
 /**
@@ -104,6 +105,15 @@ export function usePagosTurno(turnoId, turno = null) {
     return data
   }
 
+  // Anular/eliminar pagos de seña (cuando se devuelve la seña)
+  const anularPagosSena = async () => {
+    const { success, error } = await anularPagosSenaTurno(turnoId)
+    if (error) throw error
+    // Remover las señas de la lista local
+    setPagos(prev => prev.filter(p => p.tipo !== 'sena'))
+    return success
+  }
+
   return {
     pagos,
     loading,
@@ -111,6 +121,7 @@ export function usePagosTurno(turnoId, turno = null) {
     resumen,
     agregarPago,
     enviarACaja,
+    anularPagosSena,
     recargar: fetchPagos
   }
 }

@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react'
 import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle } from 'lucide-react'
 import { formatearMonto, formatearHora, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
-import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
+import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, getHoraActualArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
 import { TIPOS_RECURRENCIA, generarFechasRecurrentes } from '../../utils/recurrenciaUtils'
 import useServicios from '../../hooks/useServicios'
 import useClientes from '../../hooks/useClientes'
@@ -20,6 +20,7 @@ const METODOS_PAGO_SENA = [
   { id: 'transferencia', nombre: 'Transferencia', icono: CreditCard, color: 'bg-blue-100 text-blue-700' },
   { id: 'mercadopago', nombre: 'MercadoPago', icono: Smartphone, color: 'bg-sky-100 text-sky-700' },
   { id: 'qr', nombre: 'QR', icono: QrCode, color: 'bg-purple-100 text-purple-700' },
+  { id: 'canje', nombre: 'Canje/Gratis', icono: Wallet, color: 'bg-amber-100 text-amber-700' },
   { id: 'otro', nombre: 'Otro', icono: Wallet, color: 'bg-gray-100 text-gray-700' }
 ]
 
@@ -83,7 +84,8 @@ export default function ModalTurno({
   const [alertaSuperposicion, setAlertaSuperposicion] = useState({
     mostrar: false,
     turnosSuperpuestos: [],
-    datosParaGuardar: null
+    datosParaGuardar: null,
+    horariosDisponibles: []
   })
 
   // Reset form cuando se abre/cierra o cambia el turno
@@ -231,12 +233,16 @@ export default function ModalTurno({
   }
 
   // Actualizar precio de un servicio seleccionado
-  const handlePrecioChange = (servicioId, nuevoPrecio) => {
+  const handlePrecioChange = (servicioId, valor) => {
+    // Solo permitir números
+    const soloNumeros = valor.replace(/[^0-9]/g, '')
+    const nuevoPrecio = soloNumeros === '' ? 0 : parseInt(soloNumeros, 10)
+
     setForm(f => ({
       ...f,
       servicios_seleccionados: f.servicios_seleccionados.map(s =>
         s.servicio_id === servicioId
-          ? { ...s, precio: parseFloat(nuevoPrecio) || 0 }
+          ? { ...s, precio: nuevoPrecio }
           : s
       )
     }))
@@ -266,14 +272,21 @@ export default function ModalTurno({
     }
   }
 
+  // Convertir hora a minutos para comparar
+  const horaAMinutos = (hora) => {
+    const [h, m] = hora.split(':').map(Number)
+    return h * 60 + m
+  }
+
+  // Convertir minutos a formato hora HH:MM
+  const minutosAHora = (minutos) => {
+    const h = Math.floor(minutos / 60)
+    const m = minutos % 60
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+  }
+
   // Verificar superposición de turnos
   const verificarSuperposicion = (horaInicioNuevo, horaFinNuevo, fechaNueva) => {
-    // Convertir hora a minutos para comparar
-    const horaAMinutos = (hora) => {
-      const [h, m] = hora.split(':').map(Number)
-      return h * 60 + m
-    }
-
     const inicioNuevo = horaAMinutos(horaInicioNuevo)
     const finNuevo = horaAMinutos(horaFinNuevo)
 
@@ -297,8 +310,74 @@ export default function ModalTurno({
     return superpuestos
   }
 
+  // Obtener horarios disponibles para sugerir
+  const obtenerHorariosDisponibles = (duracionMinutos, fechaNueva) => {
+    const INICIO_DIA = 8 * 60  // 08:00
+    const FIN_DIA = 21 * 60    // 21:00
+
+    // Filtrar turnos del mismo día
+    const turnosDelDia = turnosExistentes.filter(t => {
+      if (turno && t.id === turno.id) return false
+      if (t.fecha !== fechaNueva) return false
+      if (t.estado === 'cancelado' || t.estado === 'no_asistio') return false
+      return true
+    })
+
+    // Ordenar turnos por hora de inicio
+    const turnosOrdenados = [...turnosDelDia].sort((a, b) =>
+      horaAMinutos(a.hora_inicio) - horaAMinutos(b.hora_inicio)
+    )
+
+    const horariosDisponibles = []
+
+    // Si es hoy, empezar desde la hora actual + 30 min
+    let inicioDisponible = INICIO_DIA
+    const hoy = getFechaHoyArgentina()
+    if (fechaNueva === hoy) {
+      const horaActual = getHoraActualArgentina() // formato "HH:MM"
+      const minutosActuales = horaAMinutos(horaActual)
+      // Redondear al próximo slot de 30 min (mínimo 30 min desde ahora)
+      inicioDisponible = Math.max(INICIO_DIA, Math.ceil((minutosActuales + 30) / 30) * 30)
+    }
+
+    // Buscar huecos entre turnos
+    for (const t of turnosOrdenados) {
+      const inicioTurno = horaAMinutos(t.hora_inicio)
+      const finTurno = horaAMinutos(t.hora_fin)
+
+      // Hay hueco antes de este turno?
+      if (inicioDisponible + duracionMinutos <= inicioTurno) {
+        // Agregar slots en este hueco (en intervalos de 30 min)
+        let slot = inicioDisponible
+        while (slot + duracionMinutos <= inicioTurno && horariosDisponibles.length < 6) {
+          horariosDisponibles.push(minutosAHora(slot))
+          slot += 30
+        }
+      }
+
+      // Actualizar inicio disponible al fin de este turno
+      inicioDisponible = Math.max(inicioDisponible, finTurno)
+    }
+
+    // Buscar huecos después del último turno hasta el fin del día
+    if (inicioDisponible < FIN_DIA) {
+      let slot = inicioDisponible
+      while (slot + duracionMinutos <= FIN_DIA && horariosDisponibles.length < 6) {
+        horariosDisponibles.push(minutosAHora(slot))
+        slot += 30
+      }
+    }
+
+    return horariosDisponibles.slice(0, 4) // Máximo 4 sugerencias
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (!form.cliente_id) {
+      setError('Seleccioná o creá un cliente')
+      return
+    }
 
     if (form.servicios_seleccionados.length === 0) {
       setError('Seleccioná al menos un servicio')
@@ -310,8 +389,14 @@ export default function ModalTurno({
       return
     }
 
-    // Validar que la hora no sea pasada si es hoy
+    // Validar que la fecha no sea anterior a hoy
     const hoy = getFechaHoyArgentina()
+    if (form.fecha < hoy) {
+      setError('No podés agendar un turno en una fecha pasada')
+      return
+    }
+
+    // Si es hoy, validar que la hora no sea anterior a 2 horas antes de ahora
     if (form.fecha === hoy) {
       const ahora = new Date()
       const horaArgentina = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000) + (-3 * 3600000))
@@ -319,8 +404,12 @@ export default function ModalTurno({
       const minutosActuales = horaArgentina.getMinutes()
       const [h, m] = form.hora_inicio.split(':').map(Number)
 
-      if (h < horaActual || (h === horaActual && m <= minutosActuales)) {
-        setError('No podés agendar un turno en una hora que ya pasó')
+      // Convertir a minutos totales para comparar
+      const minutosDelTurno = h * 60 + m
+      const minutosLimite = (horaActual * 60 + minutosActuales) - 120 // 2 horas = 120 minutos antes
+
+      if (minutosDelTurno < minutosLimite) {
+        setError('No podés agendar un turno con más de 2 horas de anterioridad a la hora actual')
         return
       }
     }
@@ -343,12 +432,13 @@ export default function ModalTurno({
       transferirSenaDe: (senaDisponible && usarSenaExistente) ? senaDisponible.turnoId : null
     }
 
-    // Agregar datos de seña si se cobró
-    if (sena.pedir && sena.cobrada && sena.monto > 0) {
+    // Agregar datos de seña si se cobró (excepto si es canje/gratis)
+    // IMPORTANTE: La fecha de pago es HOY (cuando se cobra la seña), no la fecha del turno
+    if (sena.pedir && sena.cobrada && sena.monto > 0 && sena.metodo_pago !== 'canje') {
       turnoData.sena = {
         monto: sena.monto,
         metodo_pago: sena.metodo_pago,
-        fecha_pago: form.fecha
+        fecha_pago: getFechaHoyArgentina() // La seña se cobra HOY, no en la fecha del turno
       }
     }
 
@@ -365,11 +455,15 @@ export default function ModalTurno({
     const superpuestos = verificarSuperposicion(form.hora_inicio, horaFin, form.fecha)
 
     if (superpuestos.length > 0) {
-      // Mostrar alerta de superposición
+      // Calcular horarios disponibles para sugerir
+      const horariosLibres = obtenerHorariosDisponibles(duracionTotal, form.fecha)
+
+      // Mostrar alerta de superposición con sugerencias
       setAlertaSuperposicion({
         mostrar: true,
         turnosSuperpuestos: superpuestos,
-        datosParaGuardar: turnoData
+        datosParaGuardar: turnoData,
+        horariosDisponibles: horariosLibres
       })
       return
     }
@@ -401,9 +495,17 @@ export default function ModalTurno({
     }
   }
 
+  // Seleccionar un horario sugerido
+  const handleSeleccionarHorarioSugerido = (nuevaHora) => {
+    // Actualizar el formulario con la nueva hora
+    setForm(f => ({ ...f, hora_inicio: nuevaHora }))
+    // Cerrar el modal de superposición
+    setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null, horariosDisponibles: [] })
+  }
+
   // Cancelar y cerrar alerta de superposición
   const handleCancelarSuperposicion = () => {
-    setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
+    setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null, horariosDisponibles: [] })
   }
 
   // Cancelar el turno (cambiar estado a cancelado)
@@ -425,7 +527,7 @@ export default function ModalTurno({
     }
   }
 
-  // Horarios disponibles para el día (filtrar pasados si es hoy)
+  // Horarios disponibles para el día (filtrar según restricción de 2 horas antes si es hoy)
   const horariosDisponibles = (() => {
     const todos = generarSlotsTiempo('08:00', '21:00', 30)
     const hoy = getFechaHoyArgentina()
@@ -433,17 +535,19 @@ export default function ModalTurno({
     // Si no es hoy, mostrar todos los horarios
     if (form.fecha !== hoy) return todos
 
-    // Si es hoy, filtrar horarios pasados
+    // Si es hoy, filtrar horarios anteriores a 2 horas antes de ahora
     const ahora = new Date()
     // Convertir a hora Argentina (UTC-3)
     const horaArgentina = new Date(ahora.getTime() - (ahora.getTimezoneOffset() * 60000) + (-3 * 3600000))
     const horaActual = horaArgentina.getHours()
     const minutosActuales = horaArgentina.getMinutes()
+    const minutosLimite = (horaActual * 60 + minutosActuales) - 120 // 2 horas antes
 
     return todos.filter(hora => {
       const [h, m] = hora.split(':').map(Number)
-      // Solo mostrar horarios futuros (con al menos 30 min de anticipación)
-      return (h > horaActual) || (h === horaActual && m > minutosActuales)
+      const minutosHora = h * 60 + m
+      // Permitir horarios desde 2 horas antes de la hora actual
+      return minutosHora >= minutosLimite
     })
   })()
 
@@ -719,13 +823,13 @@ export default function ModalTurno({
                                 <div className="flex items-center gap-1">
                                   <span className="text-gray-400 text-sm">$</span>
                                   <input
-                                    type="number"
-                                    value={seleccionado.precio}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={seleccionado.precio || ''}
                                     onChange={(e) => handlePrecioChange(servicio.id, e.target.value)}
                                     onClick={(e) => e.stopPropagation()}
+                                    placeholder="0"
                                     className="w-20 px-2 py-1 text-right font-semibold text-gray-900 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    min={0}
-                                    step={100}
                                   />
                                 </div>
                                 {servicio.precio_variable && (
@@ -782,12 +886,15 @@ export default function ModalTurno({
                           <div className="relative flex-1">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600">$</span>
                             <input
-                              type="number"
-                              value={sena.monto}
-                              onChange={(e) => setSena(prev => ({ ...prev, monto: parseFloat(e.target.value) || 0 }))}
+                              type="text"
+                              inputMode="numeric"
+                              value={sena.monto || ''}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9]/g, '')
+                                setSena(prev => ({ ...prev, monto: val === '' ? 0 : parseInt(val, 10) }))
+                              }}
+                              placeholder="0"
                               className="w-full pl-8 pr-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
-                              min={0}
-                              step={100}
                             />
                           </div>
                           {senaSugerida > 0 && sena.monto !== senaSugerida && (
@@ -1146,7 +1253,39 @@ export default function ModalTurno({
                   })}
                 </div>
 
-                <p className="text-sm text-gray-500 mt-4">
+                {/* Sugerencias de horarios disponibles */}
+                {alertaSuperposicion.horariosDisponibles.length > 0 && (
+                  <div className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <p className="text-sm font-medium text-emerald-800 mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Horarios disponibles:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {alertaSuperposicion.horariosDisponibles.map((hora) => {
+                        const horaFinSugerida = sumarMinutosAHora(hora, duracionTotal)
+                        return (
+                          <button
+                            key={hora}
+                            type="button"
+                            onClick={() => handleSeleccionarHorarioSugerido(hora)}
+                            className="px-3 py-2 bg-white hover:bg-emerald-100 border border-emerald-300 rounded-lg text-sm font-medium text-emerald-700 transition-colors flex items-center gap-1.5"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            {hora} - {horaFinSugerida}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {alertaSuperposicion.horariosDisponibles.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-4">
+                    No hay horarios disponibles para la duración requerida.
+                  </p>
+                )}
+
+                <p className="text-sm text-gray-500 mt-3">
                   ¿Querés agendar el turno de todas formas?
                 </p>
               </div>

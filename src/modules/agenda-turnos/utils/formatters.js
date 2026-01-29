@@ -146,6 +146,14 @@ export const ESTADOS_TURNO = {
     textClass: 'text-red-700',
     borderClass: 'border-red-300',
     icon: 'UserX'
+  },
+  pendiente_confirmacion: {
+    label: 'Por confirmar',
+    color: 'orange',
+    bgClass: 'bg-orange-100',
+    textClass: 'text-orange-700',
+    borderClass: 'border-orange-300',
+    icon: 'Clock'
   }
 }
 

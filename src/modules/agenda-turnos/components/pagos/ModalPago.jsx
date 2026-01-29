@@ -17,6 +17,7 @@ const METODOS_PAGO = [
   { id: 'transferencia', nombre: 'Transferencia', icono: CreditCard, color: 'bg-blue-100 text-blue-700 border-blue-300' },
   { id: 'mercadopago', nombre: 'MercadoPago', icono: Smartphone, color: 'bg-sky-100 text-sky-700 border-sky-300' },
   { id: 'qr', nombre: 'QR', icono: QrCode, color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { id: 'canje', nombre: 'Canje/Gratis', icono: Wallet, color: 'bg-amber-100 text-amber-700 border-amber-300' },
   { id: 'otro', nombre: 'Otro', icono: Wallet, color: 'bg-gray-100 text-gray-700 border-gray-300' }
 ]
 
@@ -46,6 +47,12 @@ export default function ModalPago({
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    // Si es canje/gratis, cerrar sin crear movimiento
+    if (metodoPago === 'canje') {
+      onClose()
+      return
+    }
 
     if (!monto || monto <= 0) {
       setError('Ingresá un monto válido')
@@ -127,13 +134,15 @@ export default function ModalPago({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">$</span>
               <input
-                type="number"
-                value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                type="text"
+                inputMode="numeric"
+                value={monto || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '')
+                  setMonto(val === '' ? 0 : parseInt(val, 10))
+                }}
                 className="w-full pl-10 pr-4 py-4 text-2xl font-bold border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
                 placeholder="0"
-                min="0"
-                step="1"
                 autoFocus
               />
             </div>

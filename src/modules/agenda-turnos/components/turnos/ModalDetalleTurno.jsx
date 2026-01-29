@@ -10,9 +10,10 @@ import {
   Banknote, Smartphone, QrCode, RotateCcw
 } from 'lucide-react'
 import { formatearMonto, formatearHora, ESTADOS_TURNO } from '../../utils/formatters'
-import { formatFechaLarga, formatDuracion } from '../../utils/dateUtils'
+import { formatFechaLarga, formatDuracion, getFechaHoyArgentina, generarSlotsTiempo } from '../../utils/dateUtils'
 import { usePagosTurno, useSenaRequerida } from '../../hooks/usePagos'
-import { generarLinkRecordatorio, abrirWhatsApp } from '../../utils/whatsappUtils'
+import { generarLinkRecordatorio, generarLinkConfirmacion, abrirWhatsApp } from '../../utils/whatsappUtils'
+import { createTurno, getTurnosDia } from '../../services/turnosService'
 import ModalPago from '../pagos/ModalPago'
 
 // Métodos de pago para el modal de finalizar
@@ -21,6 +22,7 @@ const METODOS_PAGO = [
   { id: 'transferencia', nombre: 'Transferencia', icono: CreditCard, color: 'bg-blue-100 text-blue-700 border-blue-300' },
   { id: 'mercadopago', nombre: 'MercadoPago', icono: Smartphone, color: 'bg-sky-100 text-sky-700 border-sky-300' },
   { id: 'qr', nombre: 'QR', icono: QrCode, color: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { id: 'canje', nombre: 'Canje/Gratis', icono: Wallet, color: 'bg-amber-100 text-amber-700 border-amber-300' },
   { id: 'otro', nombre: 'Otro', icono: Wallet, color: 'bg-gray-100 text-gray-700 border-gray-300' }
 ]
 
@@ -40,13 +42,22 @@ export default function ModalDetalleTurno({
   const [finalizando, setFinalizando] = useState(false)
   const [modalCancelar, setModalCancelar] = useState(false)
   const [cancelando, setCancelando] = useState(false)
+  const [modalConfirmar, setModalConfirmar] = useState(false)
+
+  // Estados para reprogramación
+  const [pasoReprogramar, setPasoReprogramar] = useState(false)
+  const [nuevaFecha, setNuevaFecha] = useState('')
+  const [nuevaHora, setNuevaHora] = useState('')
+  const [errorReprogramar, setErrorReprogramar] = useState(null)
+  const [turnosDelDia, setTurnosDelDia] = useState([])
 
   const {
     pagos,
     loading: loadingPagos,
     resumen,
     agregarPago,
-    enviarACaja
+    enviarACaja,
+    anularPagosSena
   } = usePagosTurno(turno?.id, turno)
 
   // Calcular seña requerida
@@ -97,29 +108,33 @@ export default function ModalDetalleTurno({
       setModalFinalizar(true)
       return
     }
-    // Si no hay saldo pendiente, finalizar directamente
+    // Si no hay saldo pendiente, finalizar directamente y cerrar
     onCambiarEstado?.(turno.id, 'completado')
+    onClose?.()
   }
 
   // Handler para confirmar finalización con pago
   const handleConfirmarFinalizacion = async () => {
-    if (!metodoPagoFinal || !resumen?.saldoPendiente) return
+    if (!metodoPagoFinal) return
 
     setFinalizando(true)
     try {
-      // Registrar el pago final
-      await agregarPago({
-        tipo: 'pago_final',
-        monto: resumen.saldoPendiente,
-        metodo_pago_id: null,
-        fecha_pago: new Date().toISOString().split('T')[0],
-        notas: `Pago: ${METODOS_PAGO.find(m => m.id === metodoPagoFinal)?.nombre || metodoPagoFinal}`
-      })
+      // Si es canje/gratis, no registrar pago
+      if (metodoPagoFinal !== 'canje' && resumen?.saldoPendiente > 0) {
+        await agregarPago({
+          tipo: 'pago_final',
+          monto: resumen.saldoPendiente,
+          metodo_pago_id: null,
+          fecha_pago: getFechaHoyArgentina(),
+          notas: `Pago: ${METODOS_PAGO.find(m => m.id === metodoPagoFinal)?.nombre || metodoPagoFinal}`
+        })
+      }
 
-      // Cerrar modal y cambiar estado
+      // Cambiar estado, cerrar modales
       setModalFinalizar(false)
       setMetodoPagoFinal(null)
       onCambiarEstado?.(turno.id, 'completado')
+      onClose?.() // Cerrar modal principal
     } catch (error) {
       console.error('Error al finalizar turno:', error)
     } finally {
@@ -132,6 +147,7 @@ export default function ModalDetalleTurno({
     setModalFinalizar(false)
     setMetodoPagoFinal(null)
     onCambiarEstado?.(turno.id, 'completado')
+    onClose?.() // Cerrar modal principal
   }
 
   // Handler para cancelar turno
@@ -147,29 +163,13 @@ export default function ModalDetalleTurno({
     }
   }
 
-  // Cancelar y devolver seña
+  // Cancelar y devolver seña (anula los registros de seña)
   const handleCancelarConDevolucion = async () => {
-    // Verificar si ya hay devolución registrada
-    const yaHayDevolucion = pagos.some(p => p.tipo === 'devolucion')
-    if (yaHayDevolucion) {
-      // Ya hay devolución, solo cancelar
-      setModalCancelar(false)
-      onCambiarEstado?.(turno.id, 'cancelado')
-      onClose?.() // Cerrar modal principal
-      return
-    }
-
     setCancelando(true)
     try {
-      // Registrar devolución
-      const totalSenas = pagos.filter(p => p.tipo === 'sena').reduce((sum, p) => sum + p.monto, 0)
-      await agregarPago({
-        tipo: 'devolucion',
-        monto: totalSenas,
-        metodo_pago_id: null,
-        fecha_pago: new Date().toISOString().split('T')[0],
-        notas: 'Devolución por cancelación'
-      })
+      // Anular/eliminar los registros de seña
+      await anularPagosSena()
+
       // Cancelar turno y cerrar modales
       setModalCancelar(false)
       onCambiarEstado?.(turno.id, 'cancelado')
@@ -181,49 +181,176 @@ export default function ModalDetalleTurno({
     }
   }
 
-  // Cancelar sin devolver (cliente reprogramará)
-  const handleCancelarSinDevolucion = () => {
-    setModalCancelar(false)
-    onCambiarEstado?.(turno.id, 'cancelado')
-    onClose?.() // Cerrar modal principal
+  // Mostrar paso de reprogramación (mantener seña)
+  const handleMantenerSena = () => {
+    setPasoReprogramar(true)
+    setNuevaFecha('')
+    setNuevaHora('')
+    setErrorReprogramar(null)
+    setTurnosDelDia([])
+  }
+
+  // Cargar turnos del día seleccionado para verificar solapamiento
+  const handleFechaChange = async (fecha) => {
+    setNuevaFecha(fecha)
+    setNuevaHora('')
+    setErrorReprogramar(null)
+
+    if (!fecha) {
+      setTurnosDelDia([])
+      return
+    }
+
+    // Obtener turnos del día
+    const { data: turnos } = await getTurnosDia(fecha)
+    // Excluir el turno actual y los cancelados
+    const turnosActivos = (turnos || []).filter(t =>
+      t.id !== turno.id && !['cancelado', 'completado', 'no_asistio'].includes(t.estado)
+    )
+    setTurnosDelDia(turnosActivos)
+  }
+
+  // Calcular hora de fin basada en duración del turno original
+  const calcularHoraFin = (horaInicio) => {
+    if (!horaInicio || !turno.hora_inicio || !turno.hora_fin) return null
+
+    // Calcular duración original en minutos
+    const [hIni, mIni] = turno.hora_inicio.split(':').map(Number)
+    const [hFin, mFin] = turno.hora_fin.split(':').map(Number)
+    const duracionMinutos = (hFin * 60 + mFin) - (hIni * 60 + mIni)
+
+    // Aplicar a nueva hora
+    const [h, m] = horaInicio.split(':').map(Number)
+    const totalMinutos = h * 60 + m + duracionMinutos
+    const nuevaH = Math.floor(totalMinutos / 60)
+    const nuevaM = totalMinutos % 60
+    return `${String(nuevaH).padStart(2, '0')}:${String(nuevaM).padStart(2, '0')}`
+  }
+
+  // Verificar si hay solapamiento
+  const verificarSolapamiento = (horaInicio) => {
+    const horaFin = calcularHoraFin(horaInicio)
+    if (!horaFin) return null
+
+    const nuevaIni = horaInicio.replace(':', '')
+    const nuevaFin = horaFin.replace(':', '')
+
+    for (const t of turnosDelDia) {
+      const tIni = t.hora_inicio?.substring(0, 5).replace(':', '') || '0000'
+      const tFin = t.hora_fin?.substring(0, 5).replace(':', '') || '2359'
+
+      // Hay solapamiento si: nuevaIni < tFin Y nuevaFin > tIni
+      if (nuevaIni < tFin && nuevaFin > tIni) {
+        const clienteNombre = t.cliente ? `${t.cliente.nombre} ${t.cliente.apellido || ''}`.trim() : 'otro turno'
+        return `Se superpone con ${clienteNombre} (${formatearHora(t.hora_inicio)} - ${formatearHora(t.hora_fin)})`
+      }
+    }
+    return null
+  }
+
+  // Validar hora seleccionada
+  const handleHoraChange = (hora) => {
+    setNuevaHora(hora)
+    if (hora) {
+      const solapamiento = verificarSolapamiento(hora)
+      setErrorReprogramar(solapamiento)
+    } else {
+      setErrorReprogramar(null)
+    }
+  }
+
+  // Confirmar reprogramación
+  const handleConfirmarReprogramacion = async () => {
+    if (!nuevaFecha || !nuevaHora) {
+      setErrorReprogramar('Seleccioná fecha y hora')
+      return
+    }
+
+    const solapamiento = verificarSolapamiento(nuevaHora)
+    if (solapamiento) {
+      setErrorReprogramar(solapamiento)
+      return
+    }
+
+    setCancelando(true)
+    setErrorReprogramar(null)
+
+    try {
+      const horaFin = calcularHoraFin(nuevaHora)
+
+      // Preparar servicios para el nuevo turno
+      const serviciosData = servicios.map(s => ({
+        servicio_id: s.servicio?.id || s.agenda_servicios?.id || s.servicio_id,
+        precio: s.precio,
+        duracion: s.duracion || s.servicio?.duracion_minutos || s.agenda_servicios?.duracion_minutos
+      }))
+
+      // Crear nuevo turno con transferencia de seña
+      const { data: nuevoTurno, error: errorNuevo } = await createTurno({
+        cliente_id: turno.cliente_id,
+        profesional_id: turno.profesional_id,
+        fecha: nuevaFecha,
+        hora_inicio: nuevaHora,
+        hora_fin: horaFin,
+        notas: turno.notas,
+        notas_internas: turno.notas_internas,
+        servicios: serviciosData,
+        transferirSenaDe: turno.id // Esto transfiere la seña automáticamente
+      })
+
+      if (errorNuevo) throw errorNuevo
+
+      // Cancelar turno original
+      onCambiarEstado?.(turno.id, 'cancelado')
+
+      // Cerrar modales
+      setModalCancelar(false)
+      setPasoReprogramar(false)
+      onClose?.()
+
+    } catch (error) {
+      console.error('Error reprogramando turno:', error)
+      setErrorReprogramar('Error al reprogramar. Intentá de nuevo.')
+    } finally {
+      setCancelando(false)
+    }
+  }
+
+  // Volver al paso anterior
+  const handleVolverPasoAnterior = () => {
+    setPasoReprogramar(false)
+    setErrorReprogramar(null)
   }
 
   // Botones de acción rápida según estado
   const renderAccionesEstado = () => {
-    switch (turno.estado) {
-      case 'pendiente':
-        return (
-          <div className="flex gap-2">
-            <button
-              onClick={() => onCambiarEstado?.(turno.id, 'confirmado')}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
-            >
-              <Check className="w-4 h-4" />
-              Confirmar
-            </button>
-            <button
-              onClick={handleCancelarTurno}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium"
-            >
-              <XCircle className="w-4 h-4" />
-              Cancelar
-            </button>
-          </div>
-        )
-      case 'confirmado':
-      case 'en_curso': // Mantener compatibilidad con turnos existentes
-        return (
+    // Para turnos pendientes: mostrar botón de confirmar prominente
+    if (turno.estado === 'pendiente') {
+      return (
+        <div className="space-y-3">
+          {/* Botón principal: Confirmar */}
+          <button
+            onClick={() => setModalConfirmar(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+          >
+            <Check className="w-5 h-5" />
+            Confirmar turno
+          </button>
+          {/* Acciones secundarias */}
           <div className="flex gap-2">
             <button
               onClick={handleFinalizarTurno}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm"
             >
               <CheckCircle2 className="w-4 h-4" />
               Finalizar
             </button>
             <button
-              onClick={() => onCambiarEstado?.(turno.id, 'no_asistio')}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium"
+              onClick={() => {
+                onCambiarEstado?.(turno.id, 'no_asistio')
+                onClose?.()
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium text-sm"
             >
               <XCircle className="w-4 h-4" />
               No asistió
@@ -235,10 +362,41 @@ export default function ModalDetalleTurno({
               <Ban className="w-4 h-4" />
             </button>
           </div>
-        )
-      default:
-        return null
+        </div>
+      )
     }
+
+    // Para confirmado y en_curso: acciones normales
+    if (['confirmado', 'en_curso'].includes(turno.estado)) {
+      return (
+        <div className="flex gap-2">
+          <button
+            onClick={handleFinalizarTurno}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Finalizar
+          </button>
+          <button
+            onClick={() => {
+              onCambiarEstado?.(turno.id, 'no_asistio')
+              onClose?.()
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium"
+          >
+            <XCircle className="w-4 h-4" />
+            No asistió
+          </button>
+          <button
+            onClick={handleCancelarTurno}
+            className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium"
+          >
+            <Ban className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    }
+    return null
   }
 
   return (
@@ -289,6 +447,43 @@ export default function ModalDetalleTurno({
                   <span>{formatearHora(turno.hora_inicio)} - {formatearHora(turno.hora_fin)}</span>
                 </div>
               </div>
+
+              {/* Badge de seña - mostrar si no se cobró seña y el turno está activo */}
+              {!loadingPagos && !pagos.some(p => p.tipo === 'sena') && !['cancelado', 'completado'].includes(turno.estado) && (
+                <div className={`flex items-center justify-between rounded-xl p-3 ${
+                  requiereSena
+                    ? 'bg-amber-50 border border-amber-200'
+                    : 'bg-gray-50 border border-gray-200'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                      requiereSena ? 'bg-amber-100' : 'bg-gray-200'
+                    }`}>
+                      <Wallet className={`w-5 h-5 ${requiereSena ? 'text-amber-600' : 'text-gray-500'}`} />
+                    </div>
+                    <div>
+                      <p className={`font-medium text-sm ${requiereSena ? 'text-amber-800' : 'text-gray-700'}`}>
+                        {requiereSena ? 'Seña pendiente' : 'Sin seña'}
+                      </p>
+                      {requiereSena && montoSena > 0 ? (
+                        <p className="text-xs text-amber-600">Sugerido: {formatearMonto(montoSena)}</p>
+                      ) : (
+                        <p className="text-xs text-gray-500">No se cobró seña</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setModalPago({ abierto: true, tipo: 'sena' })}
+                    className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
+                      requiereSena
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`}
+                  >
+                    Cobrar seña
+                  </button>
+                </div>
+              )}
 
               {/* Cliente */}
               {cliente && (
@@ -668,7 +863,12 @@ export default function ModalDetalleTurno({
       {/* Modal de cancelar turno con seña */}
       {modalCancelar && (
         <div className="fixed inset-0 z-[60] overflow-y-auto">
-          <div className="fixed inset-0 bg-black/50" onClick={() => !cancelando && setModalCancelar(false)} />
+          <div className="fixed inset-0 bg-black/50" onClick={() => {
+            if (!cancelando) {
+              setModalCancelar(false)
+              setPasoReprogramar(false)
+            }
+          }} />
 
           <div className="flex min-h-full items-center justify-center p-4">
             <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm">
@@ -693,34 +893,246 @@ export default function ModalDetalleTurno({
 
               {/* Content */}
               <div className="p-5">
-                <p className="text-sm text-gray-600 mb-4">¿Qué hacemos con la seña?</p>
+                {!pasoReprogramar ? (
+                  <>
+                    <p className="text-sm text-gray-600 mb-4">¿Qué hacemos con la seña?</p>
+
+                    <div className="space-y-3">
+                      <button
+                        onClick={handleCancelarConDevolucion}
+                        disabled={cancelando}
+                        className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 transition-colors text-left"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-red-200 flex items-center justify-center flex-shrink-0">
+                          <Undo2 className="w-5 h-5 text-red-700" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Devolver seña</p>
+                          <p className="text-xs text-gray-500">El cliente no reprogramará</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={handleMantenerSena}
+                        disabled={cancelando}
+                        className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-5 h-5 text-amber-700" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Reprogramar turno</p>
+                          <p className="text-xs text-gray-500">Elegir nueva fecha y mantener la seña</p>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 mb-4">Elegí la nueva fecha y horario:</p>
+
+                    {/* Fecha y Hora - mismo formato que ModalTurno */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <Calendar className="w-4 h-4 inline mr-1" />
+                          Fecha
+                        </label>
+                        <input
+                          type="date"
+                          value={nuevaFecha}
+                          onChange={(e) => handleFechaChange(e.target.value)}
+                          min={getFechaHoyArgentina()}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <Clock className="w-4 h-4 inline mr-1" />
+                          Hora
+                        </label>
+                        <select
+                          value={nuevaHora}
+                          onChange={(e) => handleHoraChange(e.target.value)}
+                          disabled={!nuevaFecha}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 disabled:bg-gray-100"
+                        >
+                          <option value="">Seleccionar</option>
+                          {generarSlotsTiempo('08:00', '21:00', 30).map(hora => (
+                            <option key={hora} value={hora}>{hora}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Horario calculado */}
+                    {nuevaHora && calcularHoraFin(nuevaHora) && (
+                      <p className="text-sm text-gray-600 mb-4">
+                        Nuevo horario: <span className="font-medium">{nuevaHora} - {calcularHoraFin(nuevaHora)}</span>
+                      </p>
+                    )}
+
+                    {/* Turnos del día (para referencia) */}
+                    {nuevaFecha && turnosDelDia.length > 0 && (
+                      <div className="mb-4 bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs font-medium text-gray-600 mb-2">Turnos ese día:</p>
+                        <div className="space-y-1">
+                          {turnosDelDia.map(t => (
+                            <div key={t.id} className="text-xs text-gray-500 flex items-center gap-2">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatearHora(t.hora_inicio)} - {formatearHora(t.hora_fin)}</span>
+                              <span className="text-gray-400">
+                                {t.cliente ? `${t.cliente.nombre}` : 'Sin cliente'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Error de solapamiento */}
+                    {errorReprogramar && (
+                      <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+                        {errorReprogramar}
+                      </div>
+                    )}
+
+                    {/* Info de la seña que se mantiene */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
+                      <Wallet className="w-5 h-5 text-amber-600" />
+                      <div className="text-sm">
+                        <span className="text-amber-800">Seña de </span>
+                        <span className="font-semibold text-amber-700">
+                          {formatearMonto(pagos.filter(p => p.tipo === 'sena').reduce((sum, p) => sum + p.monto, 0))}
+                        </span>
+                        <span className="text-amber-800"> se transfiere al nuevo turno</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-4 border-t bg-gray-50">
+                {!pasoReprogramar ? (
+                  <button
+                    onClick={() => {
+                      setModalCancelar(false)
+                      setPasoReprogramar(false)
+                    }}
+                    disabled={cancelando}
+                    className="w-full px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
+                  >
+                    Volver
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleVolverPasoAnterior}
+                      disabled={cancelando}
+                      className="flex-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
+                    >
+                      Atrás
+                    </button>
+                    <button
+                      onClick={handleConfirmarReprogramacion}
+                      disabled={cancelando || !nuevaFecha || !nuevaHora || !!errorReprogramar}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white rounded-lg font-medium"
+                    >
+                      {cancelando ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Reprogramar
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {cancelando && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-2xl">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmar turno */}
+      {modalConfirmar && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setModalConfirmar(false)} />
+
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm">
+              {/* Header */}
+              <div className="px-5 py-4 border-b bg-blue-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Check className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-semibold text-lg text-gray-900">
+                      Confirmar turno
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {cliente?.nombre} {cliente?.apellido || ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-5">
+                <p className="text-sm text-gray-600 mb-4">
+                  ¿Querés enviarle la confirmación por WhatsApp?
+                </p>
 
                 <div className="space-y-3">
-                  <button
-                    onClick={handleCancelarConDevolucion}
-                    disabled={cancelando}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 transition-colors text-left"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-red-200 flex items-center justify-center flex-shrink-0">
-                      <Undo2 className="w-5 h-5 text-red-700" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Devolver seña</p>
-                      <p className="text-xs text-gray-500">El cliente no reprogramará</p>
-                    </div>
-                  </button>
+                  {/* Confirmar y enviar WhatsApp */}
+                  {(cliente?.whatsapp || cliente?.telefono) && (
+                    <button
+                      onClick={() => {
+                        const serviciosInfo = servicios.map(s => ({
+                          nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio'
+                        }))
+                        const link = generarLinkConfirmacion(turno, cliente, serviciosInfo)
+                        if (link) {
+                          abrirWhatsApp(link)
+                        }
+                        onCambiarEstado?.(turno.id, 'confirmado')
+                        setModalConfirmar(false)
+                      }}
+                      className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-green-200 bg-green-50 hover:bg-green-100 transition-colors text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <MessageCircle className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Confirmar y enviar WhatsApp</p>
+                        <p className="text-xs text-gray-500">Se abrirá WhatsApp con el mensaje</p>
+                      </div>
+                    </button>
+                  )}
 
+                  {/* Solo confirmar */}
                   <button
-                    onClick={handleCancelarSinDevolucion}
-                    disabled={cancelando}
-                    className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
+                    onClick={() => {
+                      onCambiarEstado?.(turno.id, 'confirmado')
+                      setModalConfirmar(false)
+                    }}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-5 h-5 text-amber-700" />
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Check className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Mantener seña</p>
-                      <p className="text-xs text-gray-500">El cliente reprogramará para otro día</p>
+                      <p className="font-medium text-gray-900">Solo confirmar</p>
+                      <p className="text-xs text-gray-500">Sin enviar mensaje</p>
                     </div>
                   </button>
                 </div>
@@ -729,19 +1141,12 @@ export default function ModalDetalleTurno({
               {/* Footer */}
               <div className="px-5 py-4 border-t bg-gray-50">
                 <button
-                  onClick={() => setModalCancelar(false)}
-                  disabled={cancelando}
+                  onClick={() => setModalConfirmar(false)}
                   className="w-full px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
                 >
-                  Volver
+                  Cancelar
                 </button>
               </div>
-
-              {cancelando && (
-                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-2xl">
-                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-                </div>
-              )}
             </div>
           </div>
         </div>

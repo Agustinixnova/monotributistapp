@@ -32,6 +32,10 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `agenda_turnos_schema.sql` | `agenda_servicios`, `agenda_servicio_profesionales`, `agenda_clientes`, `agenda_disponibilidad`, `agenda_excepciones`, `agenda_turnos`, `agenda_turno_servicios`, `agenda_turno_pagos` | Esquema completo del módulo de agenda y turnos |
 | `agenda_turnos_module.sql` | - | Configuración adicional, triggers y RLS policies del módulo |
 | `30_agenda_clientes_instagram_origen.sql` | `agenda_clientes` | Agrega campos instagram y origen (como nos conoció) |
+| `agenda_negocio.sql` | `agenda_negocio` | Datos del negocio/emprendimiento (nombre, contacto, redes, etc.) |
+| `agenda_reserva_links.sql` | `agenda_reserva_links` | Links de reserva para auto-gestión de turnos por clientes |
+| `agenda_reservas_public_access.sql` | - | Permisos y RLS para acceso público sin autenticación |
+| `crear_reserva_publica_function.sql` | Función RPC | Función para crear reservas desde links públicos (soporta múltiples servicios) |
 
 ## Diagrama de Relaciones
 
@@ -110,6 +114,8 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+28-01-2026 - Función crear_reserva_publica actualizada para soportar múltiples servicios
+28-01-2026 - Agregada tabla agenda_reserva_links para links de reserva auto-gestionados
 24-01-2026 - Agregados campos instagram y origen a agenda_clientes
 24-01-2026 - Agregadas tablas del módulo Agenda & Turnos
 11-01-2026 - Agregada función y trigger para calcular automáticamente estado_pago_monotributo

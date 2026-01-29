@@ -72,6 +72,7 @@ export async function createServicio(servicioData) {
         duracion_minima: servicioData.duracion_minima || null,
         duracion_maxima: servicioData.duracion_maxima || null,
         precio: servicioData.precio || 0,
+        precio_variable: servicioData.precio_variable || false,
         costo_estimado: servicioData.costo_estimado || null,
         requiere_sena: servicioData.requiere_sena || false,
         porcentaje_sena: servicioData.porcentaje_sena || 0,
@@ -103,6 +104,7 @@ export async function updateServicio(id, servicioData) {
     if (servicioData.duracion_minima !== undefined) updateData.duracion_minima = servicioData.duracion_minima
     if (servicioData.duracion_maxima !== undefined) updateData.duracion_maxima = servicioData.duracion_maxima
     if (servicioData.precio !== undefined) updateData.precio = servicioData.precio
+    if (servicioData.precio_variable !== undefined) updateData.precio_variable = servicioData.precio_variable
     if (servicioData.costo_estimado !== undefined) updateData.costo_estimado = servicioData.costo_estimado
     if (servicioData.requiere_sena !== undefined) updateData.requiere_sena = servicioData.requiere_sena
     if (servicioData.porcentaje_sena !== undefined) updateData.porcentaje_sena = servicioData.porcentaje_sena

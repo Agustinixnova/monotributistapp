@@ -306,6 +306,28 @@ export async function getSenaDisponibleCliente(clienteId) {
 }
 
 /**
+ * Anula/elimina los pagos de seña de un turno
+ * Se usa cuando se cancela un turno y se devuelve la seña
+ */
+export async function anularPagosSenaTurno(turnoId) {
+  try {
+    // Eliminar los registros de seña del turno
+    const { error } = await supabase
+      .from('agenda_turno_pagos')
+      .delete()
+      .eq('turno_id', turnoId)
+      .eq('tipo', 'sena')
+
+    if (error) throw error
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Error anulando pagos de seña:', error)
+    return { success: false, error }
+  }
+}
+
+/**
  * Transfiere pagos de un turno a otro
  * Se usa cuando un cliente reprograma y mantiene la seña
  */

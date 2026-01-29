@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Calendar, DollarSign, CreditCard, Banknote, Smartphone, QrCode, Wallet, Clock, User, Check, AlertCircle, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { Calendar, DollarSign, CreditCard, Banknote, Smartphone, QrCode, Wallet, Clock, User, Check, AlertCircle, ChevronLeft, ChevronRight, Filter, Undo2 } from 'lucide-react'
 import { supabase } from '../../../../lib/supabase'
 import { getEffectiveUserId } from '../../../caja-diaria/services/empleadosService'
 import { formatearMonto } from '../../utils/formatters'
@@ -49,7 +49,8 @@ export default function CobrosAgenda() {
     transferencia: 0,
     mercadopago: 0,
     qr: 0,
-    otro: 0
+    otro: 0,
+    devoluciones: 0
   })
 
   // Calcular rango de fechas según período
@@ -126,23 +127,33 @@ export default function CobrosAgenda() {
         const pagosUsuario = pagos?.filter(p => p.turno) || []
         setCobros(pagosUsuario)
 
-        // Calcular totales
+        // Calcular totales (devoluciones restan)
         const nuevosTotales = {
           total: 0,
           efectivo: 0,
           transferencia: 0,
           mercadopago: 0,
           qr: 0,
-          otro: 0
+          otro: 0,
+          devoluciones: 0
         }
 
         pagosUsuario.forEach(pago => {
-          nuevosTotales.total += pago.monto
+          const monto = pago.monto
           const metodo = getMetodoNombre(pago.notas).toLowerCase()
-          if (nuevosTotales[metodo] !== undefined) {
-            nuevosTotales[metodo] += pago.monto
+
+          if (pago.tipo === 'devolucion') {
+            // Las devoluciones restan del total
+            nuevosTotales.total -= monto
+            nuevosTotales.devoluciones += monto
           } else {
-            nuevosTotales.otro += pago.monto
+            // Señas y pagos suman
+            nuevosTotales.total += monto
+            if (nuevosTotales[metodo] !== undefined) {
+              nuevosTotales[metodo] += monto
+            } else {
+              nuevosTotales.otro += monto
+            }
           }
         })
 
@@ -271,6 +282,15 @@ export default function CobrosAgenda() {
               </div>
             </div>
           )}
+          {totales.devoluciones > 0 && (
+            <div className="bg-red-50 rounded-lg p-3 flex items-center gap-3 col-span-2">
+              <Undo2 className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="text-xs text-red-600">Devoluciones</p>
+                <p className="font-semibold text-red-800">-{formatearMonto(totales.devoluciones)}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -341,6 +361,8 @@ export default function CobrosAgenda() {
                 .filter(Boolean)
                 .join(', ') || 'Servicio'
 
+              const esDevolucion = cobro.tipo === 'devolucion'
+
               return (
                 <div
                   key={cobro.id}
@@ -348,30 +370,44 @@ export default function CobrosAgenda() {
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      cobro.tipo === 'sena' ? 'bg-amber-100' : 'bg-emerald-100'
+                      esDevolucion
+                        ? 'bg-red-100'
+                        : cobro.tipo === 'sena'
+                          ? 'bg-amber-100'
+                          : 'bg-emerald-100'
                     }`}>
-                      <MetodoIcono className={`w-5 h-5 ${
-                        cobro.tipo === 'sena' ? 'text-amber-600' : 'text-emerald-600'
-                      }`} />
+                      {esDevolucion ? (
+                        <Undo2 className="w-5 h-5 text-red-600" />
+                      ) : (
+                        <MetodoIcono className={`w-5 h-5 ${
+                          cobro.tipo === 'sena' ? 'text-amber-600' : 'text-emerald-600'
+                        }`} />
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <p className="font-medium text-gray-900">{clienteNombre}</p>
                         <p className={`font-semibold ${
-                          cobro.tipo === 'sena' ? 'text-amber-600' : 'text-emerald-600'
+                          esDevolucion
+                            ? 'text-red-600'
+                            : cobro.tipo === 'sena'
+                              ? 'text-amber-600'
+                              : 'text-emerald-600'
                         }`}>
-                          +{formatearMonto(cobro.monto)}
+                          {esDevolucion ? '-' : '+'}{formatearMonto(cobro.monto)}
                         </p>
                       </div>
                       <p className="text-sm text-gray-500 truncate">{serviciosNombres}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          cobro.tipo === 'sena'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
+                          esDevolucion
+                            ? 'bg-red-100 text-red-700'
+                            : cobro.tipo === 'sena'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
                         }`}>
-                          {cobro.tipo === 'sena' ? 'Seña' : 'Pago'}
+                          {esDevolucion ? 'Devolución' : cobro.tipo === 'sena' ? 'Seña' : 'Pago'}
                         </span>
                         <span className="text-xs text-gray-400">
                           {metodoNombre}

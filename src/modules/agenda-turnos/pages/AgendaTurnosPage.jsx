@@ -3,8 +3,9 @@
  * Fase 2: Vistas semana/mes, turno rápido, múltiples servicios
  */
 
-import { useState, useCallback } from 'react'
-import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { getFechaHoyArgentina, getPrimerDiaSemana } from '../utils/dateUtils'
 import { useTurnosDia, useTurnosSemana, useTurnosMes } from '../hooks/useTurnos'
@@ -16,13 +17,18 @@ import CalendarioMes from '../components/calendario/CalendarioMes'
 import ModalTurno from '../components/turnos/ModalTurno'
 import ModalTurnoRapido from '../components/turnos/ModalTurnoRapido'
 import ModalDetalleTurno from '../components/turnos/ModalDetalleTurno'
+import ModalConfirmarPendientes from '../components/turnos/ModalConfirmarPendientes'
 import ModalServicio from '../components/servicios/ModalServicio'
 import ModalCliente from '../components/clientes/ModalCliente'
+import ModalFichaCliente from '../components/clientes/ModalFichaCliente'
 import ConfigDisponibilidad from '../components/disponibilidad/ConfigDisponibilidad'
+import ConfigNegocio from '../components/config/ConfigNegocio'
 import SelectorProfesional from '../components/disponibilidad/SelectorProfesional'
 import EstadisticasAgenda from '../components/estadisticas/EstadisticasAgenda'
 import CobrosAgenda from '../components/cobros/CobrosAgenda'
 import HistorialCliente from '../components/clientes/HistorialCliente'
+import ListaReservaLinks from '../components/reservas/ListaReservaLinks'
+import ModalGenerarLink from '../components/reservas/ModalGenerarLink'
 import { useProfesionales } from '../hooks/useDisponibilidad'
 import { formatearMonto } from '../utils/formatters'
 import { formatDuracion } from '../utils/dateUtils'
@@ -32,10 +38,11 @@ import { supabase } from '../../../lib/supabase'
 const TABS = {
   calendario: { id: 'calendario', label: 'Calendario', icon: Calendar },
   cobros: { id: 'cobros', label: 'Cobros', icon: DollarSign },
+  reservas: { id: 'reservas', label: 'Reservas', icon: Link2 },
   servicios: { id: 'servicios', label: 'Servicios', icon: Scissors },
   clientes: { id: 'clientes', label: 'Clientes', icon: Users },
   estadisticas: { id: 'estadisticas', label: 'Stats', icon: BarChart3 },
-  config: { id: 'config', label: 'Horarios', icon: Settings },
+  config: { id: 'config', label: 'Config', icon: Settings },
 }
 
 // Vistas de calendario
@@ -46,6 +53,7 @@ const VISTAS_CALENDARIO = {
 }
 
 export default function AgendaTurnosPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tabActiva, setTabActiva] = useState('calendario')
   const [vistaCalendario, setVistaCalendario] = useState('semana') // semana es la vista principal
   const [fechaSeleccionada, setFechaSeleccionada] = useState(getFechaHoyArgentina())
@@ -56,7 +64,41 @@ export default function AgendaTurnosPage() {
   const [modalDetalle, setModalDetalle] = useState({ abierto: false, turno: null })
   const [modalServicio, setModalServicio] = useState({ abierto: false, servicio: null })
   const [modalCliente, setModalCliente] = useState({ abierto: false, cliente: null })
+  const [modalFichaCliente, setModalFichaCliente] = useState({ abierto: false, clienteId: null })
   const [modalHistorial, setModalHistorial] = useState({ abierto: false, clienteId: null })
+  const [modalGenerarLink, setModalGenerarLink] = useState(false)
+  const [modalConfirmarPendientes, setModalConfirmarPendientes] = useState(false)
+  const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [configSubTab, setConfigSubTab] = useState('negocio') // 'negocio' | 'disponibilidad'
+
+  // Efecto para abrir turno desde URL (ej: ?turno=uuid)
+  useEffect(() => {
+    const turnoId = searchParams.get('turno')
+    if (turnoId) {
+      // Cargar el turno y abrir el modal
+      const cargarTurno = async () => {
+        const { data } = await supabase
+          .from('agenda_turnos')
+          .select(`
+            *,
+            cliente:agenda_clientes(*),
+            servicios:agenda_turno_servicios(
+              *,
+              servicio:agenda_servicios(*)
+            )
+          `)
+          .eq('id', turnoId)
+          .single()
+
+        if (data) {
+          setModalDetalle({ abierto: true, turno: data })
+          // Limpiar el param de la URL
+          setSearchParams({})
+        }
+      }
+      cargarTurno()
+    }
+  }, [searchParams, setSearchParams])
 
   // Hook de profesionales (debe ir antes de los hooks de turnos para tener profesionalActivo)
   const {
@@ -114,6 +156,19 @@ export default function AgendaTurnosPage() {
     recargar: recargarClientes
   } = useClientes({ autoLoad: tabActiva === 'clientes' || modalTurno.abierto || modalTurnoRapido.abierto })
 
+  // Calcular turnos pendientes según la vista actual
+  const turnosPendientes = (() => {
+    let turnos = []
+    if (vistaCalendario === 'dia') {
+      turnos = turnosDia || []
+    } else if (vistaCalendario === 'semana') {
+      turnos = turnosSemana || []
+    } else if (vistaCalendario === 'mes') {
+      turnos = turnosMes || []
+    }
+    return turnos.filter(t => t.estado === 'pendiente')
+  })()
+
   // Recargar datos según vista
   const recargarTurnos = useCallback(() => {
     if (vistaCalendario === 'dia') {
@@ -125,18 +180,68 @@ export default function AgendaTurnosPage() {
 
   // Handlers de turnos
   const handleNuevoTurno = (fecha, hora = null) => {
+    const fechaTurno = fecha || fechaSeleccionada
+    const hoy = getFechaHoyArgentina()
+
+    // No permitir crear turnos en fechas pasadas
+    if (fechaTurno < hoy) {
+      return
+    }
+
+    // Si es hoy y se pasó una hora, verificar que no sea más de 2 horas antes
+    if (fechaTurno === hoy && hora) {
+      // Obtener hora actual en Argentina (UTC-3)
+      const ahora = new Date()
+      let horasArgentina = ahora.getUTCHours() - 3
+      if (horasArgentina < 0) horasArgentina += 24
+      const minutosActuales = horasArgentina * 60 + ahora.getUTCMinutes()
+
+      const [h, m] = hora.split(':').map(Number)
+      const minutosTurno = h * 60 + m
+      const minutosLimite = minutosActuales - 120 // 2 horas antes
+
+      if (minutosTurno < minutosLimite) {
+        return
+      }
+    }
+
     setModalTurno({
       abierto: true,
       turno: null,
-      fecha: fecha || fechaSeleccionada,
+      fecha: fechaTurno,
       hora
     })
   }
 
   const handleTurnoRapido = (fecha, hora = null) => {
+    const fechaTurno = fecha || fechaSeleccionada
+    const hoy = getFechaHoyArgentina()
+
+    // No permitir crear turnos en fechas pasadas
+    if (fechaTurno < hoy) {
+      return
+    }
+
+    // Si es hoy y se pasó una hora, verificar que no sea más de 2 horas antes
+    if (fechaTurno === hoy && hora) {
+      // Obtener hora actual en Argentina (UTC-3)
+      const ahora = new Date()
+      let horasArgentina = ahora.getUTCHours() - 3
+      if (horasArgentina < 0) horasArgentina += 24
+      const minutosActuales = horasArgentina * 60 + ahora.getUTCMinutes()
+
+      const [h, m] = hora.split(':').map(Number)
+      const minutosTurno = h * 60 + m
+      const minutosLimite = minutosActuales - 120 // 2 horas antes
+
+      if (minutosTurno < minutosLimite) {
+        return
+      }
+    }
+
     setModalTurnoRapido({
       abierto: true,
-      fecha: fecha || fechaSeleccionada,
+      fecha: fechaTurno,
       hora
     })
   }
@@ -231,6 +336,10 @@ export default function AgendaTurnosPage() {
 
   const handleEditarCliente = (cliente) => {
     setModalCliente({ abierto: true, cliente })
+  }
+
+  const handleVerFichaCliente = (clienteId) => {
+    setModalFichaCliente({ abierto: true, clienteId })
   }
 
   const handleGuardarCliente = async (clienteData) => {
@@ -332,14 +441,27 @@ export default function AgendaTurnosPage() {
                   ))}
                 </div>
 
-                {/* Selector de profesional */}
-                {tieneMuchosProfesionales && (
-                  <SelectorProfesional
-                    profesionales={profesionales}
-                    profesionalActivo={profesionalActivo}
-                    onChange={setProfesionalActivo}
-                  />
-                )}
+                <div className="flex items-center gap-2">
+                  {/* Botón confirmar pendientes */}
+                  {turnosPendientes.length > 0 && (
+                    <button
+                      onClick={() => setModalConfirmarPendientes(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Confirmar pendientes ({turnosPendientes.length})
+                    </button>
+                  )}
+
+                  {/* Selector de profesional */}
+                  {tieneMuchosProfesionales && (
+                    <SelectorProfesional
+                      profesionales={profesionales}
+                      profesionalActivo={profesionalActivo}
+                      onChange={setProfesionalActivo}
+                    />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -474,7 +596,7 @@ export default function AgendaTurnosPage() {
           {/* Tab Clientes */}
           {tabActiva === 'clientes' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="font-heading font-semibold text-lg text-gray-900">
                     Clientes
@@ -492,6 +614,28 @@ export default function AgendaTurnosPage() {
                 </button>
               </div>
 
+              {/* Buscador */}
+              {clientes.length > 0 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={busquedaCliente}
+                    onChange={(e) => setBusquedaCliente(e.target.value)}
+                    placeholder="Buscar por nombre, apellido o teléfono..."
+                    className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                  {busquedaCliente && (
+                    <button
+                      onClick={() => setBusquedaCliente('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {loadingClientes ? (
                 <div className="text-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mx-auto" />
@@ -507,35 +651,91 @@ export default function AgendaTurnosPage() {
                     + Registrar primer cliente
                   </button>
                 </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {clientes.map(cliente => (
-                    <div
-                      key={cliente.id}
-                      onClick={() => handleEditarCliente(cliente)}
-                      className="bg-white rounded-xl border hover:shadow-md transition-all cursor-pointer p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium">
-                          {cliente.nombre?.charAt(0)?.toUpperCase()}
-                          {cliente.apellido?.charAt(0)?.toUpperCase() || ''}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">
-                            {cliente.nombre} {cliente.apellido || ''}
-                          </h3>
-                          {cliente.whatsapp && (
-                            <p className="text-sm text-gray-500 truncate">{cliente.whatsapp}</p>
-                          )}
-                          {cliente.notas && (
-                            <p className="text-xs text-gray-400 truncate mt-1">{cliente.notas}</p>
-                          )}
-                        </div>
-                      </div>
+              ) : (() => {
+                // Filtrar clientes por búsqueda
+                const clientesFiltrados = clientes.filter(cliente => {
+                  if (!busquedaCliente.trim()) return true
+                  const busqueda = busquedaCliente.toLowerCase().trim()
+                  const nombre = (cliente.nombre || '').toLowerCase()
+                  const apellido = (cliente.apellido || '').toLowerCase()
+                  const whatsapp = (cliente.whatsapp || '').toLowerCase()
+                  const telefono = (cliente.telefono || '').toLowerCase()
+                  return nombre.includes(busqueda) ||
+                         apellido.includes(busqueda) ||
+                         `${nombre} ${apellido}`.includes(busqueda) ||
+                         whatsapp.includes(busqueda) ||
+                         telefono.includes(busqueda)
+                })
+
+                if (clientesFiltrados.length === 0) {
+                  return (
+                    <div className="text-center py-12 bg-white rounded-xl border">
+                      <Search className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                      <p className="text-gray-500">No se encontraron clientes con "{busquedaCliente}"</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                }
+
+                return (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {clientesFiltrados.map(cliente => {
+                      // Verificar si la ficha está incompleta
+                      const fichaIncompleta = !cliente.whatsapp || !cliente.apellido
+
+                      return (
+                        <div
+                          key={cliente.id}
+                          onClick={() => handleVerFichaCliente(cliente.id)}
+                          className="bg-white rounded-xl border hover:shadow-md transition-all cursor-pointer p-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium relative">
+                              {cliente.nombre?.charAt(0)?.toUpperCase()}
+                              {cliente.apellido?.charAt(0)?.toUpperCase() || ''}
+                              {fichaIncompleta && (
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                                  <AlertCircle className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium text-gray-900 truncate">
+                                  {cliente.nombre} {cliente.apellido || ''}
+                                </h3>
+                              </div>
+                              {cliente.whatsapp && (
+                                <p className="text-sm text-gray-500 truncate">{cliente.whatsapp}</p>
+                              )}
+                              {!cliente.whatsapp && (
+                                <p className="text-sm text-amber-600 truncate">Sin teléfono</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Tab Reservas */}
+          {tabActiva === 'reservas' && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="font-heading font-semibold text-lg text-gray-900">
+                  Links de Reserva
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Generá links para que tus clientes reserven turnos
+                </p>
+              </div>
+
+              <ListaReservaLinks
+                onNuevoLink={() => setModalGenerarLink(true)}
+              />
             </div>
           )}
 
@@ -558,32 +758,59 @@ export default function AgendaTurnosPage() {
           {/* Tab Configuración */}
           {tabActiva === 'config' && (
             <div className="space-y-4">
-              <div>
-                <h2 className="font-heading font-semibold text-lg text-gray-900">
-                  Disponibilidad Horaria
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Configurá los días y horarios de atención
-                </p>
+              {/* Sub-tabs de configuración */}
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                <button
+                  onClick={() => setConfigSubTab('negocio')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    configSubTab === 'negocio'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Store className="w-4 h-4" />
+                  Mi Negocio
+                </button>
+                <button
+                  onClick={() => setConfigSubTab('disponibilidad')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                    configSubTab === 'disponibilidad'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  Disponibilidad
+                </button>
               </div>
 
-              {/* Selector de profesional si hay varios */}
-              {tieneMuchosProfesionales && (
-                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                  <span className="text-sm text-blue-700">Configurar horario de:</span>
-                  <SelectorProfesional
-                    profesionales={profesionales}
-                    profesionalActivo={profesionalActivo}
-                    onChange={setProfesionalActivo}
-                    mostrarTodos={false}
+              {/* Contenido de Mi Negocio */}
+              {configSubTab === 'negocio' && (
+                <ConfigNegocio />
+              )}
+
+              {/* Contenido de Disponibilidad Horaria */}
+              {configSubTab === 'disponibilidad' && (
+                <div className="space-y-4">
+                  {/* Selector de profesional si hay varios */}
+                  {tieneMuchosProfesionales && (
+                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+                      <span className="text-sm text-blue-700">Configurar horario de:</span>
+                      <SelectorProfesional
+                        profesionales={profesionales}
+                        profesionalActivo={profesionalActivo}
+                        onChange={setProfesionalActivo}
+                        mostrarTodos={false}
+                      />
+                    </div>
+                  )}
+
+                  <ConfigDisponibilidad
+                    profesionalId={profesionalActivo}
+                    profesionalNombre={profesionales.find(p => p.id === profesionalActivo)?.nombre}
                   />
                 </div>
               )}
-
-              <ConfigDisponibilidad
-                profesionalId={profesionalActivo}
-                profesionalNombre={profesionales.find(p => p.id === profesionalActivo)?.nombre}
-              />
             </div>
           )}
         </div>
@@ -637,6 +864,13 @@ export default function AgendaTurnosPage() {
           cliente={modalCliente.cliente}
         />
 
+        <ModalFichaCliente
+          isOpen={modalFichaCliente.abierto}
+          clienteId={modalFichaCliente.clienteId}
+          onClose={() => setModalFichaCliente({ abierto: false, clienteId: null })}
+          onClienteActualizado={() => recargarClientes()}
+        />
+
         {/* Modal Historial Cliente */}
         {modalHistorial.abierto && (
           <HistorialCliente
@@ -644,6 +878,23 @@ export default function AgendaTurnosPage() {
             onClose={() => setModalHistorial({ abierto: false, clienteId: null })}
           />
         )}
+
+        {/* Modal Generar Link de Reserva */}
+        <ModalGenerarLink
+          isOpen={modalGenerarLink}
+          onClose={() => setModalGenerarLink(false)}
+        />
+
+        {/* Modal Confirmar Pendientes */}
+        <ModalConfirmarPendientes
+          isOpen={modalConfirmarPendientes}
+          onClose={() => setModalConfirmarPendientes(false)}
+          turnosPendientes={turnosPendientes}
+          onConfirmarTurno={async (turnoId, nuevoEstado) => {
+            await cambiarEstado(turnoId, nuevoEstado)
+            recargarTurnos()
+          }}
+        />
       </div>
     </Layout>
   )
