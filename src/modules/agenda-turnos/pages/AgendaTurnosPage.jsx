@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock, MessageCircle } from 'lucide-react'
+import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock, MessageCircle, Car, Video, Filter } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { getFechaHoyArgentina, getPrimerDiaSemana } from '../utils/dateUtils'
 import { useTurnosDia, useTurnosSemana, useTurnosMes } from '../hooks/useTurnos'
@@ -31,6 +31,7 @@ import HistorialCliente from '../components/clientes/HistorialCliente'
 import ListaReservaLinks from '../components/reservas/ListaReservaLinks'
 import ModalGenerarLink from '../components/reservas/ModalGenerarLink'
 import { useProfesionales } from '../hooks/useDisponibilidad'
+import { useNegocio } from '../hooks/useNegocio'
 import { formatearMonto } from '../utils/formatters'
 import { formatDuracion } from '../utils/dateUtils'
 import { supabase } from '../../../lib/supabase'
@@ -71,6 +72,7 @@ export default function AgendaTurnosPage() {
   const [modalConfirmarPendientes, setModalConfirmarPendientes] = useState(false)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [configSubTab, setConfigSubTab] = useState('negocio') // 'negocio' | 'disponibilidad'
+  const [filtroModalidad, setFiltroModalidad] = useState('todos') // 'todos' | 'local' | 'domicilio' | 'videollamada'
 
   // Efecto para abrir turno desde URL (ej: ?turno=uuid)
   useEffect(() => {
@@ -108,6 +110,18 @@ export default function AgendaTurnosPage() {
     setProfesionalActivo,
     tieneMuchos: tieneMuchosProfesionales
   } = useProfesionales()
+
+  // Hook de negocio para obtener modalidades de trabajo configuradas
+  const {
+    tieneLocal,
+    tieneDomicilio,
+    tieneVideollamada,
+    modalidades: modalidadesConfiguradas,
+    recargar: recargarNegocio
+  } = useNegocio()
+
+  // Solo mostrar filtro si tiene más de una modalidad configurada
+  const mostrarFiltroModalidad = (modalidadesConfiguradas?.length || 0) > 1
 
   // Opciones de filtro por profesional
   const filtrosProfesional = profesionalActivo && profesionalActivo !== 'todos'
@@ -178,6 +192,16 @@ export default function AgendaTurnosPage() {
       recargarTurnosSemana()
     }
   }, [vistaCalendario, recargarTurnosDia, recargarTurnosSemana])
+
+  // Handler cuando se guarda configuración - recarga datos y vuelve al calendario
+  const handleConfigGuardada = useCallback(() => {
+    // Recargar datos del negocio (modalidades, etc.)
+    recargarNegocio()
+    // Recargar turnos para reflejar cambios
+    recargarTurnosDia()
+    recargarTurnosSemana()
+    recargarTurnosMes()
+  }, [recargarNegocio, recargarTurnosDia, recargarTurnosSemana, recargarTurnosMes])
 
   // Handlers de turnos
   const handleNuevoTurno = (fecha, hora = null) => {
@@ -379,8 +403,27 @@ export default function AgendaTurnosPage() {
     }
   }
 
+  // Función para filtrar turnos por modalidad
+  const filtrarPorModalidad = useCallback((turnos) => {
+    if (!turnos || filtroModalidad === 'todos') return turnos
+    return turnos.filter(t => t.modalidad === filtroModalidad)
+  }, [filtroModalidad])
+
+  // Turnos filtrados por modalidad
+  const turnosDiaFiltrados = filtrarPorModalidad(turnosDia)
+  const turnosSemanaFiltrados = filtrarPorModalidad(turnosSemana)
+  const turnosMesFiltrados = filtrarPorModalidad(turnosMes)
+
+  // Turnos por día filtrados (para vista semanal)
+  const turnosPorDiaFiltrados = {}
+  if (turnosPorDia) {
+    Object.keys(turnosPorDia).forEach(fecha => {
+      turnosPorDiaFiltrados[fecha] = filtrarPorModalidad(turnosPorDia[fecha])
+    })
+  }
+
   // Turnos a mostrar según vista
-  const turnosActuales = vistaCalendario === 'dia' ? turnosDia : turnosSemana
+  const turnosActuales = vistaCalendario === 'dia' ? turnosDiaFiltrados : turnosSemanaFiltrados
   const loadingTurnos = vistaCalendario === 'dia' ? loadingTurnosDia : loadingTurnosSemana
 
   return (
@@ -425,7 +468,8 @@ export default function AgendaTurnosPage() {
             {/* Subtabs de vistas de calendario */}
             {tabActiva === 'calendario' && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 -mt-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Vistas de calendario */}
                   {Object.values(VISTAS_CALENDARIO).map(vista => (
                     <button
                       key={vista.id}
@@ -440,6 +484,70 @@ export default function AgendaTurnosPage() {
                       {vista.label}
                     </button>
                   ))}
+
+                  {/* Separador visual */}
+                  {mostrarFiltroModalidad && (
+                    <div className="h-5 w-px bg-gray-300 mx-1" />
+                  )}
+
+                  {/* Filtro por modalidad - solo si tiene más de una modalidad */}
+                  {mostrarFiltroModalidad && (
+                    <>
+                      <button
+                        onClick={() => setFiltroModalidad('todos')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          filtroModalidad === 'todos'
+                            ? 'bg-gray-200 text-gray-800'
+                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Filter className="w-3.5 h-3.5" />
+                        Todos
+                      </button>
+
+                      {tieneLocal && (
+                        <button
+                          onClick={() => setFiltroModalidad('local')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            filtroModalidad === 'local'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Store className="w-3.5 h-3.5" />
+                          Local
+                        </button>
+                      )}
+
+                      {tieneDomicilio && (
+                        <button
+                          onClick={() => setFiltroModalidad('domicilio')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            filtroModalidad === 'domicilio'
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Car className="w-3.5 h-3.5" />
+                          Domicilio
+                        </button>
+                      )}
+
+                      {tieneVideollamada && (
+                        <button
+                          onClick={() => setFiltroModalidad('videollamada')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            filtroModalidad === 'videollamada'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          Video
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -477,7 +585,7 @@ export default function AgendaTurnosPage() {
                 <CalendarioDia
                   fecha={fechaSeleccionada}
                   onFechaChange={handleFechaChange}
-                  turnos={turnosDia}
+                  turnos={turnosDiaFiltrados}
                   loading={loadingTurnosDia}
                   onTurnoClick={handleVerTurno}
                   onNuevoTurno={handleNuevoTurno}
@@ -491,7 +599,7 @@ export default function AgendaTurnosPage() {
                   fechaInicio={inicioSemana}
                   fechaSeleccionada={fechaSeleccionada}
                   onFechaChange={handleFechaChange}
-                  turnosPorDia={turnosPorDia}
+                  turnosPorDia={turnosPorDiaFiltrados}
                   diasSemana={diasSemana}
                   loading={loadingTurnosSemana}
                   onTurnoClick={handleVerTurno}
@@ -507,7 +615,7 @@ export default function AgendaTurnosPage() {
                 <CalendarioMes
                   fecha={fechaSeleccionada}
                   onFechaChange={handleFechaChange}
-                  turnos={turnosMes}
+                  turnos={turnosMesFiltrados}
                   loading={loadingTurnosMes}
                   onDiaClick={handleDiaClick}
                   onNuevoTurno={handleNuevoTurno}
@@ -561,34 +669,89 @@ export default function AgendaTurnosPage() {
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {servicios.map(servicio => (
-                    <div
-                      key={servicio.id}
-                      onClick={() => handleEditarServicio(servicio)}
-                      className="bg-white rounded-xl border hover:shadow-md transition-all cursor-pointer p-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="w-3 h-12 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: servicio.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900">{servicio.nombre}</h3>
-                          <p className="text-sm text-gray-500">
-                            {formatDuracion(servicio.duracion_minutos)}
-                          </p>
-                          <p className="text-lg font-semibold text-gray-900 mt-1">
-                            {formatearMonto(servicio.precio)}
-                          </p>
-                          {servicio.requiere_sena && (
-                            <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
-                              Seña {servicio.porcentaje_sena}%
-                            </span>
-                          )}
+                  {servicios.map(servicio => {
+                    // Calcular precios por modalidad
+                    const preciosModalidad = []
+                    if (tieneLocal && servicio.disponible_local !== false) {
+                      preciosModalidad.push({
+                        key: 'local',
+                        icon: Store,
+                        label: 'Local',
+                        precio: servicio.precio_local ?? servicio.precio,
+                        color: 'text-blue-600'
+                      })
+                    }
+                    if (tieneDomicilio && servicio.disponible_domicilio !== false) {
+                      preciosModalidad.push({
+                        key: 'domicilio',
+                        icon: Car,
+                        label: 'Domicilio',
+                        precio: servicio.precio_domicilio ?? servicio.precio,
+                        color: 'text-orange-600'
+                      })
+                    }
+                    if (tieneVideollamada && servicio.disponible_videollamada !== false) {
+                      preciosModalidad.push({
+                        key: 'videollamada',
+                        icon: Video,
+                        label: 'Video',
+                        precio: servicio.precio_videollamada ?? servicio.precio,
+                        color: 'text-purple-600'
+                      })
+                    }
+
+                    // Verificar si todos los precios son iguales (para mostrar simple o detallado)
+                    const todosIguales = preciosModalidad.every(p => p.precio === preciosModalidad[0]?.precio)
+                    const mostrarDetalle = modalidadesConfiguradas.length > 1 && !todosIguales
+
+                    return (
+                      <div
+                        key={servicio.id}
+                        onClick={() => handleEditarServicio(servicio)}
+                        className="bg-white rounded-xl border hover:shadow-md transition-all cursor-pointer p-4"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-3 h-12 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: servicio.color }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-gray-900">{servicio.nombre}</h3>
+                            <p className="text-sm text-gray-500">
+                              {formatDuracion(servicio.duracion_minutos)}
+                            </p>
+
+                            {/* Precios */}
+                            {mostrarDetalle ? (
+                              <div className="mt-1.5 space-y-0.5">
+                                {preciosModalidad.map(pm => {
+                                  const IconComp = pm.icon
+                                  return (
+                                    <div key={pm.key} className="flex items-center gap-1.5 text-sm">
+                                      <IconComp className={`w-3.5 h-3.5 ${pm.color}`} />
+                                      <span className="font-semibold text-gray-900">
+                                        {formatearMonto(pm.precio)}
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-lg font-semibold text-gray-900 mt-1">
+                                {formatearMonto(servicio.precio)}
+                              </p>
+                            )}
+
+                            {servicio.requiere_sena && (
+                              <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
+                                Seña {servicio.porcentaje_sena}%
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -798,7 +961,7 @@ export default function AgendaTurnosPage() {
 
               {/* Contenido de Mi Negocio */}
               {configSubTab === 'negocio' && (
-                <ConfigNegocio />
+                <ConfigNegocio onGuardar={handleConfigGuardada} />
               )}
 
               {/* Contenido de Disponibilidad Horaria */}
@@ -826,7 +989,7 @@ export default function AgendaTurnosPage() {
 
               {/* Contenido de WhatsApp */}
               {configSubTab === 'whatsapp' && (
-                <ConfigWhatsApp />
+                <ConfigWhatsApp onGuardar={handleConfigGuardada} />
               )}
             </div>
           )}
@@ -844,6 +1007,7 @@ export default function AgendaTurnosPage() {
           clientes={clientes}
           onNuevoCliente={() => setModalCliente({ abierto: true, cliente: null })}
           turnosExistentes={Object.values(turnosPorDia).flat()}
+          onIrAServicios={() => setTabActiva('servicios')}
         />
 
         <ModalTurnoRapido
@@ -907,9 +1071,9 @@ export default function AgendaTurnosPage() {
           isOpen={modalConfirmarPendientes}
           onClose={() => setModalConfirmarPendientes(false)}
           turnosPendientes={turnosPendientes}
-          onConfirmarTurno={async (turnoId, nuevoEstado) => {
-            await cambiarEstado(turnoId, nuevoEstado)
-            recargarTurnos()
+          onVerTurno={(turno) => {
+            setModalConfirmarPendientes(false)
+            setModalDetalle({ abierto: true, turno })
           }}
         />
       </div>

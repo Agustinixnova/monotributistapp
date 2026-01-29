@@ -4,8 +4,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, User, Mail, FileText, Loader2, Briefcase, Home, Instagram, ChevronDown, MapPin, Navigation } from 'lucide-react'
+import { X, User, Mail, FileText, Loader2, Briefcase, Home, Instagram, ChevronDown, MapPin, Navigation, Receipt } from 'lucide-react'
 import { useNegocio } from '../../hooks/useNegocio'
+import { useFacturacion } from '../../hooks/useFacturacion'
 
 const ORIGENES = [
   { value: '', label: 'Seleccionar...' },
@@ -17,6 +18,34 @@ const ORIGENES = [
   { value: 'otros', label: 'Otros' }
 ]
 
+const PROVINCIAS_ARGENTINA = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'Buenos Aires', label: 'Buenos Aires' },
+  { value: 'CABA', label: 'Ciudad Autónoma de Buenos Aires' },
+  { value: 'Catamarca', label: 'Catamarca' },
+  { value: 'Chaco', label: 'Chaco' },
+  { value: 'Chubut', label: 'Chubut' },
+  { value: 'Córdoba', label: 'Córdoba' },
+  { value: 'Corrientes', label: 'Corrientes' },
+  { value: 'Entre Ríos', label: 'Entre Ríos' },
+  { value: 'Formosa', label: 'Formosa' },
+  { value: 'Jujuy', label: 'Jujuy' },
+  { value: 'La Pampa', label: 'La Pampa' },
+  { value: 'La Rioja', label: 'La Rioja' },
+  { value: 'Mendoza', label: 'Mendoza' },
+  { value: 'Misiones', label: 'Misiones' },
+  { value: 'Neuquén', label: 'Neuquén' },
+  { value: 'Río Negro', label: 'Río Negro' },
+  { value: 'Salta', label: 'Salta' },
+  { value: 'San Juan', label: 'San Juan' },
+  { value: 'San Luis', label: 'San Luis' },
+  { value: 'Santa Cruz', label: 'Santa Cruz' },
+  { value: 'Santa Fe', label: 'Santa Fe' },
+  { value: 'Santiago del Estero', label: 'Santiago del Estero' },
+  { value: 'Tierra del Fuego', label: 'Tierra del Fuego' },
+  { value: 'Tucumán', label: 'Tucumán' }
+]
+
 export default function ModalCliente({
   isOpen,
   onClose,
@@ -25,6 +54,8 @@ export default function ModalCliente({
   esEmpleado = false // Si el usuario actual es empleado
 }) {
   const { tieneDomicilio, tieneLocal, tieneVideollamada } = useNegocio()
+  // Usamos tieneModuloPremium para mostrar el campo aunque no tenga config completa
+  const { tieneModuloPremium: tieneFacturacion } = useFacturacion()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -45,7 +76,12 @@ export default function ModalCliente({
     piso: '',
     departamento: '',
     localidad: '',
-    indicaciones_ubicacion: ''
+    provincia: '',
+    indicaciones_ubicacion: '',
+    mostrarMapa: false, // Estado para preview del mapa
+    // Campos de facturación
+    tipoFacturacion: 'consumidor_final', // 'consumidor_final' o 'factura_cuit'
+    cuit: ''
   })
 
   // Reset form cuando se abre/cierra o cambia el cliente
@@ -65,7 +101,11 @@ export default function ModalCliente({
           piso: cliente.piso || '',
           departamento: cliente.departamento || '',
           localidad: cliente.localidad || '',
-          indicaciones_ubicacion: cliente.indicaciones_ubicacion || ''
+          provincia: cliente.provincia || '',
+          indicaciones_ubicacion: cliente.indicaciones_ubicacion || '',
+          mostrarMapa: false,
+          tipoFacturacion: cliente.cuit && cliente.cuit.length === 11 ? 'factura_cuit' : 'consumidor_final',
+          cuit: cliente.cuit || ''
         })
       } else {
         setForm({
@@ -81,7 +121,11 @@ export default function ModalCliente({
           piso: '',
           departamento: '',
           localidad: '',
-          indicaciones_ubicacion: ''
+          provincia: '',
+          indicaciones_ubicacion: '',
+          mostrarMapa: false,
+          tipoFacturacion: 'consumidor_final',
+          cuit: ''
         })
       }
       setError(null)
@@ -106,6 +150,10 @@ export default function ModalCliente({
     setError(null)
 
     try {
+      // CUIT: solo guardar si tiene exactamente 11 dígitos
+      const cuitLimpio = form.cuit.replace(/\D/g, '')
+      const cuitValido = cuitLimpio.length === 11 ? cuitLimpio : null
+
       await onGuardar({
         nombre: form.nombre.trim(),
         apellido: form.apellido.trim() || null,
@@ -120,7 +168,10 @@ export default function ModalCliente({
         piso: form.piso.trim() || null,
         departamento: form.departamento.trim() || null,
         localidad: form.localidad.trim() || null,
-        indicaciones_ubicacion: form.indicaciones_ubicacion.trim() || null
+        provincia: form.provincia.trim() || null,
+        indicaciones_ubicacion: form.indicaciones_ubicacion.trim() || null,
+        // CUIT para facturación
+        cuit: cuitValido
       })
       onClose()
     } catch (err) {
@@ -264,6 +315,53 @@ export default function ModalCliente({
               </div>
             </div>
 
+            {/* Facturación - Solo si el usuario tiene el módulo premium habilitado */}
+            {tieneFacturacion && (
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Receipt className="w-4 h-4 inline mr-1" />
+                  Facturación
+                </label>
+                <div className="relative mb-3">
+                  <select
+                    value={form.tipoFacturacion}
+                    onChange={(e) => setForm(f => ({ ...f, tipoFacturacion: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none bg-white"
+                  >
+                    <option value="consumidor_final">Consumidor Final</option>
+                    <option value="factura_cuit">Factura con CUIT</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {/* Campo CUIT - solo si seleccionó factura con CUIT */}
+                {form.tipoFacturacion === 'factura_cuit' && (
+                  <div>
+                    <input
+                      type="text"
+                      value={form.cuit}
+                      onChange={(e) => setForm(f => ({ ...f, cuit: e.target.value.replace(/\D/g, '').slice(0, 11) }))}
+                      placeholder="CUIT (11 dígitos)"
+                      maxLength={11}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                        form.cuit && form.cuit.length !== 11 ? 'border-amber-300 bg-amber-50' : 'border-gray-300'
+                      }`}
+                    />
+                    <p className={`text-xs mt-1 ${
+                      form.cuit && form.cuit.length !== 11 ? 'text-amber-600' : 'text-gray-500'
+                    }`}>
+                      {form.cuit && form.cuit.length !== 11
+                        ? `Faltan ${11 - form.cuit.length} dígitos. Si no se completa, se facturará como Consumidor Final.`
+                        : form.cuit.length === 11
+                          ? 'CUIT válido'
+                          : 'Sin guiones, 11 dígitos'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Dirección (solo si hay domicilio habilitado) */}
             {tieneDomicilio && (
               <div className="border-t pt-4 space-y-3">
@@ -287,7 +385,7 @@ export default function ModalCliente({
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <input
                       type="text"
@@ -315,6 +413,20 @@ export default function ModalCliente({
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                     />
                   </div>
+                  <div>
+                    <div className="relative">
+                      <select
+                        value={form.provincia}
+                        onChange={(e) => setForm(f => ({ ...f, provincia: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none bg-white text-sm"
+                      >
+                        {PROVINCIAS_ARGENTINA.map(p => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -326,6 +438,49 @@ export default function ModalCliente({
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                   />
                 </div>
+
+                {/* Botón Validar en Mapa - Solo si dirección, localidad y provincia están completos */}
+                {form.direccion.trim() && form.localidad.trim() && form.provincia && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, mostrarMapa: !f.mostrarMapa }))}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors border border-blue-200"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      {form.mostrarMapa ? 'Ocultar mapa' : 'Validar en mapa'}
+                    </button>
+
+                    {form.mostrarMapa && (
+                      <div className="rounded-lg overflow-hidden border border-gray-300">
+                        <iframe
+                          title="Mapa de ubicación"
+                          width="100%"
+                          height="200"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          src={`https://www.google.com/maps?q=${encodeURIComponent(
+                            `${form.direccion}${form.localidad ? ', ' + form.localidad : ''}${form.provincia ? ', ' + form.provincia : ''}, Argentina`
+                          )}&output=embed`}
+                        />
+                        <div className="bg-gray-50 px-3 py-2 text-xs text-gray-600 flex items-center justify-between">
+                          <span>Verificá que el pin esté en la ubicación correcta</span>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              `${form.direccion}${form.localidad ? ', ' + form.localidad : ''}${form.provincia ? ', ' + form.provincia : ''}, Argentina`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            Abrir en Maps
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

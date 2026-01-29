@@ -45,6 +45,9 @@ ALTER TABLE public.agenda_clientes
 ADD COLUMN IF NOT EXISTS localidad TEXT;
 
 ALTER TABLE public.agenda_clientes
+ADD COLUMN IF NOT EXISTS provincia TEXT;
+
+ALTER TABLE public.agenda_clientes
 ADD COLUMN IF NOT EXISTS indicaciones_ubicacion TEXT;
 
 -- =============================================

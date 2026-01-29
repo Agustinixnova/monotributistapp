@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Calendar, Loader2, Zap, Move, Clock, User, Phone, MessageCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Calendar, Loader2, Zap, Move, Clock, User, Phone, MessageCircle, Store, Car, Video } from 'lucide-react'
 import { formatFechaCorta, getFechaHoyArgentina, sumarDias, restarDias, esHoy, formatDiaSemana, diferenciaMinutos, formatFechaLarga } from '../../utils/dateUtils'
 import { useDragDrop } from '../../hooks/useDragDrop'
 import { formatearHora, getEstadoConfig, formatearMonto } from '../../utils/formatters'
@@ -335,7 +335,7 @@ export default function CalendarioSemana({
                     />
 
                     <div className="flex-1 min-w-0">
-                      {/* Hora y estado */}
+                      {/* Hora, modalidad y estado */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-gray-400" />
@@ -346,9 +346,30 @@ export default function CalendarioSemana({
                             ({formatDuracion(duracion)})
                           </span>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
-                          {estadoConfig.label}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {/* Indicador de modalidad */}
+                          {turno.modalidad && (
+                            <span
+                              className={`flex items-center justify-center w-7 h-7 rounded-full ${
+                                turno.modalidad === 'local' ? 'bg-blue-100' :
+                                turno.modalidad === 'domicilio' ? 'bg-orange-100' :
+                                'bg-purple-100'
+                              }`}
+                              title={
+                                turno.modalidad === 'local' ? 'En local' :
+                                turno.modalidad === 'domicilio' ? 'A domicilio' :
+                                'Videollamada'
+                              }
+                            >
+                              {turno.modalidad === 'local' && <Store className="w-4 h-4 text-blue-600" />}
+                              {turno.modalidad === 'domicilio' && <Car className="w-4 h-4 text-orange-600" />}
+                              {turno.modalidad === 'videollamada' && <Video className="w-4 h-4 text-purple-600" />}
+                            </span>
+                          )}
+                          <span className={`text-xs px-2 py-1 rounded-full ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
+                            {estadoConfig.label}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Cliente */}

@@ -18,9 +18,24 @@ CREATE TABLE IF NOT EXISTS public.agenda_negocio (
 
     -- Ubicación
     direccion VARCHAR(255),
+    piso VARCHAR(20),
+    departamento VARCHAR(50),
     localidad VARCHAR(100),
     provincia VARCHAR(100),
     codigo_postal VARCHAR(20),
+
+    -- Datos de cobro
+    alias_pago VARCHAR(100),
+    cuit VARCHAR(11),
+
+    -- Modalidades de trabajo
+    modalidades_trabajo TEXT[] DEFAULT ARRAY['local'],
+
+    -- Plantillas de WhatsApp
+    plantilla_recordatorio TEXT,
+    plantilla_en_camino TEXT,
+    plantilla_sena TEXT,
+    plantilla_pago TEXT,
 
     -- Redes sociales
     instagram VARCHAR(100),
@@ -95,3 +110,23 @@ COMMENT ON COLUMN public.agenda_negocio.user_id IS 'Usuario dueño del negocio';
 COMMENT ON COLUMN public.agenda_negocio.nombre_negocio IS 'Nombre comercial del emprendimiento';
 COMMENT ON COLUMN public.agenda_negocio.horario_atencion IS 'Texto libre con horarios (ej: Lunes a Viernes 9 a 18hs)';
 COMMENT ON COLUMN public.agenda_negocio.logo_url IS 'URL de la imagen del logo (storage de Supabase)';
+COMMENT ON COLUMN public.agenda_negocio.modalidades_trabajo IS 'Array de modalidades: local, domicilio, videollamada';
+COMMENT ON COLUMN public.agenda_negocio.plantilla_recordatorio IS 'Plantilla de mensaje WhatsApp para recordatorio de turno';
+COMMENT ON COLUMN public.agenda_negocio.plantilla_en_camino IS 'Plantilla de mensaje WhatsApp para avisar que va en camino (domicilio)';
+COMMENT ON COLUMN public.agenda_negocio.plantilla_sena IS 'Plantilla de mensaje WhatsApp para solicitar seña';
+COMMENT ON COLUMN public.agenda_negocio.plantilla_pago IS 'Plantilla de mensaje WhatsApp para solicitar pago final';
+
+-- ============================================
+-- Migraciones (ejecutar si la tabla ya existe)
+-- ============================================
+
+-- Agregar columnas nuevas si no existen
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS piso VARCHAR(20);
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS departamento VARCHAR(50);
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS alias_pago VARCHAR(100);
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS cuit VARCHAR(11);
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS modalidades_trabajo TEXT[] DEFAULT ARRAY['local'];
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_recordatorio TEXT;
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_en_camino TEXT;
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_sena TEXT;
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_pago TEXT;

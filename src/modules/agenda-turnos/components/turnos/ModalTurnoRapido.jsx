@@ -6,11 +6,12 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet, Plus, Calendar } from 'lucide-react'
+import { X, Zap, User, Scissors, Clock, Search, UserPlus, Loader2, Check, AlertCircle, Wallet, Plus, Calendar, Store, Car, Video } from 'lucide-react'
 import { formatFechaCorta, sumarMinutosAHora, getFechaHoyArgentina, generarSlotsTiempo } from '../../utils/dateUtils'
 import { formatearMonto, formatearHora } from '../../utils/formatters'
 import { getSenaDisponibleCliente } from '../../services/pagosService'
 import { createCliente } from '../../services/clientesService'
+import { useNegocio } from '../../hooks/useNegocio'
 import ModalCliente from '../clientes/ModalCliente'
 
 const PASOS = {
@@ -39,6 +40,10 @@ export default function ModalTurnoRapido({
   const [nombreNuevoCliente, setNombreNuevoCliente] = useState('')
   const [mostrarModalCliente, setMostrarModalCliente] = useState(false)
 
+  // Hook para modalidades de trabajo configuradas
+  const { modalidades, requiereSeleccionModalidad, modalidadDefault } = useNegocio()
+  const [modalidadSeleccionada, setModalidadSeleccionada] = useState(modalidadDefault)
+
   // Seña disponible de turno cancelado
   const [senaDisponible, setSenaDisponible] = useState(null)
   const [usarSenaExistente, setUsarSenaExistente] = useState(true) // Por defecto usar la seña
@@ -65,15 +70,16 @@ export default function ModalTurnoRapido({
       setMostrarModalCliente(false)
       setSenaDisponible(null)
       setUsarSenaExistente(true)
+      setModalidadSeleccionada(modalidadDefault)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }, [isOpen, fecha, hora])
+  }, [isOpen, fecha, hora, modalidadDefault])
 
-  // Filtrar clientes
+  // Filtrar clientes (sin límite para permitir scroll)
   const clientesFiltrados = clientes.filter(c => {
     const nombre = `${c.nombre} ${c.apellido || ''}`.toLowerCase()
     return nombre.includes(busquedaCliente.toLowerCase())
-  }).slice(0, 6)
+  })
 
   // Calcular hora fin
   const horaFin = servicioSeleccionado
@@ -208,6 +214,8 @@ export default function ModalTurnoRapido({
       }],
       estado: 'pendiente',
       notas: clienteSeleccionado?.esNuevo ? `Cliente nuevo: ${clienteSeleccionado.nombre}` : '',
+      // Modalidad de atención
+      modalidad: modalidadSeleccionada,
       // Si hay seña disponible y el usuario quiere usarla, incluir el turno origen
       transferirSenaDe: (senaDisponible && usarSenaExistente) ? senaDisponible.turnoId : null
     }
@@ -357,8 +365,8 @@ export default function ModalTurnoRapido({
                 </div>
               </div>
 
-              {/* Lista de clientes */}
-              <div className="space-y-2">
+              {/* Lista de clientes - con scroll vertical */}
+              <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
                 {clientesFiltrados.map((cliente) => (
                   <button
                     key={cliente.id}
@@ -564,6 +572,65 @@ export default function ModalTurnoRapido({
                   </div>
                 )}
               </div>
+
+              {/* Selector de modalidad (solo si hay más de una) */}
+              {requiereSeleccionModalidad && modalidades && modalidades.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Modalidad de atención
+                  </label>
+                  <div className={`grid gap-2 ${modalidades.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    {modalidades.includes('local') && (
+                      <button
+                        type="button"
+                        onClick={() => setModalidadSeleccionada('local')}
+                        className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all ${
+                          modalidadSeleccionada === 'local'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Store className={`w-4 h-4 ${modalidadSeleccionada === 'local' ? 'text-blue-600' : 'text-gray-500'}`} />
+                        <span className={`text-xs font-medium ${modalidadSeleccionada === 'local' ? 'text-blue-700' : 'text-gray-600'}`}>
+                          En local
+                        </span>
+                      </button>
+                    )}
+                    {modalidades.includes('domicilio') && (
+                      <button
+                        type="button"
+                        onClick={() => setModalidadSeleccionada('domicilio')}
+                        className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all ${
+                          modalidadSeleccionada === 'domicilio'
+                            ? 'border-orange-500 bg-orange-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Car className={`w-4 h-4 ${modalidadSeleccionada === 'domicilio' ? 'text-orange-600' : 'text-gray-500'}`} />
+                        <span className={`text-xs font-medium ${modalidadSeleccionada === 'domicilio' ? 'text-orange-700' : 'text-gray-600'}`}>
+                          A domicilio
+                        </span>
+                      </button>
+                    )}
+                    {modalidades.includes('videollamada') && (
+                      <button
+                        type="button"
+                        onClick={() => setModalidadSeleccionada('videollamada')}
+                        className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all ${
+                          modalidadSeleccionada === 'videollamada'
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Video className={`w-4 h-4 ${modalidadSeleccionada === 'videollamada' ? 'text-purple-600' : 'text-gray-500'}`} />
+                        <span className={`text-xs font-medium ${modalidadSeleccionada === 'videollamada' ? 'text-purple-700' : 'text-gray-600'}`}>
+                          Videollamada
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Selector de fecha y hora */}
               <div className="grid grid-cols-2 gap-3">

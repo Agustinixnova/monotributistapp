@@ -8,7 +8,7 @@ import {
   X, User, Mail, Phone, Instagram, MapPin, FileText, Calendar,
   Clock, DollarSign, TrendingUp, Star, CheckCircle, XCircle,
   Loader2, Save, Edit2, MessageCircle, ChevronDown, AlertCircle,
-  Navigation
+  Navigation, Receipt
 } from 'lucide-react'
 import { supabase } from '../../../../lib/supabase'
 import { getEffectiveUserId } from '../../../caja-diaria/services/empleadosService'
@@ -16,6 +16,7 @@ import { updateCliente } from '../../services/clientesService'
 import { formatFechaCorta, formatFechaLarga } from '../../utils/dateUtils'
 import { formatearMonto } from '../../utils/formatters'
 import { useNegocio } from '../../hooks/useNegocio'
+import { useFacturacion } from '../../hooks/useFacturacion'
 
 const ORIGENES = [
   { value: '', label: 'Sin especificar' },
@@ -36,8 +37,37 @@ const ORIGENES_MAP = {
   otros: 'Otros'
 }
 
+const PROVINCIAS_ARGENTINA = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'Buenos Aires', label: 'Buenos Aires' },
+  { value: 'CABA', label: 'Ciudad Autónoma de Buenos Aires' },
+  { value: 'Catamarca', label: 'Catamarca' },
+  { value: 'Chaco', label: 'Chaco' },
+  { value: 'Chubut', label: 'Chubut' },
+  { value: 'Córdoba', label: 'Córdoba' },
+  { value: 'Corrientes', label: 'Corrientes' },
+  { value: 'Entre Ríos', label: 'Entre Ríos' },
+  { value: 'Formosa', label: 'Formosa' },
+  { value: 'Jujuy', label: 'Jujuy' },
+  { value: 'La Pampa', label: 'La Pampa' },
+  { value: 'La Rioja', label: 'La Rioja' },
+  { value: 'Mendoza', label: 'Mendoza' },
+  { value: 'Misiones', label: 'Misiones' },
+  { value: 'Neuquén', label: 'Neuquén' },
+  { value: 'Río Negro', label: 'Río Negro' },
+  { value: 'Salta', label: 'Salta' },
+  { value: 'San Juan', label: 'San Juan' },
+  { value: 'San Luis', label: 'San Luis' },
+  { value: 'Santa Cruz', label: 'Santa Cruz' },
+  { value: 'Santa Fe', label: 'Santa Fe' },
+  { value: 'Santiago del Estero', label: 'Santiago del Estero' },
+  { value: 'Tierra del Fuego', label: 'Tierra del Fuego' },
+  { value: 'Tucumán', label: 'Tucumán' }
+]
+
 export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClienteActualizado }) {
   const { tieneDomicilio } = useNegocio()
+  const { tieneModuloPremium: tieneFacturacion } = useFacturacion()
   const [cliente, setCliente] = useState(null)
   const [turnos, setTurnos] = useState([])
   const [estadisticas, setEstadisticas] = useState(null)
@@ -45,6 +75,7 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
   const [guardando, setGuardando] = useState(false)
   const [editando, setEditando] = useState(false)
   const [error, setError] = useState(null)
+  const [mostrarMapa, setMostrarMapa] = useState(false)
 
   // Formulario de edición
   const [form, setForm] = useState({
@@ -59,7 +90,11 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
     piso: '',
     departamento: '',
     localidad: '',
-    indicaciones_ubicacion: ''
+    provincia: '',
+    indicaciones_ubicacion: '',
+    // Facturación
+    tipoFacturacion: 'consumidor_final', // consumidor_final | factura_cuit
+    cuit: ''
   })
 
   useEffect(() => {
@@ -83,6 +118,8 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
       setCliente(clienteData)
 
       // Inicializar formulario
+      // Si tiene CUIT con 11 dígitos, es factura_cuit, sino es consumidor_final
+      const tieneCuitValido = clienteData.cuit && clienteData.cuit.replace(/\D/g, '').length === 11
       setForm({
         nombre: clienteData.nombre || '',
         apellido: clienteData.apellido || '',
@@ -95,7 +132,11 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
         piso: clienteData.piso || '',
         departamento: clienteData.departamento || '',
         localidad: clienteData.localidad || '',
-        indicaciones_ubicacion: clienteData.indicaciones_ubicacion || ''
+        provincia: clienteData.provincia || '',
+        indicaciones_ubicacion: clienteData.indicaciones_ubicacion || '',
+        // Facturación
+        tipoFacturacion: tieneCuitValido ? 'factura_cuit' : 'consumidor_final',
+        cuit: clienteData.cuit || ''
       })
 
       // Cargar turnos del cliente
@@ -205,6 +246,15 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
     setError(null)
 
     try {
+      // Procesar CUIT: solo guardar si es factura_cuit Y tiene 11 dígitos
+      let cuitParaGuardar = null
+      if (form.tipoFacturacion === 'factura_cuit') {
+        const cuitLimpio = form.cuit.replace(/\D/g, '')
+        if (cuitLimpio.length === 11) {
+          cuitParaGuardar = cuitLimpio
+        }
+      }
+
       const { data, error: updateError } = await updateCliente(clienteId, {
         nombre: form.nombre.trim(),
         apellido: form.apellido.trim() || null,
@@ -217,7 +267,9 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
         piso: form.piso.trim() || null,
         departamento: form.departamento.trim() || null,
         localidad: form.localidad.trim() || null,
-        indicaciones_ubicacion: form.indicaciones_ubicacion.trim() || null
+        provincia: form.provincia.trim() || null,
+        indicaciones_ubicacion: form.indicaciones_ubicacion.trim() || null,
+        cuit: cuitParaGuardar
       })
 
       if (updateError) throw updateError
@@ -232,6 +284,7 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
   }
 
   const cancelarEdicion = () => {
+    const tieneCuitValido = cliente?.cuit && cliente.cuit.replace(/\D/g, '').length === 11
     setForm({
       nombre: cliente?.nombre || '',
       apellido: cliente?.apellido || '',
@@ -244,7 +297,10 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
       piso: cliente?.piso || '',
       departamento: cliente?.departamento || '',
       localidad: cliente?.localidad || '',
-      indicaciones_ubicacion: cliente?.indicaciones_ubicacion || ''
+      provincia: cliente?.provincia || '',
+      indicaciones_ubicacion: cliente?.indicaciones_ubicacion || '',
+      tipoFacturacion: tieneCuitValido ? 'factura_cuit' : 'consumidor_final',
+      cuit: cliente?.cuit || ''
     })
     setEditando(false)
     setError(null)
@@ -343,22 +399,25 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                       Editar
                     </button>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={cancelarEdicion}
                         disabled={guardando}
-                        className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                        className="text-sm text-gray-600 hover:text-gray-800"
                       >
                         Cancelar
                       </button>
-                      <button
-                        onClick={handleGuardar}
-                        disabled={guardando}
-                        className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium"
-                      >
-                        {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        Guardar
-                      </button>
+                      {cliente?.whatsapp && (
+                        <a
+                          href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          WhatsApp
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>
@@ -474,7 +533,7 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                             />
                           </div>
 
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block text-xs font-medium text-gray-500 mb-1">Piso</label>
                               <input
@@ -505,6 +564,21 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                               />
                             </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Provincia</label>
+                              <div className="relative">
+                                <select
+                                  value={form.provincia}
+                                  onChange={(e) => setForm(f => ({ ...f, provincia: e.target.value }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none bg-white"
+                                >
+                                  {PROVINCIAS_ARGENTINA.map(p => (
+                                    <option key={p.value} value={p.value}>{p.label}</option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                              </div>
+                            </div>
                           </div>
 
                           <div>
@@ -519,6 +593,105 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                             />
                           </div>
+
+                          {/* Botón Validar en Mapa - Solo si dirección, localidad y provincia están completos */}
+                          {form.direccion.trim() && form.localidad.trim() && form.provincia && (
+                            <div className="space-y-2">
+                              <button
+                                type="button"
+                                onClick={() => setMostrarMapa(!mostrarMapa)}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition-colors border border-blue-200"
+                              >
+                                <MapPin className="w-4 h-4" />
+                                {mostrarMapa ? 'Ocultar mapa' : 'Validar en mapa'}
+                              </button>
+
+                              {mostrarMapa && (
+                                <div className="rounded-lg overflow-hidden border border-gray-300">
+                                  <iframe
+                                    title="Mapa de ubicación"
+                                    width="100%"
+                                    height="180"
+                                    style={{ border: 0 }}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                      `${form.direccion}, ${form.localidad}, ${form.provincia}, Argentina`
+                                    )}&output=embed`}
+                                  />
+                                  <div className="bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                                    Verificá que el pin esté en la ubicación correcta
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Facturación - Solo si el usuario tiene facturación habilitada */}
+                    {tieneFacturacion && (
+                      <>
+                        <div className="pt-3 border-t">
+                          <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                            <Receipt className="w-4 h-4" />
+                            Datos fiscales
+                          </h5>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">
+                              Tipo de facturación
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={form.tipoFacturacion}
+                                onChange={(e) => setForm(f => ({ ...f, tipoFacturacion: e.target.value }))}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none bg-white"
+                              >
+                                <option value="consumidor_final">Consumidor Final</option>
+                                <option value="factura_cuit">Factura con CUIT</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          {form.tipoFacturacion === 'factura_cuit' && (
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">
+                                CUIT (11 dígitos)
+                              </label>
+                              <input
+                                type="text"
+                                value={form.cuit}
+                                onChange={(e) => {
+                                  const soloNumeros = e.target.value.replace(/\D/g, '')
+                                  if (soloNumeros.length <= 11) {
+                                    setForm(f => ({ ...f, cuit: soloNumeros }))
+                                  }
+                                }}
+                                placeholder="Ej: 20123456789"
+                                maxLength={11}
+                                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                                  form.cuit && form.cuit.length !== 11
+                                    ? 'border-amber-300 bg-amber-50'
+                                    : 'border-gray-300'
+                                }`}
+                              />
+                              {form.cuit && form.cuit.length !== 11 && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  {form.cuit.length}/11 dígitos - Se facturará como Consumidor Final
+                                </p>
+                              )}
+                              {form.cuit && form.cuit.length === 11 && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  CUIT válido
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
@@ -598,8 +771,33 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                       </div>
                     )}
 
+                    {/* Aviso de dirección faltante (solo si trabaja a domicilio y NO tiene dirección completa) */}
+                    {tieneDomicilio && cliente && (!cliente.direccion || !cliente.localidad || !cliente.provincia) && (
+                      <div className="col-span-2 md:col-span-4">
+                        <div className="border-t pt-3 mt-1">
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-orange-800">Faltan datos de domicilio</p>
+                              <p className="text-xs text-orange-600 mt-0.5">
+                                Para turnos a domicilio necesitás: dirección, localidad y provincia
+                              </p>
+                              {!editando && (
+                                <button
+                                  onClick={() => setEditando(true)}
+                                  className="mt-2 text-xs font-medium text-orange-700 hover:text-orange-800 underline"
+                                >
+                                  Completar datos
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Dirección (solo si trabaja a domicilio y tiene dirección) */}
-                    {tieneDomicilio && cliente?.direccion && (
+                    {tieneDomicilio && cliente?.direccion && cliente?.localidad && cliente?.provincia && (
                       <div className="col-span-2 md:col-span-4">
                         <div className="border-t pt-3 mt-1">
                           <h5 className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
@@ -612,25 +810,76 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                               {cliente.piso && `, Piso ${cliente.piso}`}
                               {cliente.departamento && ` ${cliente.departamento}`}
                             </p>
-                            {cliente.localidad && (
-                              <p className="text-sm text-gray-600 mt-0.5">{cliente.localidad}</p>
+                            {(cliente.localidad || cliente.provincia) && (
+                              <p className="text-sm text-gray-600 mt-0.5">
+                                {cliente.localidad}
+                                {cliente.localidad && cliente.provincia && ', '}
+                                {cliente.provincia}
+                              </p>
                             )}
                             {cliente.indicaciones_ubicacion && (
                               <p className="text-xs text-gray-500 mt-2 italic">
                                 {cliente.indicaciones_ubicacion}
                               </p>
                             )}
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                `${cliente.direccion}${cliente.localidad ? ', ' + cliente.localidad : ''}`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-2 font-medium"
-                            >
-                              <MapPin className="w-3 h-3" />
-                              Ver en Google Maps
-                            </a>
+
+                            {/* Botón Ver en mapa - Solo si tiene localidad y provincia */}
+                            {cliente.localidad && cliente.provincia && (
+                              <div className="mt-3 space-y-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setMostrarMapa(!mostrarMapa)}
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  <MapPin className="w-3 h-3" />
+                                  {mostrarMapa ? 'Ocultar mapa' : 'Ver en mapa'}
+                                </button>
+
+                                {mostrarMapa && (
+                                  <div className="rounded-lg overflow-hidden border border-blue-300">
+                                    <iframe
+                                      title="Mapa de ubicación"
+                                      width="100%"
+                                      height="180"
+                                      style={{ border: 0 }}
+                                      loading="lazy"
+                                      referrerPolicy="no-referrer-when-downgrade"
+                                      src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        `${cliente.direccion}, ${cliente.localidad}, ${cliente.provincia}, Argentina`
+                                      )}&output=embed`}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Datos Fiscales - Solo si el usuario tiene facturación habilitada */}
+                    {tieneFacturacion && (
+                      <div className="col-span-2 md:col-span-4">
+                        <div className="border-t pt-3 mt-1">
+                          <h5 className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                            <Receipt className="w-3.5 h-3.5" />
+                            Datos fiscales
+                          </h5>
+                          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <Receipt className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs text-gray-500">Facturación</p>
+                              {cliente?.cuit && cliente.cuit.length === 11 ? (
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    CUIT: {cliente.cuit.replace(/(\d{2})(\d{8})(\d{1})/, '$1-$2-$3')}
+                                  </p>
+                                  <p className="text-xs text-gray-500">Factura con datos fiscales</p>
+                                </div>
+                              ) : (
+                                <p className="text-sm font-medium text-gray-900">Consumidor Final</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -783,20 +1032,31 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
           {/* Footer */}
           <div className="border-t px-5 py-4 bg-gray-50 flex-shrink-0">
             <div className="flex gap-3">
-              {cliente?.whatsapp && (
-                <a
-                  href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+              {editando ? (
+                <button
+                  onClick={handleGuardar}
+                  disabled={guardando}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp
-                </a>
+                  {guardando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                  Guardar cambios
+                </button>
+              ) : (
+                cliente?.whatsapp && (
+                  <a
+                    href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    WhatsApp
+                  </a>
+                )
               )}
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
               >
                 Cerrar
               </button>

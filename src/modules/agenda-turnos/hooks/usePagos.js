@@ -10,7 +10,8 @@ import {
   registrarEnCaja,
   calcularResumenPagos,
   calcularSenaRequerida,
-  anularPagosSenaTurno
+  anularPagosSenaTurno,
+  eliminarPagoTurno
 } from '../services/pagosService'
 
 /**
@@ -114,6 +115,15 @@ export function usePagosTurno(turnoId, turno = null) {
     return success
   }
 
+  // Eliminar un pago específico
+  const eliminarPago = async (pagoId) => {
+    const { success, error } = await eliminarPagoTurno(pagoId)
+    if (error) throw error
+    // Remover el pago de la lista local
+    setPagos(prev => prev.filter(p => p.id !== pagoId))
+    return success
+  }
+
   return {
     pagos,
     loading,
@@ -122,6 +132,7 @@ export function usePagosTurno(turnoId, turno = null) {
     agregarPago,
     enviarACaja,
     anularPagosSena,
+    eliminarPago,
     recargar: fetchPagos
   }
 }

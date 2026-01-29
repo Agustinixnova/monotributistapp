@@ -7,8 +7,9 @@
 -- Eliminar todas las versiones anteriores de la función
 DROP FUNCTION IF EXISTS public.crear_reserva_publica(UUID, DATE, TIME, UUID, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
 DROP FUNCTION IF EXISTS public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR);
+DROP FUNCTION IF EXISTS public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
 
--- Crear la nueva función con soporte para múltiples servicios
+-- Crear la nueva función con soporte para múltiples servicios y dirección
 CREATE OR REPLACE FUNCTION public.crear_reserva_publica(
     p_link_id UUID,
     p_fecha DATE,
@@ -17,7 +18,14 @@ CREATE OR REPLACE FUNCTION public.crear_reserva_publica(
     p_cliente_nombre VARCHAR DEFAULT NULL,
     p_cliente_apellido VARCHAR DEFAULT NULL,
     p_cliente_telefono VARCHAR DEFAULT NULL,
-    p_cliente_email VARCHAR DEFAULT NULL
+    p_cliente_email VARCHAR DEFAULT NULL,
+    -- Campos de dirección para turnos a domicilio
+    p_direccion VARCHAR DEFAULT NULL,
+    p_localidad VARCHAR DEFAULT NULL,
+    p_provincia VARCHAR DEFAULT NULL,
+    p_piso VARCHAR DEFAULT NULL,
+    p_depto VARCHAR DEFAULT NULL,
+    p_indicaciones_ubicacion VARCHAR DEFAULT NULL
 )
 RETURNS JSON
 LANGUAGE plpgsql
@@ -33,6 +41,8 @@ DECLARE
     v_servicio RECORD;
     v_orden INT := 0;
     v_servicios_nombres TEXT := '';
+    v_modalidad VARCHAR(20);
+    v_direccion_completa TEXT := '';
 BEGIN
     -- 1. Validar el link
     SELECT * INTO v_link
@@ -79,6 +89,26 @@ BEGIN
     -- Calcular hora de fin
     v_hora_fin := p_hora + (v_duracion_total || ' minutes')::INTERVAL;
 
+    -- Obtener modalidad del link (default: local)
+    v_modalidad := COALESCE(v_link.modalidad, 'local');
+
+    -- Construir dirección completa si es a domicilio
+    IF v_modalidad = 'domicilio' AND p_direccion IS NOT NULL THEN
+        v_direccion_completa := p_direccion;
+        IF p_piso IS NOT NULL AND p_piso != '' THEN
+            v_direccion_completa := v_direccion_completa || ', Piso ' || p_piso;
+        END IF;
+        IF p_depto IS NOT NULL AND p_depto != '' THEN
+            v_direccion_completa := v_direccion_completa || ' Depto ' || p_depto;
+        END IF;
+        IF p_localidad IS NOT NULL THEN
+            v_direccion_completa := v_direccion_completa || ', ' || p_localidad;
+        END IF;
+        IF p_provincia IS NOT NULL THEN
+            v_direccion_completa := v_direccion_completa || ', ' || p_provincia;
+        END IF;
+    END IF;
+
     -- 3. Obtener o crear cliente
     IF v_link.cliente_id IS NOT NULL THEN
         v_cliente_id := v_link.cliente_id;
@@ -91,12 +121,18 @@ BEGIN
         LIMIT 1;
 
         IF v_cliente_id IS NOT NULL THEN
-            -- Si existe, actualizar sus datos
+            -- Si existe, actualizar sus datos (incluyendo dirección si se proporciona)
             UPDATE agenda_clientes
             SET
                 nombre = COALESCE(NULLIF(p_cliente_nombre, ''), nombre),
                 apellido = COALESCE(NULLIF(p_cliente_apellido, ''), apellido),
                 email = COALESCE(NULLIF(p_cliente_email, ''), email),
+                direccion = COALESCE(NULLIF(p_direccion, ''), direccion),
+                piso = COALESCE(NULLIF(p_piso, ''), piso),
+                departamento = COALESCE(NULLIF(p_depto, ''), departamento),
+                localidad = COALESCE(NULLIF(p_localidad, ''), localidad),
+                provincia = COALESCE(NULLIF(p_provincia, ''), provincia),
+                indicaciones_ubicacion = COALESCE(NULLIF(p_indicaciones_ubicacion, ''), indicaciones_ubicacion),
                 updated_at = NOW()
             WHERE id = v_cliente_id;
         ELSE
@@ -107,14 +143,26 @@ BEGIN
                 apellido,
                 telefono,
                 whatsapp,
-                email
+                email,
+                direccion,
+                piso,
+                departamento,
+                localidad,
+                provincia,
+                indicaciones_ubicacion
             ) VALUES (
                 v_link.profesional_id,
                 p_cliente_nombre,
                 p_cliente_apellido,
                 p_cliente_telefono,
                 p_cliente_telefono,  -- también guardar como whatsapp
-                p_cliente_email
+                p_cliente_email,
+                p_direccion,
+                p_piso,
+                p_depto,
+                p_localidad,
+                p_provincia,
+                p_indicaciones_ubicacion
             )
             RETURNING id INTO v_cliente_id;
         END IF;
@@ -132,6 +180,8 @@ BEGIN
         hora_fin,
         duracion_real,
         estado,
+        modalidad,
+        direccion_cliente,
         notas
     ) VALUES (
         v_link.profesional_id,
@@ -142,7 +192,9 @@ BEGIN
         v_hora_fin,
         v_duracion_total,
         'pendiente',
-        'Reserva desde link público'
+        v_modalidad,
+        CASE WHEN v_direccion_completa != '' THEN v_direccion_completa ELSE NULL END,
+        'Reserva desde link público - ' || CASE v_modalidad WHEN 'local' THEN 'En local' WHEN 'domicilio' THEN 'A domicilio' WHEN 'videollamada' THEN 'Videollamada' ELSE 'En local' END
     )
     RETURNING id INTO v_turno_id;
 
@@ -201,8 +253,8 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
--- Permisos
-GRANT EXECUTE ON FUNCTION public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR) TO anon;
-GRANT EXECUTE ON FUNCTION public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR) TO authenticated;
+-- Permisos para nueva firma con dirección e indicaciones
+GRANT EXECUTE ON FUNCTION public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR) TO anon;
+GRANT EXECUTE ON FUNCTION public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR) TO authenticated;
 
-COMMENT ON FUNCTION public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR) IS 'Crea una reserva desde link público. Soporta múltiples servicios que se suman en duración.';
+COMMENT ON FUNCTION public.crear_reserva_publica(UUID, DATE, TIME, UUID[], VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR) IS 'Crea una reserva desde link público. Soporta múltiples servicios, dirección completa (piso, depto, indicaciones) para turnos a domicilio.';

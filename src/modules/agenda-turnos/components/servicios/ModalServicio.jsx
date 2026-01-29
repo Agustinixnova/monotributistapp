@@ -3,10 +3,42 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Scissors, Clock, DollarSign, Percent, Palette, Loader2, AlertTriangle } from 'lucide-react'
+import { X, Scissors, Clock, DollarSign, Percent, Palette, Loader2, AlertTriangle, Store, Home, Video } from 'lucide-react'
 import { COLORES_SERVICIOS } from '../../utils/formatters'
 import { formatDuracion } from '../../utils/dateUtils'
 import AsignarProfesionales from './AsignarProfesionales'
+import { useNegocio } from '../../hooks/useNegocio'
+
+// Orden fijo de modalidades
+const MODALIDADES_ORDEN = ['local', 'domicilio', 'videollamada']
+
+// Configuración de íconos y labels para modalidades (con clases explícitas para Tailwind)
+const MODALIDADES_CONFIG = {
+  local: {
+    icon: Store,
+    label: 'En local',
+    borderActive: 'border-blue-300',
+    bgActive: 'bg-blue-50',
+    textActive: 'text-blue-600',
+    checkboxColor: 'text-blue-600'
+  },
+  domicilio: {
+    icon: Home,
+    label: 'A domicilio',
+    borderActive: 'border-orange-300',
+    bgActive: 'bg-orange-50',
+    textActive: 'text-orange-600',
+    checkboxColor: 'text-orange-600'
+  },
+  videollamada: {
+    icon: Video,
+    label: 'Videollamada',
+    borderActive: 'border-purple-300',
+    bgActive: 'bg-purple-50',
+    textActive: 'text-purple-600',
+    checkboxColor: 'text-purple-600'
+  }
+}
 
 export default function ModalServicio({
   isOpen,
@@ -14,6 +46,7 @@ export default function ModalServicio({
   onGuardar,
   servicio = null // null = crear nuevo
 }) {
+  const { modalidades, tieneLocal, tieneDomicilio, tieneVideollamada } = useNegocio()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -29,7 +62,14 @@ export default function ModalServicio({
     requiere_sena: false,
     porcentaje_sena: 30,
     color: '#3B82F6',
-    instrucciones_previas: '' // Instrucciones especiales para el cliente antes del turno
+    instrucciones_previas: '', // Instrucciones especiales para el cliente antes del turno
+    // Configuración por modalidad
+    disponible_local: true,
+    disponible_domicilio: true,
+    disponible_videollamada: true,
+    precio_local: '',
+    precio_domicilio: '',
+    precio_videollamada: ''
   })
 
   // Reset form cuando se abre/cierra o cambia el servicio
@@ -48,7 +88,14 @@ export default function ModalServicio({
           requiere_sena: servicio.requiere_sena || false,
           porcentaje_sena: servicio.porcentaje_sena || 30,
           color: servicio.color || '#3B82F6',
-          instrucciones_previas: servicio.instrucciones_previas || ''
+          instrucciones_previas: servicio.instrucciones_previas || '',
+          // Configuración por modalidad
+          disponible_local: servicio.disponible_local !== false,
+          disponible_domicilio: servicio.disponible_domicilio !== false,
+          disponible_videollamada: servicio.disponible_videollamada !== false,
+          precio_local: servicio.precio_local?.toString() || '',
+          precio_domicilio: servicio.precio_domicilio?.toString() || '',
+          precio_videollamada: servicio.precio_videollamada?.toString() || ''
         })
       } else {
         setForm({
@@ -63,7 +110,14 @@ export default function ModalServicio({
           requiere_sena: false,
           porcentaje_sena: 30,
           color: '#3B82F6',
-          instrucciones_previas: ''
+          instrucciones_previas: '',
+          // Configuración por modalidad - por defecto disponible en todas
+          disponible_local: true,
+          disponible_domicilio: true,
+          disponible_videollamada: true,
+          precio_local: '',
+          precio_domicilio: '',
+          precio_videollamada: ''
         })
       }
       setError(null)
@@ -78,13 +132,51 @@ export default function ModalServicio({
       return
     }
 
-    if (!form.precio || parseFloat(form.precio) <= 0) {
-      setError('El precio debe ser mayor a 0')
-      return
+    // Validar precio según modalidades
+    if (modalidades.length === 1) {
+      // Solo una modalidad: validar precio simple
+      if (!form.precio || parseFloat(form.precio) <= 0) {
+        setError('El precio debe ser mayor a 0')
+        return
+      }
+    } else {
+      // Múltiples modalidades: validar que al menos una modalidad tenga precio
+      const tieneAlgunPrecio = modalidades.some(mod => {
+        const disponibleKey = `disponible_${mod}`
+        const precioKey = `precio_${mod}`
+        return form[disponibleKey] && form[precioKey] && parseFloat(form[precioKey]) > 0
+      })
+      if (!tieneAlgunPrecio) {
+        setError('Ingresá el precio para al menos una modalidad')
+        return
+      }
     }
 
     setLoading(true)
     setError(null)
+
+    // Validar que al menos una modalidad esté disponible
+    const modalidadesDisponibles = []
+    if (tieneLocal && form.disponible_local) modalidadesDisponibles.push('local')
+    if (tieneDomicilio && form.disponible_domicilio) modalidadesDisponibles.push('domicilio')
+    if (tieneVideollamada && form.disponible_videollamada) modalidadesDisponibles.push('videollamada')
+
+    if (modalidadesDisponibles.length === 0) {
+      setError('El servicio debe estar disponible en al menos una modalidad')
+      setLoading(false)
+      return
+    }
+
+    // Calcular precio base: usar el menor precio de las modalidades disponibles, o el precio simple
+    let precioBase = parseFloat(form.precio) || 0
+    if (modalidades.length > 1) {
+      const preciosModalidades = modalidadesDisponibles
+        .map(mod => parseFloat(form[`precio_${mod}`]) || 0)
+        .filter(p => p > 0)
+      if (preciosModalidades.length > 0) {
+        precioBase = Math.min(...preciosModalidades)
+      }
+    }
 
     try {
       await onGuardar({
@@ -93,12 +185,19 @@ export default function ModalServicio({
         duracion_minutos: parseInt(form.duracion_minutos),
         duracion_minima: form.duracion_flexible ? parseInt(form.duracion_minima) : null,
         duracion_maxima: form.duracion_flexible ? parseInt(form.duracion_maxima) : null,
-        precio: parseFloat(form.precio),
+        precio: precioBase,
         precio_variable: form.precio_variable,
         requiere_sena: form.requiere_sena,
         porcentaje_sena: form.requiere_sena ? parseInt(form.porcentaje_sena) : 0,
         color: form.color,
-        instrucciones_previas: form.instrucciones_previas.trim() || null
+        instrucciones_previas: form.instrucciones_previas.trim() || null,
+        // Configuración por modalidad
+        disponible_local: form.disponible_local,
+        disponible_domicilio: form.disponible_domicilio,
+        disponible_videollamada: form.disponible_videollamada,
+        precio_local: form.precio_local ? parseFloat(form.precio_local) : null,
+        precio_domicilio: form.precio_domicilio ? parseFloat(form.precio_domicilio) : null,
+        precio_videollamada: form.precio_videollamada ? parseFloat(form.precio_videollamada) : null
       })
       onClose()
     } catch (err) {
@@ -112,12 +211,15 @@ export default function ModalServicio({
 
   if (!isOpen) return null
 
+  // Determinar si mostrar precios por modalidad o precio simple
+  const mostrarPreciosPorModalidad = modalidades.length > 1
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="bg-gradient-to-r from-violet-500 to-purple-500 px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -142,33 +244,36 @@ export default function ModalServicio({
               </div>
             )}
 
-            {/* Nombre */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre del servicio *
-              </label>
-              <input
-                type="text"
-                value={form.nombre}
-                onChange={(e) => setForm(f => ({ ...f, nombre: e.target.value }))}
-                placeholder="Ej: Corte de cabello"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                autoFocus
-              />
-            </div>
+            {/* Nombre y Descripción en grid para desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Nombre */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre del servicio *
+                </label>
+                <input
+                  type="text"
+                  value={form.nombre}
+                  onChange={(e) => setForm(f => ({ ...f, nombre: e.target.value }))}
+                  placeholder="Ej: Corte de cabello"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  autoFocus
+                />
+              </div>
 
-            {/* Descripción */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción (opcional)
-              </label>
-              <textarea
-                value={form.descripcion}
-                onChange={(e) => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                placeholder="Detalles adicionales..."
-                rows={2}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none"
-              />
+              {/* Descripción */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={form.descripcion}
+                  onChange={(e) => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                  placeholder="Detalles adicionales..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                />
+              </div>
             </div>
 
             {/* Duración */}
@@ -233,27 +338,93 @@ export default function ModalServicio({
               )}
             </div>
 
-            {/* Precio */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            {/* Sección de Precios */}
+            <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+              <label className="block text-sm font-medium text-gray-700">
                 <DollarSign className="w-4 h-4 inline mr-1" />
-                {form.precio_variable ? 'Precio base (desde) *' : 'Precio *'}
+                Precio del servicio
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                <input
-                  type="number"
-                  value={form.precio}
-                  onChange={(e) => setForm(f => ({ ...f, precio: e.target.value }))}
-                  placeholder="0"
-                  min={0}
-                  step={100}
-                  className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
-                />
-              </div>
 
-              {/* Precio variable */}
-              <label className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+              {mostrarPreciosPorModalidad ? (
+                <>
+                  {/* Precios por modalidad en grilla - orden fijo: local, domicilio, videollamada */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {MODALIDADES_ORDEN.filter(m => modalidades.includes(m)).map(modalidad => {
+                      const config = MODALIDADES_CONFIG[modalidad]
+                      if (!config) return null
+                      const IconComponent = config.icon
+                      const disponibleKey = `disponible_${modalidad}`
+                      const precioKey = `precio_${modalidad}`
+                      const isDisponible = form[disponibleKey]
+
+                      return (
+                        <div
+                          key={modalidad}
+                          className={`rounded-lg p-3 border-2 transition-colors ${
+                            isDisponible
+                              ? `${config.borderActive} ${config.bgActive}`
+                              : 'border-gray-200 bg-gray-50'
+                          }`}
+                        >
+                          {/* Checkbox y label */}
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isDisponible}
+                              onChange={(e) => setForm(f => ({ ...f, [disponibleKey]: e.target.checked }))}
+                              className={`rounded border-gray-300 ${config.checkboxColor} focus:ring-violet-500`}
+                            />
+                            <IconComponent className={`w-4 h-4 flex-shrink-0 ${isDisponible ? config.textActive : 'text-gray-400'}`} />
+                            <span className={`text-sm font-medium ${isDisponible ? 'text-gray-800' : 'text-gray-500'}`}>
+                              {config.label}
+                            </span>
+                          </label>
+
+                          {/* Campo de precio */}
+                          {isDisponible && (
+                            <div className="mt-2">
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                <input
+                                  type="number"
+                                  value={form[precioKey]}
+                                  onChange={(e) => setForm(f => ({ ...f, [precioKey]: e.target.value }))}
+                                  placeholder="0"
+                                  min={0}
+                                  className="w-full pl-7 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-violet-500 focus:border-violet-500"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {!isDisponible && (
+                            <p className="text-xs text-gray-400 mt-2">
+                              No disponible
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              ) : (
+                /* Precio simple (solo una modalidad) */
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                  <input
+                    type="number"
+                    value={form.precio}
+                    onChange={(e) => setForm(f => ({ ...f, precio: e.target.value }))}
+                    placeholder="0"
+                    min={0}
+                    step={100}
+                    className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  />
+                </div>
+              )}
+
+              {/* Precio variable - aplica a todas las modalidades */}
+              <label className="flex items-center gap-2 text-sm text-gray-600 pt-2 border-t border-gray-100">
                 <input
                   type="checkbox"
                   checked={form.precio_variable}
@@ -294,11 +465,6 @@ export default function ModalServicio({
                       {form.porcentaje_sena}%
                     </span>
                   </div>
-                  {form.precio && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      Seña: ${Math.round(parseFloat(form.precio) * form.porcentaje_sena / 100)}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
@@ -313,11 +479,11 @@ export default function ModalServicio({
                 value={form.instrucciones_previas}
                 onChange={(e) => setForm(f => ({ ...f, instrucciones_previas: e.target.value }))}
                 placeholder="Ej: Concurrir sin maquillaje ni rimmel. Evitar cremas en el rostro las 24hs previas."
-                rows={3}
+                rows={2}
                 className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 resize-none text-sm"
               />
               <p className="text-xs text-amber-600 mt-2">
-                Estas instrucciones se incluirán automáticamente en los recordatorios de WhatsApp para este servicio.
+                Estas instrucciones se incluirán en los recordatorios de WhatsApp.
               </p>
             </div>
 

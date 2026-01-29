@@ -5,20 +5,35 @@
 import { useState, useEffect } from 'react'
 import {
   X, Link2, Calendar, Clock, User, MessageSquare,
-  Loader2, Copy, Check, Share2, Scissors
+  Loader2, Copy, Check, Share2, Scissors, Store, Car, Video
 } from 'lucide-react'
 import { useServicios } from '../../hooks/useServicios'
 import { useClientes } from '../../hooks/useClientes'
 import { useDisponibilidad } from '../../hooks/useDisponibilidad'
 import { useReservaLinks } from '../../hooks/useReservaLinks'
+import { useNegocio } from '../../hooks/useNegocio'
 import { getTurnos } from '../../services/turnosService'
 import SelectorSlots from './SelectorSlots'
 
 export default function ModalGenerarLink({ isOpen, onClose }) {
-  const { servicios, loading: loadingServicios } = useServicios()
+  const { servicios, loading: loadingServicios, getServiciosPorModalidad, getPrecioServicio, recargar: recargarServicios } = useServicios()
   const { clientes, loading: loadingClientes } = useClientes()
   const { disponibilidad, loading: loadingDisp } = useDisponibilidad()
   const { crear, saving } = useReservaLinks()
+  const { negocio, loading: loadingNegocio, modalidades: modalidadesConfiguradas } = useNegocio()
+
+  // Orden fijo de modalidades
+  const MODALIDADES_ORDEN = ['local', 'domicilio', 'videollamada']
+
+  // Configuración de modalidades (labels cortos para mobile)
+  const modalidadConfig = {
+    local: { icon: Store, label: 'Local', color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-500' },
+    domicilio: { icon: Car, label: 'Domicilio', color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-500' },
+    videollamada: { icon: Video, label: 'Video', color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-500' }
+  }
+
+  // Modalidades ordenadas según orden fijo
+  const modalidadesOrdenadas = MODALIDADES_ORDEN.filter(m => modalidadesConfiguradas.includes(m))
 
   // Estado del formulario
   const [step, setStep] = useState(1) // 1: config, 2: slots, 3: resultado
@@ -31,7 +46,8 @@ export default function ModalGenerarLink({ isOpen, onClose }) {
     fecha_desde: '',
     fecha_hasta: '',
     mensaje_personalizado: '',
-    horas_expiracion: 48
+    horas_expiracion: 48,
+    modalidad: 'local'
   })
 
   const [slotsSeleccionados, setSlotsSeleccionados] = useState({})
@@ -39,24 +55,49 @@ export default function ModalGenerarLink({ isOpen, onClose }) {
   const [loadingTurnos, setLoadingTurnos] = useState(false)
   const [error, setError] = useState(null)
 
-  // Inicializar fechas por defecto (hoy + 7 días)
+  // Inicializar fechas y modalidad por defecto
   useEffect(() => {
     if (isOpen) {
+      // Recargar servicios para obtener datos actualizados (precios por modalidad, etc.)
+      recargarServicios()
+
       const hoy = new Date()
       const enUnaSemana = new Date()
       enUnaSemana.setDate(enUnaSemana.getDate() + 7)
 
+      // La modalidad por defecto es la primera según orden fijo (local > domicilio > videollamada)
+      const modalidadDefault = MODALIDADES_ORDEN.find(m => modalidadesConfiguradas.includes(m)) || 'local'
+
       setForm(prev => ({
         ...prev,
         fecha_desde: hoy.toISOString().split('T')[0],
-        fecha_hasta: enUnaSemana.toISOString().split('T')[0]
+        fecha_hasta: enUnaSemana.toISOString().split('T')[0],
+        modalidad: modalidadDefault,
+        servicios_ids: [] // Se llenará en el siguiente efecto
       }))
       setStep(1)
       setLinkGenerado(null)
       setSlotsSeleccionados({})
       setError(null)
     }
-  }, [isOpen])
+  }, [isOpen, modalidadesConfiguradas, recargarServicios])
+
+  // Seleccionar todos los servicios por defecto cuando se cargan o cambia la modalidad
+  useEffect(() => {
+    if (isOpen && servicios.length > 0 && !loadingServicios && form.modalidad) {
+      // Filtrar servicios según modalidad (sin usar getServiciosPorModalidad para evitar loop)
+      const keyDisponible = `disponible_${form.modalidad}`
+      const serviciosFiltrados = servicios.filter(s => s[keyDisponible] !== false)
+      const todosIds = serviciosFiltrados.map(s => s.id)
+      setForm(prev => {
+        // Solo actualizar si realmente cambió para evitar loops
+        const prevIds = prev.servicios_ids.sort().join(',')
+        const newIds = todosIds.sort().join(',')
+        if (prevIds === newIds) return prev
+        return { ...prev, servicios_ids: todosIds }
+      })
+    }
+  }, [isOpen, servicios, loadingServicios, form.modalidad])
 
   // Toggle servicio
   const handleToggleServicio = (servicioId) => {
@@ -127,7 +168,8 @@ export default function ModalGenerarLink({ isOpen, onClose }) {
       fecha_hasta: form.fecha_hasta,
       slots_disponibles: slotsSeleccionados,
       mensaje_personalizado: form.mensaje_personalizado || null,
-      horas_expiracion: form.horas_expiracion
+      horas_expiracion: form.horas_expiracion,
+      modalidad: form.modalidad
     })
 
     if (success) {
@@ -170,7 +212,7 @@ export default function ModalGenerarLink({ isOpen, onClose }) {
 
   if (!isOpen) return null
 
-  const loading = loadingServicios || loadingClientes || loadingDisp
+  const loading = loadingServicios || loadingClientes || loadingDisp || loadingNegocio
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -232,49 +274,116 @@ export default function ModalGenerarLink({ isOpen, onClose }) {
                     </p>
                   </div>
 
-                  {/* Servicios */}
+                  {/* Modalidad */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <Scissors className="w-4 h-4" />
-                        Servicios habilitados *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const todosIds = servicios.map(s => s.id)
-                          const todosMarcados = todosIds.every(id => form.servicios_ids.includes(id))
-                          setForm(prev => ({
-                            ...prev,
-                            servicios_ids: todosMarcados ? [] : todosIds
-                          }))
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        {servicios.length > 0 && servicios.every(s => form.servicios_ids.includes(s.id))
-                          ? 'Deseleccionar todos'
-                          : 'Seleccionar todos'}
-                      </button>
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                      <Store className="w-4 h-4" />
+                      Modalidad del turno *
+                    </label>
+                    <div className={`grid gap-2 ${modalidadesOrdenadas.length === 3 ? 'grid-cols-3' : modalidadesOrdenadas.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {modalidadesOrdenadas.map(mod => {
+                        const config = modalidadConfig[mod]
+                        if (!config) return null
+                        const IconComponent = config.icon
+                        const isSelected = form.modalidad === mod
+                        const serviciosDisponibles = getServiciosPorModalidad(mod)
+                        return (
+                          <button
+                            key={mod}
+                            type="button"
+                            onClick={() => {
+                              // Al cambiar modalidad, filtrar servicios seleccionados que no estén disponibles
+                              const serviciosNuevaModalidad = getServiciosPorModalidad(mod)
+                              const idsDisponibles = serviciosNuevaModalidad.map(s => s.id)
+                              setForm(prev => ({
+                                ...prev,
+                                modalidad: mod,
+                                servicios_ids: prev.servicios_ids.filter(id => idsDisponibles.includes(id))
+                              }))
+                            }}
+                            className={`px-2 py-2 rounded-lg border-2 text-center transition-all ${
+                              isSelected
+                                ? `${config.borderColor} ${config.bgColor}`
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <IconComponent className={`w-4 h-4 mx-auto mb-0.5 ${isSelected ? config.color : 'text-gray-400'}`} />
+                            <div className={`text-xs font-medium leading-tight ${isSelected ? config.color : 'text-gray-600'}`}>
+                              {config.label}
+                            </div>
+                            <div className="text-[10px] text-gray-400">
+                              {serviciosDisponibles.length} serv.
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {servicios.map(servicio => (
-                        <button
-                          key={servicio.id}
-                          onClick={() => handleToggleServicio(servicio.id)}
-                          className={`p-3 rounded-lg border text-left transition-colors ${
-                            form.servicios_ids.includes(servicio.id)
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="font-medium text-sm">{servicio.nombre}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {servicio.duracion_minutos} min - ${servicio.precio?.toLocaleString('es-AR')}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                    {form.modalidad === 'domicilio' && (
+                      <p className="mt-2 text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                        Los clientes nuevos deberán completar su dirección al reservar
+                      </p>
+                    )}
                   </div>
+
+                  {/* Servicios */}
+                  {(() => {
+                    const serviciosFiltrados = getServiciosPorModalidad(form.modalidad)
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <Scissors className="w-4 h-4" />
+                            Servicios habilitados *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const todosIds = serviciosFiltrados.map(s => s.id)
+                              const todosMarcados = todosIds.every(id => form.servicios_ids.includes(id))
+                              setForm(prev => ({
+                                ...prev,
+                                servicios_ids: todosMarcados ? [] : todosIds
+                              }))
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            {serviciosFiltrados.length > 0 && serviciosFiltrados.every(s => form.servicios_ids.includes(s.id))
+                              ? 'Deseleccionar todos'
+                              : 'Seleccionar todos'}
+                          </button>
+                        </div>
+                        {serviciosFiltrados.length === 0 ? (
+                          <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            <Scissors className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">No hay servicios disponibles para esta modalidad</p>
+                            <p className="text-xs text-gray-400 mt-1">Configurá la disponibilidad en la edición de cada servicio</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {serviciosFiltrados.map(servicio => {
+                              const precioModalidad = getPrecioServicio(servicio, form.modalidad)
+                              return (
+                                <button
+                                  key={servicio.id}
+                                  onClick={() => handleToggleServicio(servicio.id)}
+                                  className={`p-3 rounded-lg border text-left transition-colors ${
+                                    form.servicios_ids.includes(servicio.id)
+                                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                      : 'border-gray-200 hover:border-gray-300'
+                                  }`}
+                                >
+                                  <div className="font-medium text-sm">{servicio.nombre}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    {servicio.duracion_minutos} min - ${precioModalidad?.toLocaleString('es-AR')}
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Fechas */}
                   <div className="grid grid-cols-2 gap-4">
@@ -400,6 +509,22 @@ export default function ModalGenerarLink({ isOpen, onClose }) {
                         {linkGenerado.cliente
                           ? `${linkGenerado.cliente.nombre} ${linkGenerado.cliente.apellido}`
                           : 'Cualquier cliente'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-gray-500">Modalidad</span>
+                      <span className={`font-medium flex items-center gap-1.5 ${modalidadConfig[form.modalidad]?.color || 'text-gray-700'}`}>
+                        {(() => {
+                          const config = modalidadConfig[form.modalidad]
+                          if (!config) return form.modalidad
+                          const IconComponent = config.icon
+                          return (
+                            <>
+                              <IconComponent className="w-4 h-4" />
+                              {config.label}
+                            </>
+                          )
+                        })()}
                       </span>
                     </div>
                     <div className="flex justify-between py-2 border-b">

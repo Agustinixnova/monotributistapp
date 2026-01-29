@@ -1,64 +1,19 @@
 /**
- * Modal para confirmar múltiples turnos pendientes
+ * Modal para ver turnos pendientes de confirmar
+ * Al tocar un turno, abre el modal de detalle
  */
 
-import { useState } from 'react'
-import { X, Check, Clock, User, Scissors, MessageCircle, Calendar, AlertCircle, Loader2 } from 'lucide-react'
-import { formatFechaCorta, formatDuracion } from '../../utils/dateUtils'
+import { X, Check, Clock, User, Scissors, Calendar, AlertCircle, Store, Car, Video, ChevronRight } from 'lucide-react'
+import { formatFechaCorta } from '../../utils/dateUtils'
 import { formatearHora } from '../../utils/formatters'
-import { generarLinkConfirmacion, abrirWhatsApp } from '../../utils/whatsappUtils'
-import { useNegocio } from '../../hooks/useNegocio'
 
 export default function ModalConfirmarPendientes({
   isOpen,
   onClose,
   turnosPendientes = [],
-  onConfirmarTurno
+  onVerTurno
 }) {
-  const [turnoConfirmando, setTurnoConfirmando] = useState(null)
-  const [confirmando, setConfirmando] = useState(false)
-
-  // Obtener datos del negocio para plantillas de WhatsApp
-  const { negocio } = useNegocio()
-
   if (!isOpen) return null
-
-  const handleConfirmarConWhatsApp = async (turno) => {
-    setConfirmando(true)
-    try {
-      const cliente = turno.cliente || turno.agenda_clientes
-      const servicios = turno.servicios || turno.agenda_turno_servicios || []
-      const serviciosInfo = servicios.map(s => ({
-        nombre: s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio',
-        instrucciones_previas: s.servicio?.instrucciones_previas || s.agenda_servicios?.instrucciones_previas || null,
-        requiere_sena: s.servicio?.requiere_sena || s.agenda_servicios?.requiere_sena || false,
-        porcentaje_sena: s.servicio?.porcentaje_sena || s.agenda_servicios?.porcentaje_sena || 0,
-        precio: s.precio || s.servicio?.precio || 0
-      }))
-
-      const link = generarLinkConfirmacion(turno, cliente, serviciosInfo, negocio)
-      if (link) {
-        abrirWhatsApp(link)
-      }
-
-      await onConfirmarTurno?.(turno.id, 'confirmado')
-      setTurnoConfirmando(null)
-    } catch (error) {
-      console.error('Error confirmando turno:', error)
-    }
-    setConfirmando(false)
-  }
-
-  const handleSoloConfirmar = async (turno) => {
-    setConfirmando(true)
-    try {
-      await onConfirmarTurno?.(turno.id, 'confirmado')
-      setTurnoConfirmando(null)
-    } catch (error) {
-      console.error('Error confirmando turno:', error)
-    }
-    setConfirmando(false)
-  }
 
   // Agrupar turnos por fecha
   const turnosPorFecha = turnosPendientes.reduce((acc, turno) => {
@@ -128,18 +83,26 @@ export default function ModalConfirmarPendientes({
                           s.servicio?.nombre || s.agenda_servicios?.nombre || 'Servicio'
                         ).join(', ')
                         const colorServicio = servicios[0]?.servicio?.color || servicios[0]?.agenda_servicios?.color || '#6B7280'
-                        const tieneWhatsApp = cliente?.whatsapp || cliente?.telefono
+
+                        // Configuración de modalidad
+                        const modalidadConfig = {
+                          local: { icon: Store, label: 'En local', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+                          domicilio: { icon: Car, label: 'A domicilio', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+                          videollamada: { icon: Video, label: 'Videollamada', color: 'text-purple-600', bgColor: 'bg-purple-100' }
+                        }
+                        const modalidad = modalidadConfig[turno.modalidad] || null
+                        const ModalidadIcon = modalidad?.icon
 
                         return (
-                          <div
+                          <button
                             key={turno.id}
-                            className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
+                            onClick={() => onVerTurno?.(turno)}
+                            className="w-full bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all text-left"
                           >
-                            {/* Info del turno */}
                             <div className="p-3">
                               <div className="flex items-start gap-3">
                                 <div
-                                  className="w-1 h-12 rounded-full flex-shrink-0"
+                                  className="w-1 h-14 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: colorServicio }}
                                 />
                                 <div className="flex-1 min-w-0">
@@ -159,72 +122,26 @@ export default function ModalConfirmarPendientes({
                                     <Scissors className="w-3 h-3" />
                                     <span className="truncate">{servicioNombre}</span>
                                   </div>
+                                  {/* Indicador de modalidad */}
+                                  {modalidad && ModalidadIcon && (
+                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                      <span className={`flex items-center justify-center w-5 h-5 rounded-full ${modalidad.bgColor}`}>
+                                        <ModalidadIcon className={`w-3 h-3 ${modalidad.color}`} />
+                                      </span>
+                                      <span className={`text-xs font-medium ${modalidad.color}`}>
+                                        {modalidad.label}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
 
-                                {/* Botón confirmar */}
-                                <button
-                                  onClick={() => setTurnoConfirmando(turno)}
-                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5 flex-shrink-0"
-                                >
-                                  <Check className="w-4 h-4" />
-                                  Confirmar
-                                </button>
+                                {/* Flecha para indicar que es clickeable */}
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 flex-shrink-0">
+                                  <ChevronRight className="w-5 h-5 text-blue-600" />
+                                </div>
                               </div>
                             </div>
-
-                            {/* Modal inline de confirmación */}
-                            {turnoConfirmando?.id === turno.id && (
-                              <div className="border-t bg-white p-3 space-y-2">
-                                <p className="text-xs text-gray-500 mb-2">
-                                  ¿Cómo querés confirmar?
-                                </p>
-
-                                {tieneWhatsApp && (
-                                  <button
-                                    onClick={() => handleConfirmarConWhatsApp(turno)}
-                                    disabled={confirmando}
-                                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 transition-colors text-left disabled:opacity-50"
-                                  >
-                                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                                      {confirmando ? (
-                                        <Loader2 className="w-4 h-4 text-white animate-spin" />
-                                      ) : (
-                                        <MessageCircle className="w-4 h-4 text-white" />
-                                      )}
-                                    </div>
-                                    <div>
-                                      <p className="text-sm font-medium text-gray-900">Confirmar y enviar WhatsApp</p>
-                                    </div>
-                                  </button>
-                                )}
-
-                                <button
-                                  onClick={() => handleSoloConfirmar(turno)}
-                                  disabled={confirmando}
-                                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left disabled:opacity-50"
-                                >
-                                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                    {confirmando ? (
-                                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
-                                    ) : (
-                                      <Check className="w-4 h-4 text-blue-600" />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900">Solo confirmar</p>
-                                  </div>
-                                </button>
-
-                                <button
-                                  onClick={() => setTurnoConfirmando(null)}
-                                  disabled={confirmando}
-                                  className="w-full text-center text-sm text-gray-500 hover:text-gray-700 py-1"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          </button>
                         )
                       })}
                     </div>

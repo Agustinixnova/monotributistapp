@@ -26,12 +26,12 @@ export async function getTurnos(fechaInicio, fechaFin, options = {}) {
       .from('agenda_turnos')
       .select(`
         *,
-        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, direccion, piso, departamento, localidad, indicaciones_ubicacion),
+        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, direccion, piso, departamento, localidad, provincia, indicaciones_ubicacion),
         servicios:agenda_turno_servicios(
           id,
           precio,
           duracion,
-          servicio:agenda_servicios(id, nombre, color, duracion_minutos, instrucciones_previas, requiere_sena, porcentaje_sena)
+          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio)
         )
       `)
       .eq('duenio_id', userId)
@@ -74,12 +74,12 @@ export async function getTurnoById(id) {
       .from('agenda_turnos')
       .select(`
         *,
-        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, email, notas, direccion, piso, departamento, localidad, indicaciones_ubicacion),
+        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, email, notas, direccion, piso, departamento, localidad, provincia, indicaciones_ubicacion),
         servicios:agenda_turno_servicios(
           id,
           precio,
           duracion,
-          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio, instrucciones_previas, requiere_sena, porcentaje_sena)
+          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio)
         ),
         pagos:agenda_turno_pagos(*)
       `)
@@ -106,27 +106,30 @@ export async function createTurno(turnoData) {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Crear el turno
+    const turnoInsert = {
+      duenio_id: userId,
+      profesional_id: turnoData.profesional_id || user.id,
+      cliente_id: turnoData.cliente_id || null,
+      fecha: turnoData.fecha,
+      hora_inicio: turnoData.hora_inicio,
+      hora_fin: turnoData.hora_fin,
+      duracion_real: turnoData.duracion_real || null,
+      estado: turnoData.estado || 'pendiente',
+      notas: turnoData.notas || null,
+      notas_internas: turnoData.notas_internas || null,
+      es_recurrente: turnoData.es_recurrente || false,
+      recurrencia_tipo: turnoData.recurrencia_tipo || null,
+      recurrencia_fin: turnoData.recurrencia_fin || null,
+      turno_padre_id: turnoData.turno_padre_id || null
+    }
+
+    // Agregar modalidad solo si se proporciona (columna opcional)
+    if (turnoData.modalidad) turnoInsert.modalidad = turnoData.modalidad
+    if (turnoData.link_videollamada) turnoInsert.link_videollamada = turnoData.link_videollamada
+
     const { data: turno, error: turnoError } = await supabase
       .from('agenda_turnos')
-      .insert({
-        duenio_id: userId,
-        profesional_id: turnoData.profesional_id || user.id,
-        cliente_id: turnoData.cliente_id || null,
-        fecha: turnoData.fecha,
-        hora_inicio: turnoData.hora_inicio,
-        hora_fin: turnoData.hora_fin,
-        duracion_real: turnoData.duracion_real || null,
-        estado: turnoData.estado || 'pendiente',
-        notas: turnoData.notas || null,
-        notas_internas: turnoData.notas_internas || null,
-        es_recurrente: turnoData.es_recurrente || false,
-        recurrencia_tipo: turnoData.recurrencia_tipo || null,
-        recurrencia_fin: turnoData.recurrencia_fin || null,
-        turno_padre_id: turnoData.turno_padre_id || null,
-        // Modalidad de atención
-        modalidad: turnoData.modalidad || 'local',
-        link_videollamada: turnoData.link_videollamada || null
-      })
+      .insert(turnoInsert)
       .select()
       .single()
 

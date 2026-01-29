@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS public.agenda_reserva_links (
     -- Mensaje personalizado opcional
     mensaje_personalizado TEXT,
 
+    -- Modalidad del turno (local, domicilio, videollamada)
+    modalidad VARCHAR(20) DEFAULT 'local' CHECK (modalidad IN ('local', 'domicilio', 'videollamada')),
+
     -- Estado y expiración
     estado VARCHAR(20) DEFAULT 'activo' CHECK (estado IN ('activo', 'usado', 'expirado')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -107,3 +110,11 @@ COMMENT ON COLUMN public.agenda_reserva_links.token IS 'Token único para el lin
 COMMENT ON COLUMN public.agenda_reserva_links.slots_disponibles IS 'JSON con slots por fecha que el profesional habilitó';
 COMMENT ON COLUMN public.agenda_reserva_links.expires_at IS 'Fecha de expiración (48hs desde creación)';
 COMMENT ON COLUMN public.agenda_reserva_links.estado IS 'activo: disponible, usado: ya se reservó, expirado: pasaron 48hs';
+COMMENT ON COLUMN public.agenda_reserva_links.modalidad IS 'Modalidad del turno: local, domicilio o videollamada';
+
+-- ============================================
+-- MIGRACIONES
+-- ============================================
+
+-- Agregar columna modalidad si no existe
+ALTER TABLE public.agenda_reserva_links ADD COLUMN IF NOT EXISTS modalidad VARCHAR(20) DEFAULT 'local' CHECK (modalidad IN ('local', 'domicilio', 'videollamada'));

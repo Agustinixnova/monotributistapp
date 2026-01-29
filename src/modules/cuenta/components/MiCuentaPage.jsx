@@ -1,20 +1,25 @@
-import { useState, useEffect } from 'react'
-import { User, CreditCard, FileText, MessageSquare } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { User, CreditCard, FileText, MessageSquare, Receipt } from 'lucide-react'
 import { Layout } from '../../../components/layout/Layout'
 import { MisDatos } from './MisDatos'
 import { MiSuscripcion } from './MiSuscripcion'
 import { FichaClienteReducida } from '../../mi-cartera/components/FichaClienteReducida'
 import { MisSugerencias } from '../../mi-cartera/components/MisSugerencias'
+import ConfiguracionAfip from './ConfiguracionAfip'
 import { cuentaService } from '../services/cuentaService'
+import { useFacturacion } from '../../agenda-turnos/hooks/useFacturacion'
 
 /**
  * Página principal de Mi Cuenta
- * Tabs: Mis Datos | Mi Suscripción
+ * Tabs: Mis Datos | Datos Fiscales | Facturación (premium) | Sugerencias | Mi Suscripción
  */
 export function MiCuentaPage() {
   const [activeTab, setActiveTab] = useState('datos')
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // Verificar si tiene el módulo premium de facturación
+  const { tieneModuloPremium, loading: loadingFacturacion } = useFacturacion()
 
   useEffect(() => {
     loadProfile()
@@ -32,12 +37,30 @@ export function MiCuentaPage() {
     }
   }
 
-  const tabs = [
+  // Tabs base (siempre visibles)
+  const baseTabs = [
     { id: 'datos', label: 'Mis Datos', icon: User },
-    { id: 'fiscales', label: 'Datos Fiscales', icon: FileText },
+    { id: 'fiscales', label: 'Datos Fiscales', icon: FileText }
+  ]
+
+  // Tab de facturación (solo si tiene el módulo premium)
+  const facturacionTab = { id: 'facturacion', label: 'Facturación', icon: Receipt }
+
+  // Tabs finales (siempre visibles)
+  const finalTabs = [
     { id: 'sugerencias', label: 'Sugerencias', icon: MessageSquare },
     { id: 'suscripcion', label: 'Mi Suscripcion', icon: CreditCard }
   ]
+
+  // Construir tabs según permisos
+  const tabs = useMemo(() => {
+    const result = [...baseTabs]
+    if (tieneModuloPremium) {
+      result.push(facturacionTab)
+    }
+    result.push(...finalTabs)
+    return result
+  }, [tieneModuloPremium])
 
   return (
     <Layout>
@@ -72,7 +95,7 @@ export function MiCuentaPage() {
 
         {/* Contenido */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {loading ? (
+          {loading || loadingFacturacion ? (
             <div className="space-y-4">
               {[1, 2, 3].map(i => (
                 <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse" />
@@ -85,6 +108,11 @@ export function MiCuentaPage() {
               )}
               {activeTab === 'fiscales' && (
                 <FichaClienteReducida />
+              )}
+              {activeTab === 'facturacion' && tieneModuloPremium && (
+                <div className="bg-white rounded-xl border p-6">
+                  <ConfiguracionAfip />
+                </div>
               )}
               {activeTab === 'sugerencias' && (
                 <MisSugerencias />

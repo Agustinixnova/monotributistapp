@@ -17,7 +17,7 @@ const MODALIDADES = [
   { id: 'videollamada', label: 'Videollamadas', icon: Video, descripcion: 'Atención online por Zoom, Meet, etc.' }
 ]
 
-export default function ConfigNegocio() {
+export default function ConfigNegocio({ onGuardar }) {
   const { negocio, loading, saving, guardar } = useNegocio()
   const [guardado, setGuardado] = useState(false)
 
@@ -104,6 +104,8 @@ export default function ConfigNegocio() {
     if (success) {
       setGuardado(true)
       setTimeout(() => setGuardado(false), 3000)
+      // Notificar al padre que se guardó para recargar datos
+      onGuardar?.()
     }
   }
 

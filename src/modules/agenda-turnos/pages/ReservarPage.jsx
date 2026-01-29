@@ -7,7 +7,7 @@ import { useParams } from 'react-router-dom'
 import {
   Calendar, Clock, User, Phone, Mail, MapPin, Instagram,
   Check, AlertCircle, Loader2, ArrowLeft, ArrowRight,
-  ChevronLeft, ChevronRight, CalendarPlus
+  ChevronLeft, ChevronRight, CalendarPlus, Store, Car, Video, Home, ChevronDown
 } from 'lucide-react'
 import {
   getLinkByToken,
@@ -15,6 +15,35 @@ import {
   getServiciosByIds,
   usarLink
 } from '../services/reservaLinksService'
+
+// Provincias de Argentina
+const PROVINCIAS_ARGENTINA = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'Buenos Aires', label: 'Buenos Aires' },
+  { value: 'CABA', label: 'Ciudad Autónoma de Buenos Aires' },
+  { value: 'Catamarca', label: 'Catamarca' },
+  { value: 'Chaco', label: 'Chaco' },
+  { value: 'Chubut', label: 'Chubut' },
+  { value: 'Córdoba', label: 'Córdoba' },
+  { value: 'Corrientes', label: 'Corrientes' },
+  { value: 'Entre Ríos', label: 'Entre Ríos' },
+  { value: 'Formosa', label: 'Formosa' },
+  { value: 'Jujuy', label: 'Jujuy' },
+  { value: 'La Pampa', label: 'La Pampa' },
+  { value: 'La Rioja', label: 'La Rioja' },
+  { value: 'Mendoza', label: 'Mendoza' },
+  { value: 'Misiones', label: 'Misiones' },
+  { value: 'Neuquén', label: 'Neuquén' },
+  { value: 'Río Negro', label: 'Río Negro' },
+  { value: 'Salta', label: 'Salta' },
+  { value: 'San Juan', label: 'San Juan' },
+  { value: 'San Luis', label: 'San Luis' },
+  { value: 'Santa Cruz', label: 'Santa Cruz' },
+  { value: 'Santa Fe', label: 'Santa Fe' },
+  { value: 'Santiago del Estero', label: 'Santiago del Estero' },
+  { value: 'Tierra del Fuego', label: 'Tierra del Fuego' },
+  { value: 'Tucumán', label: 'Tucumán' }
+]
 
 // Formatear fecha
 function formatFecha(fecha) {
@@ -31,7 +60,22 @@ const FORM_INICIAL = {
   nombre: '',
   apellido: '',
   telefono: '',
-  email: ''
+  email: '',
+  // Campos para domicilio
+  direccion: '',
+  piso: '',
+  departamento: '',
+  localidad: '',
+  provincia: '',
+  indicaciones_ubicacion: '',
+  mostrarMapa: false
+}
+
+// Configuración de modalidades
+const MODALIDAD_CONFIG = {
+  local: { icon: Store, label: 'En local', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  domicilio: { icon: Car, label: 'A domicilio', color: 'text-orange-600', bgColor: 'bg-orange-50' },
+  videollamada: { icon: Video, label: 'Videollamada', color: 'text-purple-600', bgColor: 'bg-purple-50' }
 }
 
 // Generar URL de Google Calendar
@@ -74,14 +118,29 @@ export default function ReservarPage() {
   const [horaSeleccionada, setHoraSeleccionada] = useState(null)
   const [formDatos, setFormDatos] = useState(FORM_INICIAL)
 
-  // Calcular totales de servicios seleccionados
+  // Helper para obtener el precio de un servicio según la modalidad del link
+  const getPrecioServicio = (servicio) => {
+    if (!servicio || !link?.modalidad) return servicio?.precio || 0
+    const keyPrecio = `precio_${link.modalidad}`
+    // Si tiene precio específico para la modalidad, usarlo; sino usar precio base
+    return servicio[keyPrecio] ?? servicio.precio ?? 0
+  }
+
+  // Filtrar servicios disponibles para la modalidad del link
+  const serviciosFiltrados = useMemo(() => {
+    if (!link?.modalidad) return servicios
+    const keyDisponible = `disponible_${link.modalidad}`
+    return servicios.filter(s => s[keyDisponible] !== false)
+  }, [servicios, link?.modalidad])
+
+  // Calcular totales de servicios seleccionados (con precio según modalidad)
   const totalesServicios = useMemo(() => {
-    const seleccionados = servicios.filter(s => serviciosSeleccionados.includes(s.id))
+    const seleccionados = serviciosFiltrados.filter(s => serviciosSeleccionados.includes(s.id))
     const duracionTotal = seleccionados.reduce((acc, s) => acc + (s.duracion_minutos || 0), 0)
-    const precioTotal = seleccionados.reduce((acc, s) => acc + (s.precio || 0), 0)
+    const precioTotal = seleccionados.reduce((acc, s) => acc + getPrecioServicio(s), 0)
     const hayVariables = seleccionados.some(s => s.precio_variable)
     return { duracionTotal, precioTotal, hayVariables, seleccionados }
-  }, [servicios, serviciosSeleccionados])
+  }, [serviciosFiltrados, serviciosSeleccionados, link?.modalidad])
 
   // Toggle servicio seleccionado
   const toggleServicio = (servicioId) => {
@@ -174,7 +233,13 @@ export default function ReservarPage() {
       case 3:
         // Si el link ya tiene cliente asociado, no requerimos datos
         if (link?.cliente_id) return true
-        return formDatos.nombre.trim() && formDatos.apellido.trim() && formDatos.telefono.trim()
+        // Validar datos básicos
+        const datosBasicosOk = formDatos.nombre.trim() && formDatos.apellido.trim() && formDatos.telefono.trim()
+        // Si es a domicilio, también validar dirección
+        if (link?.modalidad === 'domicilio') {
+          return datosBasicosOk && formDatos.direccion.trim() && formDatos.localidad.trim() && formDatos.provincia.trim()
+        }
+        return datosBasicosOk
       default:
         return false
     }
@@ -184,17 +249,29 @@ export default function ReservarPage() {
   const handleConfirmarReserva = async () => {
     setReservando(true)
 
+    // Preparar datos del cliente (incluye dirección si es a domicilio)
+    const clienteDatos = link.cliente_id ? null : {
+      nombre: formDatos.nombre,
+      apellido: formDatos.apellido,
+      telefono: formDatos.telefono,
+      email: formDatos.email,
+      // Incluir dirección solo si es a domicilio
+      ...(link.modalidad === 'domicilio' && {
+        direccion: formDatos.direccion,
+        localidad: formDatos.localidad,
+        provincia: formDatos.provincia,
+        piso: formDatos.piso || null,
+        departamento: formDatos.departamento || null,
+        indicaciones_ubicacion: formDatos.indicaciones_ubicacion || null
+      })
+    }
+
     try {
       const { data, error: reservaError } = await usarLink(link.id, {
         fecha: fechaSeleccionada,
         hora: horaSeleccionada,
         servicios_ids: serviciosSeleccionados,
-        cliente_datos: link.cliente_id ? null : {
-          nombre: formDatos.nombre,
-          apellido: formDatos.apellido,
-          telefono: formDatos.telefono,
-          email: formDatos.email
-        }
+        cliente_datos: clienteDatos
       })
 
       if (reservaError) throw reservaError
@@ -332,6 +409,22 @@ export default function ReservarPage() {
             {negocio?.descripcion && (
               <p className="text-sm text-gray-500 mt-0.5">{negocio.descripcion}</p>
             )}
+            {/* Indicador de modalidad */}
+            {link?.modalidad && (
+              <div className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full text-sm font-medium ${MODALIDAD_CONFIG[link.modalidad]?.bgColor} ${MODALIDAD_CONFIG[link.modalidad]?.color}`}>
+                {(() => {
+                  const config = MODALIDAD_CONFIG[link.modalidad]
+                  if (!config) return null
+                  const IconComponent = config.icon
+                  return (
+                    <>
+                      <IconComponent className="w-4 h-4" />
+                      {config.label}
+                    </>
+                  )
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Info de contacto compacta */}
@@ -347,7 +440,8 @@ export default function ReservarPage() {
                 <span>{negocio.whatsapp}</span>
               </a>
             )}
-            {negocio?.direccion && (
+            {/* Solo mostrar dirección del local si la modalidad es 'local' */}
+            {negocio?.direccion && link?.modalidad === 'local' && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 {negocio.direccion}
@@ -412,9 +506,10 @@ export default function ReservarPage() {
               Seleccioná uno o más servicios
             </h2>
             <div className="space-y-2">
-              {servicios.map(servicio => {
+              {serviciosFiltrados.map(servicio => {
                 const isSelected = serviciosSeleccionados.includes(servicio.id)
                 const colorServicio = servicio.color || '#3B82F6'
+                const precioMostrar = getPrecioServicio(servicio)
                 return (
                   <button
                     key={servicio.id}
@@ -454,7 +549,7 @@ export default function ReservarPage() {
                           </span>
                           <span className="font-semibold text-gray-700">
                             {servicio.precio_variable && <span className="font-normal text-gray-400">desde </span>}
-                            ${servicio.precio?.toLocaleString('es-AR')}
+                            ${precioMostrar?.toLocaleString('es-AR')}
                           </span>
                         </div>
                       </div>
@@ -650,6 +745,144 @@ export default function ReservarPage() {
               </div>
             </div>
 
+            {/* Campos de dirección (solo si es a domicilio y cliente nuevo) */}
+            {link?.modalidad === 'domicilio' && !link?.cliente_id && (
+              <div className="space-y-3 bg-orange-50 rounded-xl p-4 border border-orange-200 mt-4">
+                <div className="flex items-center gap-2 text-orange-700 font-medium text-sm mb-3">
+                  <Home className="w-4 h-4" />
+                  Dirección para el servicio a domicilio
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Calle y número *
+                  </label>
+                  <input
+                    type="text"
+                    value={formDatos.direccion}
+                    onChange={(e) => setFormDatos(prev => ({ ...prev, direccion: e.target.value }))}
+                    placeholder="Ej: Av. Corrientes 1234"
+                    className="w-full px-3 py-2.5 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Piso
+                    </label>
+                    <input
+                      type="text"
+                      value={formDatos.piso}
+                      onChange={(e) => setFormDatos(prev => ({ ...prev, piso: e.target.value }))}
+                      placeholder="Ej: 5"
+                      className="w-full px-3 py-2.5 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Depto
+                    </label>
+                    <input
+                      type="text"
+                      value={formDatos.departamento}
+                      onChange={(e) => setFormDatos(prev => ({ ...prev, departamento: e.target.value }))}
+                      placeholder="Ej: A"
+                      className="w-full px-3 py-2.5 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Localidad *
+                    </label>
+                    <input
+                      type="text"
+                      value={formDatos.localidad}
+                      onChange={(e) => setFormDatos(prev => ({ ...prev, localidad: e.target.value }))}
+                      placeholder="Ej: Palermo"
+                      className="w-full px-3 py-2.5 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Provincia *
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formDatos.provincia}
+                        onChange={(e) => setFormDatos(prev => ({ ...prev, provincia: e.target.value }))}
+                        className="w-full px-3 py-2.5 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white text-sm appearance-none"
+                      >
+                        {PROVINCIAS_ARGENTINA.map(p => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Indicaciones adicionales
+                  </label>
+                  <input
+                    type="text"
+                    value={formDatos.indicaciones_ubicacion}
+                    onChange={(e) => setFormDatos(prev => ({ ...prev, indicaciones_ubicacion: e.target.value }))}
+                    placeholder="Timbre, portón, referencias..."
+                    className="w-full px-3 py-2.5 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white text-sm"
+                  />
+                </div>
+
+                {/* Botón Validar en Mapa */}
+                {formDatos.direccion.trim() && formDatos.localidad.trim() && formDatos.provincia && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormDatos(prev => ({ ...prev, mostrarMapa: !prev.mostrarMapa }))}
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-medium transition-colors border border-orange-300"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      {formDatos.mostrarMapa ? 'Ocultar mapa' : 'Validar en mapa'}
+                    </button>
+
+                    {formDatos.mostrarMapa && (
+                      <div className="rounded-lg overflow-hidden border border-orange-300">
+                        <iframe
+                          title="Mapa de ubicación"
+                          width="100%"
+                          height="180"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          src={`https://www.google.com/maps?q=${encodeURIComponent(
+                            `${formDatos.direccion}${formDatos.localidad ? ', ' + formDatos.localidad : ''}${formDatos.provincia ? ', ' + formDatos.provincia : ''}, Argentina`
+                          )}&output=embed`}
+                        />
+                        <div className="bg-white px-3 py-2 text-xs text-gray-600 flex items-center justify-between">
+                          <span>Verificá que el pin esté correcto</span>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              `${formDatos.direccion}${formDatos.localidad ? ', ' + formDatos.localidad : ''}${formDatos.provincia ? ', ' + formDatos.provincia : ''}, Argentina`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-orange-600 hover:text-orange-700 font-medium"
+                          >
+                            Abrir en Maps
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Resumen */}
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-100">
               <h4 className="font-semibold text-gray-800 mb-3 text-sm">Resumen de tu reserva</h4>
@@ -661,7 +894,7 @@ export default function ReservarPage() {
                       <div key={s.id} className="flex justify-between">
                         <span className="font-medium text-gray-800">{s.nombre}</span>
                         <span className="text-gray-500">
-                          {s.precio_variable && 'desde '}${s.precio?.toLocaleString('es-AR')}
+                          {s.precio_variable && 'desde '}${getPrecioServicio(s)?.toLocaleString('es-AR')}
                         </span>
                       </div>
                     ))}

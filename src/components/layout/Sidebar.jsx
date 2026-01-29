@@ -267,7 +267,7 @@ export function Sidebar({ isOpen, onClose }) {
 
                 // Item simple (sin hijos)
                 return (
-                  <li key={item.path || item.slug}>
+                  <li key={item.id || item.slug}>
                     <NavLink
                       to={item.path}
                       onClick={onClose}

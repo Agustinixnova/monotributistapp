@@ -78,7 +78,14 @@ export async function createServicio(servicioData) {
         porcentaje_sena: servicioData.porcentaje_sena || 0,
         color: servicioData.color || '#3B82F6',
         orden: servicioData.orden || 0,
-        activo: true
+        activo: true,
+        // Configuración por modalidad
+        disponible_local: servicioData.disponible_local !== false,
+        disponible_domicilio: servicioData.disponible_domicilio !== false,
+        disponible_videollamada: servicioData.disponible_videollamada !== false,
+        precio_local: servicioData.precio_local || null,
+        precio_domicilio: servicioData.precio_domicilio || null,
+        precio_videollamada: servicioData.precio_videollamada || null
       })
       .select()
       .single()
@@ -111,6 +118,13 @@ export async function updateServicio(id, servicioData) {
     if (servicioData.color !== undefined) updateData.color = servicioData.color
     if (servicioData.orden !== undefined) updateData.orden = servicioData.orden
     if (servicioData.activo !== undefined) updateData.activo = servicioData.activo
+    // Configuración por modalidad
+    if (servicioData.disponible_local !== undefined) updateData.disponible_local = servicioData.disponible_local
+    if (servicioData.disponible_domicilio !== undefined) updateData.disponible_domicilio = servicioData.disponible_domicilio
+    if (servicioData.disponible_videollamada !== undefined) updateData.disponible_videollamada = servicioData.disponible_videollamada
+    if (servicioData.precio_local !== undefined) updateData.precio_local = servicioData.precio_local
+    if (servicioData.precio_domicilio !== undefined) updateData.precio_domicilio = servicioData.precio_domicilio
+    if (servicioData.precio_videollamada !== undefined) updateData.precio_videollamada = servicioData.precio_videollamada
 
     const { data, error } = await supabase
       .from('agenda_servicios')

@@ -5,6 +5,7 @@
 
 import { supabase } from '../../../lib/supabase'
 import { getEffectiveUserId } from '../../caja-diaria/services/empleadosService'
+import { getHoraActualArgentina } from '../utils/dateUtils'
 
 /**
  * Obtiene los métodos de pago del usuario (reutiliza los de Caja Diaria)
@@ -27,6 +28,9 @@ export async function getMetodosPago() {
  * Registra un pago de turno (seña o pago final)
  */
 export async function registrarPago(turnoId, pagoData) {
+  // Obtener hora actual de Argentina
+  const horaPago = getHoraActualArgentina()
+
   const { data, error } = await supabase
     .from('agenda_turno_pagos')
     .insert({
@@ -35,6 +39,7 @@ export async function registrarPago(turnoId, pagoData) {
       monto: pagoData.monto,
       metodo_pago_id: pagoData.metodo_pago_id,
       fecha_pago: pagoData.fecha_pago,
+      hora_pago: horaPago, // Hora del cobro en formato HH:MM UTC-3
       notas: pagoData.notas || null,
       registrado_en_caja: false
     })
@@ -323,6 +328,49 @@ export async function anularPagosSenaTurno(turnoId) {
     return { success: true, error: null }
   } catch (error) {
     console.error('Error anulando pagos de seña:', error)
+    return { success: false, error }
+  }
+}
+
+/**
+ * Elimina un pago específico de un turno
+ * Si el pago estaba registrado en caja, también elimina el movimiento de caja
+ */
+export async function eliminarPagoTurno(pagoId) {
+  try {
+    // Primero obtener el pago para ver si tiene movimiento en caja
+    const { data: pago, error: fetchError } = await supabase
+      .from('agenda_turno_pagos')
+      .select('*')
+      .eq('id', pagoId)
+      .single()
+
+    if (fetchError) throw fetchError
+
+    // Si estaba registrado en caja, eliminar también el movimiento
+    if (pago.registrado_en_caja && pago.caja_movimiento_id) {
+      const { error: cajaError } = await supabase
+        .from('caja_movimientos')
+        .delete()
+        .eq('id', pago.caja_movimiento_id)
+
+      if (cajaError) {
+        console.error('Error eliminando movimiento de caja:', cajaError)
+        // Continuamos aunque falle la eliminación de caja
+      }
+    }
+
+    // Eliminar el pago
+    const { error: deleteError } = await supabase
+      .from('agenda_turno_pagos')
+      .delete()
+      .eq('id', pagoId)
+
+    if (deleteError) throw deleteError
+
+    return { success: true, error: null }
+  } catch (error) {
+    console.error('Error eliminando pago:', error)
     return { success: false, error }
   }
 }

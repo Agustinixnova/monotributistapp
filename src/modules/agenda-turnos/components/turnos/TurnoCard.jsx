@@ -2,7 +2,7 @@
  * Card para mostrar un turno en el calendario
  */
 
-import { Clock, User, MoreVertical, CheckCircle, X, Play, UserX } from 'lucide-react'
+import { Clock, User, MoreVertical, CheckCircle, X, Play, UserX, Store, Car, Video } from 'lucide-react'
 import { formatearHora } from '../../utils/formatters'
 import { getEstadoConfig, getColorClasses } from '../../utils/formatters'
 import { formatDuracion, diferenciaMinutos } from '../../utils/dateUtils'
@@ -48,12 +48,22 @@ export default function TurnoCard({
 
   const acciones = accionesRapidas[turno.estado] || []
 
+  // Configuración de modalidad
+  const modalidadConfig = {
+    local: { icon: Store, label: 'En local', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+    domicilio: { icon: Car, label: 'A domicilio', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+    videollamada: { icon: Video, label: 'Videollamada', color: 'text-purple-600', bgColor: 'bg-purple-100' }
+  }
+  const modalidad = modalidadConfig[turno.modalidad] || null
+  const ModalidadIcon = modalidad?.icon
+
   if (compacto) {
     // Versión compacta para vista semanal
     const esCancelado = turno.estado === 'cancelado' || turno.estado === 'no_asistio'
     const esCompletado = turno.estado === 'completado'
     const primerNombreCliente = turno.cliente?.nombre?.split(' ')[0] || 'Cliente'
-    const primerServicioNombre = turno.servicios?.[0]?.servicio?.nombre || ''
+    // Mostrar todos los servicios separados por +
+    const todosServiciosNombres = turno.servicios?.map(s => s.servicio?.nombre).filter(Boolean).join(' + ') || ''
 
     return (
       <div
@@ -65,14 +75,19 @@ export default function TurnoCard({
           backgroundColor: `${colorServicio}20`,
           borderLeft: `3px solid ${colorServicio}`
         }}
-        title={`${primerNombreCliente} - ${primerServicioNombre}`}
+        title={`${primerNombreCliente} - ${todosServiciosNombres}`}
       >
         <div className="px-1.5 py-1 h-full flex flex-col justify-start overflow-hidden">
-          {/* Línea 1: Hora + Cliente */}
+          {/* Línea 1: Hora + Modalidad + Cliente */}
           <div className="flex items-center gap-1 min-w-0 leading-tight">
             <span className="font-bold text-gray-800 flex-shrink-0">
               {formatearHora(turno.hora_inicio)}
             </span>
+            {ModalidadIcon && (
+              <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${modalidad.bgColor}`}>
+                <ModalidadIcon className={`w-2.5 h-2.5 ${modalidad.color}`} />
+              </span>
+            )}
             <span className="font-medium text-gray-700 truncate">
               {primerNombreCliente}
             </span>
@@ -82,13 +97,13 @@ export default function TurnoCard({
               </span>
             )}
           </div>
-          {/* Línea 2: Servicio - solo si hay espacio (card > 35px aprox) */}
-          {primerServicioNombre && (
+          {/* Línea 2: Servicios - solo si hay espacio (card > 35px aprox) */}
+          {todosServiciosNombres && (
             <p
               className="text-[10px] truncate leading-tight mt-0.5"
               style={{ color: colorServicio }}
             >
-              {primerServicioNombre}
+              {todosServiciosNombres}
             </p>
           )}
         </div>
@@ -106,21 +121,32 @@ export default function TurnoCard({
       onClick={() => onClick?.(turno)}
     >
       <div className="p-3">
-        {/* Header: hora y estado */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
-            <span className="font-semibold text-gray-800">
+        {/* Header: hora y badges */}
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="font-semibold text-gray-800 whitespace-nowrap">
               {formatearHora(turno.hora_inicio)} - {formatearHora(turno.hora_fin)}
             </span>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-gray-400 hidden sm:inline">
               ({formatDuracion(duracion)})
             </span>
           </div>
 
-          <span className={`text-xs px-2 py-0.5 rounded-full ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
-            {estadoConfig.label}
-          </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Indicador de modalidad - siempre visible */}
+            {ModalidadIcon && (
+              <span
+                className={`flex items-center justify-center w-7 h-7 rounded-full ${modalidad.bgColor}`}
+                title={modalidad.label}
+              >
+                <ModalidadIcon className={`w-4 h-4 ${modalidad.color}`} />
+              </span>
+            )}
+            <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
+              {estadoConfig.label}
+            </span>
+          </div>
         </div>
 
         {/* Cliente */}

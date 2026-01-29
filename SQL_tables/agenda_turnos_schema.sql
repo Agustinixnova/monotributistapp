@@ -21,6 +21,13 @@ CREATE TABLE IF NOT EXISTS public.agenda_servicios (
     porcentaje_sena INT DEFAULT 0 CHECK (porcentaje_sena >= 0 AND porcentaje_sena <= 100),
     color VARCHAR(20) DEFAULT '#3B82F6', -- color para el calendario
     orden INT DEFAULT 0, -- para ordenar en listados
+    -- Configuración por modalidad
+    disponible_local BOOLEAN DEFAULT true,
+    disponible_domicilio BOOLEAN DEFAULT true,
+    disponible_videollamada BOOLEAN DEFAULT true,
+    precio_local DECIMAL(12,2), -- NULL = usa precio base
+    precio_domicilio DECIMAL(12,2),
+    precio_videollamada DECIMAL(12,2),
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -65,6 +72,13 @@ CREATE TABLE IF NOT EXISTS public.agenda_clientes (
     origen VARCHAR(30) CHECK (origen IN ('recomendacion', 'instagram', 'facebook', 'tiktok', 'google', 'otros')),
     notas TEXT,
     es_cliente_empleado BOOLEAN DEFAULT false, -- true = cliente particular del empleado
+    -- Campos de dirección para servicios a domicilio
+    direccion VARCHAR(255),
+    piso VARCHAR(10),
+    departamento VARCHAR(10),
+    localidad VARCHAR(100),
+    provincia VARCHAR(50),
+    indicaciones_ubicacion TEXT,
     activo BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -187,6 +201,7 @@ CREATE TABLE IF NOT EXISTS public.agenda_turno_pagos (
     monto DECIMAL(12,2) NOT NULL,
     metodo_pago_id UUID REFERENCES public.caja_metodos_pago(id),
     fecha_pago DATE NOT NULL,
+    hora_pago TIME, -- Hora del cobro en formato 24hs UTC-3 Argentina
     -- Integración con Caja Diaria
     registrado_en_caja BOOLEAN DEFAULT false,
     caja_movimiento_id UUID REFERENCES public.caja_movimientos(id),
@@ -568,3 +583,14 @@ GRANT SELECT ON public.agenda_turnos_completos TO authenticated;
 
 GRANT EXECUTE ON FUNCTION public.verificar_disponibilidad_turno TO authenticated;
 GRANT EXECUTE ON FUNCTION public.agenda_estadisticas_cliente TO authenticated;
+
+-- =====================================================
+-- MIGRACIONES
+-- =====================================================
+
+-- Agregar columna hora_pago si no existe
+ALTER TABLE public.agenda_turno_pagos ADD COLUMN IF NOT EXISTS hora_pago TIME;
+
+-- Agregar columna direccion_cliente para turnos a domicilio (dirección completa con piso/depto)
+ALTER TABLE public.agenda_turnos ADD COLUMN IF NOT EXISTS direccion_cliente TEXT;
+COMMENT ON COLUMN public.agenda_turnos.direccion_cliente IS 'Dirección completa para turnos a domicilio (incluye calle, número, piso, depto, localidad, provincia)';

@@ -3,8 +3,8 @@
  * Con soporte para precios editables y seña opcional
  */
 
-import { useState, useEffect } from 'react'
-import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle, Home, Store, Video, MapPin, ExternalLink } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle, Car, Store, Video, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatearMonto, formatearHora, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
 import { useNegocio } from '../../hooks/useNegocio'
 import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, getHoraActualArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
@@ -13,7 +13,36 @@ import useServicios from '../../hooks/useServicios'
 import useClientes from '../../hooks/useClientes'
 import ModalCliente from '../clientes/ModalCliente'
 import { getSenaDisponibleCliente } from '../../services/pagosService'
-import { createCliente } from '../../services/clientesService'
+import { createCliente, updateCliente } from '../../services/clientesService'
+
+// Provincias de Argentina para el selector
+const PROVINCIAS_ARGENTINA = [
+  { value: '', label: 'Seleccionar...' },
+  { value: 'Buenos Aires', label: 'Buenos Aires' },
+  { value: 'CABA', label: 'Ciudad Autónoma de Buenos Aires' },
+  { value: 'Catamarca', label: 'Catamarca' },
+  { value: 'Chaco', label: 'Chaco' },
+  { value: 'Chubut', label: 'Chubut' },
+  { value: 'Córdoba', label: 'Córdoba' },
+  { value: 'Corrientes', label: 'Corrientes' },
+  { value: 'Entre Ríos', label: 'Entre Ríos' },
+  { value: 'Formosa', label: 'Formosa' },
+  { value: 'Jujuy', label: 'Jujuy' },
+  { value: 'La Pampa', label: 'La Pampa' },
+  { value: 'La Rioja', label: 'La Rioja' },
+  { value: 'Mendoza', label: 'Mendoza' },
+  { value: 'Misiones', label: 'Misiones' },
+  { value: 'Neuquén', label: 'Neuquén' },
+  { value: 'Río Negro', label: 'Río Negro' },
+  { value: 'Salta', label: 'Salta' },
+  { value: 'San Juan', label: 'San Juan' },
+  { value: 'San Luis', label: 'San Luis' },
+  { value: 'Santa Cruz', label: 'Santa Cruz' },
+  { value: 'Santa Fe', label: 'Santa Fe' },
+  { value: 'Santiago del Estero', label: 'Santiago del Estero' },
+  { value: 'Tierra del Fuego', label: 'Tierra del Fuego' },
+  { value: 'Tucumán', label: 'Tucumán' }
+]
 
 // Métodos de pago para seña (simplificado, no usa caja_metodos_pago)
 const METODOS_PAGO_SENA = [
@@ -35,7 +64,8 @@ export default function ModalTurno({
   servicios: serviciosProp = null,
   clientes: clientesProp = null,
   onNuevoCliente = null,
-  turnosExistentes = [] // Turnos del día para verificar superposiciones
+  turnosExistentes = [], // Turnos del día para verificar superposiciones
+  onIrAServicios = null // Callback para ir a la pestaña de servicios
 }) {
   // Usar props si están disponibles, sino cargar internamente
   const { servicios: serviciosInterno, loading: loadingServiciosInterno } = useServicios()
@@ -52,6 +82,19 @@ export default function ModalTurno({
   const [clientesBuscados, setClientesBuscados] = useState([])
   const [buscandoClientes, setBuscandoClientes] = useState(false)
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false)
+  const [mostrarMapaCliente, setMostrarMapaCliente] = useState(false)
+  const [direccionExpanded, setDireccionExpanded] = useState(false)
+  const [alertaFaltaDireccion, setAlertaFaltaDireccion] = useState({ mostrar: false, datosParaGuardar: null })
+
+  // Dirección temporal (cuando el cliente no tiene y se ingresa manualmente)
+  const [direccionTemporal, setDireccionTemporal] = useState({
+    direccion: '',
+    piso: '',
+    departamento: '',
+    localidad: '',
+    provincia: '',
+    indicaciones_ubicacion: ''
+  })
 
   const [form, setForm] = useState({
     fecha: getFechaHoyArgentina(),
@@ -137,6 +180,17 @@ export default function ModalTurno({
       setError(null)
       setBusquedaCliente('')
       setClientesBuscados([])
+      setDireccionExpanded(false)
+      setMostrarMapaCliente(false)
+      setDireccionTemporal({
+        direccion: '',
+        piso: '',
+        departamento: '',
+        localidad: '',
+        provincia: '',
+        indicaciones_ubicacion: ''
+      })
+      setAlertaFaltaDireccion({ mostrar: false, datosParaGuardar: null })
     }
   }, [isOpen, turno, fechaInicial, horaInicial, modalidadDefault])
 
@@ -169,6 +223,50 @@ export default function ModalTurno({
     const timeout = setTimeout(buscar, 300)
     return () => clearTimeout(timeout)
   }, [busquedaCliente, clientesProp])
+
+  // Helper: obtener precio del servicio según modalidad
+  const getPrecioServicio = useCallback((servicio, modalidad) => {
+    if (!servicio) return 0
+    if (!modalidad) return servicio.precio || 0
+    const keyPrecio = `precio_${modalidad}`
+    return servicio[keyPrecio] ?? servicio.precio ?? 0
+  }, [])
+
+  // Helper: verificar si servicio está disponible para la modalidad
+  const servicioDisponibleParaModalidad = useCallback((servicio, modalidad) => {
+    if (!servicio || !modalidad) return true
+    const keyDisponible = `disponible_${modalidad}`
+    return servicio[keyDisponible] !== false
+  }, [])
+
+  // Filtrar servicios según modalidad seleccionada
+  const serviciosFiltrados = useMemo(() => {
+    if (!servicios || servicios.length === 0) return []
+    return servicios.filter(s => servicioDisponibleParaModalidad(s, form.modalidad))
+  }, [servicios, form.modalidad, servicioDisponibleParaModalidad])
+
+  // Efecto: cuando cambia la modalidad, actualizar precios y quitar servicios no disponibles
+  useEffect(() => {
+    if (!form.modalidad || form.servicios_seleccionados.length === 0) return
+
+    setForm(f => {
+      // Filtrar servicios que ya no están disponibles para la nueva modalidad
+      const serviciosActualizados = f.servicios_seleccionados
+        .filter(s => servicioDisponibleParaModalidad(s.servicio, f.modalidad))
+        .map(s => ({
+          ...s,
+          // Actualizar el precio según la nueva modalidad
+          precio: getPrecioServicio(s.servicio, f.modalidad)
+        }))
+
+      // Solo actualizar si hay cambios
+      if (serviciosActualizados.length !== f.servicios_seleccionados.length ||
+          serviciosActualizados.some((s, i) => s.precio !== f.servicios_seleccionados[i]?.precio)) {
+        return { ...f, servicios_seleccionados: serviciosActualizados }
+      }
+      return f
+    })
+  }, [form.modalidad, getPrecioServicio, servicioDisponibleParaModalidad])
 
   // Calcular totales
   const duracionTotal = form.servicios_seleccionados.reduce((sum, s) => sum + (s.duracion || 0), 0)
@@ -227,12 +325,14 @@ export default function ModalTurno({
           servicios_seleccionados: f.servicios_seleccionados.filter(s => s.servicio_id !== servicio.id)
         }
       } else {
+        // Usar el precio según la modalidad seleccionada
+        const precioModalidad = getPrecioServicio(servicio, f.modalidad)
         return {
           ...f,
           servicios_seleccionados: [...f.servicios_seleccionados, {
             servicio_id: servicio.id,
             servicio,
-            precio: servicio.precio,
+            precio: precioModalidad,
             duracion: servicio.duracion_minutos
           }]
         }
@@ -422,6 +522,26 @@ export default function ModalTurno({
       }
     }
 
+    // Verificar si falta dirección para domicilio
+    const clienteTieneDireccion = form.cliente?.direccion && form.cliente?.localidad && form.cliente?.provincia
+    const direccionTemporalCompleta = direccionTemporal.direccion && direccionTemporal.localidad && direccionTemporal.provincia
+    const faltaDireccionDomicilio = form.modalidad === 'domicilio' && !clienteTieneDireccion && !direccionTemporalCompleta
+
+    // Preparar notas con dirección temporal si se ingresó
+    let notasConDireccion = form.notas || ''
+    if (form.modalidad === 'domicilio' && !clienteTieneDireccion && (direccionTemporal.direccion || direccionTemporal.localidad)) {
+      const partesDireccion = []
+      if (direccionTemporal.direccion) partesDireccion.push(direccionTemporal.direccion)
+      if (direccionTemporal.piso) partesDireccion.push(`Piso ${direccionTemporal.piso}`)
+      if (direccionTemporal.departamento) partesDireccion.push(direccionTemporal.departamento)
+      if (direccionTemporal.localidad) partesDireccion.push(direccionTemporal.localidad)
+      if (direccionTemporal.provincia) partesDireccion.push(direccionTemporal.provincia)
+      if (direccionTemporal.indicaciones_ubicacion) partesDireccion.push(`(${direccionTemporal.indicaciones_ubicacion})`)
+
+      const direccionTexto = `DIRECCIÓN: ${partesDireccion.join(', ')}`
+      notasConDireccion = notasConDireccion ? `${direccionTexto}\n\n${notasConDireccion}` : direccionTexto
+    }
+
     // Preparar datos del turno
     const turnoData = {
       fecha: form.fecha,
@@ -433,7 +553,7 @@ export default function ModalTurno({
         precio: s.precio,
         duracion: s.duracion
       })),
-      notas: form.notas || null,
+      notas: notasConDireccion || null,
       estado: form.estado,
       precio_total: precioTotal,
       // Modalidad de atención
@@ -479,18 +599,51 @@ export default function ModalTurno({
       return
     }
 
-    // Si no hay superposición, guardar directamente
+    // Verificar si falta dirección y mostrar alerta
+    if (faltaDireccionDomicilio) {
+      setAlertaFaltaDireccion({
+        mostrar: true,
+        datosParaGuardar: turnoData
+      })
+      return
+    }
+
+    // Si no hay superposición ni falta dirección, guardar directamente
     await guardarTurno(turnoData)
   }
 
-  // Función para guardar el turno (llamada después de verificar superposición)
+  // Función para guardar el turno (llamada después de verificar superposición o falta de dirección)
   const guardarTurno = async (turnoData) => {
     setLoading(true)
     setError(null)
 
     try {
+      // Si se ingresó dirección temporal y el cliente no tenía, actualizar la ficha del cliente
+      const clienteNecesitaActualizarDireccion = form.modalidad === 'domicilio' &&
+        form.cliente_id &&
+        !form.cliente?.direccion &&
+        direccionTemporal.direccion
+
+      if (clienteNecesitaActualizarDireccion) {
+        const datosActualizacion = {
+          direccion: direccionTemporal.direccion,
+          piso: direccionTemporal.piso || null,
+          departamento: direccionTemporal.departamento || null,
+          localidad: direccionTemporal.localidad || null,
+          provincia: direccionTemporal.provincia || null,
+          indicaciones_ubicacion: direccionTemporal.indicaciones_ubicacion || null
+        }
+
+        const { error: errorCliente } = await updateCliente(form.cliente_id, datosActualizacion)
+        if (errorCliente) {
+          console.error('Error actualizando dirección del cliente:', errorCliente)
+          // No interrumpimos el flujo, solo logueamos el error
+        }
+      }
+
       await onGuardar(turnoData)
       setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null })
+      setAlertaFaltaDireccion({ mostrar: false, datosParaGuardar: null })
       onClose()
     } catch (err) {
       setError(err.message || 'Error al guardar turno')
@@ -517,6 +670,19 @@ export default function ModalTurno({
   // Cancelar y cerrar alerta de superposición
   const handleCancelarSuperposicion = () => {
     setAlertaSuperposicion({ mostrar: false, turnosSuperpuestos: [], datosParaGuardar: null, horariosDisponibles: [] })
+  }
+
+  // Confirmar guardar a pesar de falta de dirección
+  const handleConfirmarSinDireccion = () => {
+    if (alertaFaltaDireccion.datosParaGuardar) {
+      guardarTurno(alertaFaltaDireccion.datosParaGuardar)
+    }
+  }
+
+  // Cancelar y cerrar alerta de falta de dirección (para completar datos)
+  const handleCancelarFaltaDireccion = () => {
+    setAlertaFaltaDireccion({ mostrar: false, datosParaGuardar: null })
+    setDireccionExpanded(true) // Expandir la sección de dirección para que complete los datos
   }
 
   // Cancelar el turno (cambiar estado a cancelado)
@@ -767,13 +933,13 @@ export default function ModalTurno({
                 )}
               </div>
 
-              {/* Modalidad de atención (solo si hay múltiples modalidades) */}
-              {requiereSeleccionModalidad && (
+              {/* Modalidad de atención (solo si hay múltiples modalidades configuradas) */}
+              {requiereSeleccionModalidad && modalidades && modalidades.length > 1 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Modalidad de atención
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className={`grid gap-2 ${modalidades.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                     {modalidades.includes('local') && (
                       <button
                         type="button"
@@ -800,7 +966,7 @@ export default function ModalTurno({
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <Home className={`w-5 h-5 ${form.modalidad === 'domicilio' ? 'text-orange-600' : 'text-gray-500'}`} />
+                        <Car className={`w-5 h-5 ${form.modalidad === 'domicilio' ? 'text-orange-600' : 'text-gray-500'}`} />
                         <span className={`text-xs font-medium ${form.modalidad === 'domicilio' ? 'text-orange-700' : 'text-gray-600'}`}>
                           A domicilio
                         </span>
@@ -828,47 +994,186 @@ export default function ModalTurno({
 
               {/* Dirección del cliente (solo si es domicilio y hay cliente seleccionado) */}
               {form.modalidad === 'domicilio' && form.cliente && (
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="w-5 h-5 text-orange-600" />
+                <div className="bg-orange-50 border border-orange-200 rounded-xl overflow-hidden">
+                  {/* Header clickeable para expandir/colapsar */}
+                  <button
+                    type="button"
+                    onClick={() => setDireccionExpanded(!direccionExpanded)}
+                    className="w-full px-3 py-3 flex items-center justify-between hover:bg-orange-100/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <MapPin className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium text-orange-800 text-sm">Dirección</p>
+                        {form.cliente.direccion || direccionTemporal.direccion ? (
+                          <p className="text-xs text-orange-600 truncate max-w-[200px]">
+                            {form.cliente.direccion || direccionTemporal.direccion}
+                            {(form.cliente.localidad || direccionTemporal.localidad) &&
+                              `, ${form.cliente.localidad || direccionTemporal.localidad}`
+                            }
+                          </p>
+                        ) : (
+                          <p className="text-xs text-orange-500">Sin dirección cargada</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-orange-800 text-sm">Dirección del cliente</p>
+                    {direccionExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-orange-500" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-orange-500" />
+                    )}
+                  </button>
+
+                  {/* Contenido expandible */}
+                  {direccionExpanded && (
+                    <div className="px-3 pb-3 border-t border-orange-200">
                       {form.cliente.direccion ? (
-                        <>
-                          <p className="text-sm text-orange-700 mt-1">
+                        /* Cliente tiene dirección guardada */
+                        <div className="pt-3">
+                          <p className="text-sm text-orange-700">
                             {form.cliente.direccion}
                             {form.cliente.piso && `, Piso ${form.cliente.piso}`}
                             {form.cliente.departamento && ` ${form.cliente.departamento}`}
                           </p>
                           {form.cliente.localidad && (
-                            <p className="text-xs text-orange-600">{form.cliente.localidad}</p>
+                            <p className="text-xs text-orange-600 mt-0.5">
+                              {form.cliente.localidad}
+                              {form.cliente.provincia && `, ${form.cliente.provincia}`}
+                            </p>
                           )}
                           {form.cliente.indicaciones_ubicacion && (
                             <p className="text-xs text-orange-600 mt-1 italic">
                               "{form.cliente.indicaciones_ubicacion}"
                             </p>
                           )}
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                              `${form.cliente.direccion}${form.cliente.localidad ? ', ' + form.cliente.localidad : ''}`
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-orange-700 hover:text-orange-800 mt-2 underline"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Ver en Google Maps
-                          </a>
-                        </>
+
+                          {/* Botón Ver en mapa */}
+                          {form.cliente.localidad && form.cliente.provincia && (
+                            <div className="mt-3 space-y-2">
+                              <button
+                                type="button"
+                                onClick={() => setMostrarMapaCliente(!mostrarMapaCliente)}
+                                className="inline-flex items-center gap-1 text-xs text-orange-700 hover:text-orange-800 font-medium"
+                              >
+                                <MapPin className="w-3 h-3" />
+                                {mostrarMapaCliente ? 'Ocultar mapa' : 'Ver en mapa'}
+                              </button>
+
+                              {mostrarMapaCliente && (
+                                <div className="rounded-lg overflow-hidden border border-orange-300">
+                                  <iframe
+                                    title="Mapa de ubicación del cliente"
+                                    width="100%"
+                                    height="150"
+                                    style={{ border: 0 }}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                      `${form.cliente.direccion}, ${form.cliente.localidad}, ${form.cliente.provincia}, Argentina`
+                                    )}&output=embed`}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        <p className="text-xs text-orange-600 mt-1">
-                          Este cliente no tiene dirección cargada. Podés editarlo para agregarla.
-                        </p>
+                        /* Cliente NO tiene dirección - formulario para ingresar */
+                        <div className="pt-3 space-y-3">
+                          <p className="text-xs text-orange-600 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            Este cliente no tiene dirección. Podés ingresarla para este turno:
+                          </p>
+
+                          <div>
+                            <input
+                              type="text"
+                              value={direccionTemporal.direccion}
+                              onChange={(e) => setDireccionTemporal(d => ({ ...d, direccion: e.target.value }))}
+                              placeholder="Calle y número *"
+                              className="w-full px-3 py-2 text-sm border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={direccionTemporal.piso}
+                              onChange={(e) => setDireccionTemporal(d => ({ ...d, piso: e.target.value }))}
+                              placeholder="Piso"
+                              className="px-3 py-2 text-sm border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                            <input
+                              type="text"
+                              value={direccionTemporal.departamento}
+                              onChange={(e) => setDireccionTemporal(d => ({ ...d, departamento: e.target.value }))}
+                              placeholder="Depto"
+                              className="px-3 py-2 text-sm border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={direccionTemporal.localidad}
+                              onChange={(e) => setDireccionTemporal(d => ({ ...d, localidad: e.target.value }))}
+                              placeholder="Localidad *"
+                              className="px-3 py-2 text-sm border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            />
+                            <select
+                              value={direccionTemporal.provincia}
+                              onChange={(e) => setDireccionTemporal(d => ({ ...d, provincia: e.target.value }))}
+                              className="px-3 py-2 text-sm border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            >
+                              {PROVINCIAS_ARGENTINA.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={direccionTemporal.indicaciones_ubicacion}
+                            onChange={(e) => setDireccionTemporal(d => ({ ...d, indicaciones_ubicacion: e.target.value }))}
+                            placeholder="Indicaciones (ej: timbre no funciona, casa verde)"
+                            className="w-full px-3 py-2 text-sm border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+
+                          {/* Botón Ver en mapa (si hay datos suficientes) */}
+                          {direccionTemporal.direccion && direccionTemporal.localidad && direccionTemporal.provincia && (
+                            <div className="space-y-2">
+                              <button
+                                type="button"
+                                onClick={() => setMostrarMapaCliente(!mostrarMapaCliente)}
+                                className="inline-flex items-center gap-1 text-xs text-orange-700 hover:text-orange-800 font-medium"
+                              >
+                                <MapPin className="w-3 h-3" />
+                                {mostrarMapaCliente ? 'Ocultar mapa' : 'Validar en mapa'}
+                              </button>
+
+                              {mostrarMapaCliente && (
+                                <div className="rounded-lg overflow-hidden border border-orange-300">
+                                  <iframe
+                                    title="Mapa de ubicación"
+                                    width="100%"
+                                    height="150"
+                                    style={{ border: 0 }}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                      `${direccionTemporal.direccion}, ${direccionTemporal.localidad}, ${direccionTemporal.provincia}, Argentina`
+                                    )}&output=embed`}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -904,13 +1209,46 @@ export default function ModalTurno({
                     <Loader2 className="w-5 h-5 animate-spin inline text-gray-400" />
                   </div>
                 ) : servicios.length === 0 ? (
+                  /* No hay ningún servicio dado de alta */
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="flex flex-col items-center text-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                        <Scissors className="w-6 h-6 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-amber-800">
+                          No tenés servicios creados
+                        </p>
+                        <p className="text-sm text-amber-600 mt-1">
+                          Para comenzar a programar turnos, primero debés dar de alta al menos un servicio.
+                        </p>
+                      </div>
+                      {onIrAServicios && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose()
+                            onIrAServicios()
+                          }}
+                          className="mt-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Ir a crear servicios
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : serviciosFiltrados.length === 0 ? (
+                  /* Hay servicios pero no disponibles para la modalidad seleccionada */
                   <div className="text-center py-4 text-gray-500 text-sm">
-                    No hay servicios creados
+                    No hay servicios disponibles para {form.modalidad === 'local' ? 'atención en local' : form.modalidad === 'domicilio' ? 'atención a domicilio' : 'videollamada'}
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {servicios.map(servicio => {
+                    {serviciosFiltrados.map(servicio => {
                       const seleccionado = form.servicios_seleccionados.find(s => s.servicio_id === servicio.id)
+                      // Precio según la modalidad actual
+                      const precioModalidad = getPrecioServicio(servicio, form.modalidad)
                       return (
                         <div
                           key={servicio.id}
@@ -974,7 +1312,7 @@ export default function ModalTurno({
                               </div>
                             ) : (
                               <span className="text-sm font-medium text-gray-600">
-                                {servicio.precio_variable ? 'desde ' : ''}{formatearMonto(servicio.precio)}
+                                {servicio.precio_variable ? 'desde ' : ''}{formatearMonto(precioModalidad)}
                               </span>
                             )}
                           </div>
@@ -1448,6 +1786,79 @@ export default function ModalTurno({
                     </>
                   ) : (
                     'Agendar igual'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal alerta de falta de dirección */}
+      {alertaFaltaDireccion.mostrar && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCancelarFaltaDireccion} />
+
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+              {/* Header con icono de alerta */}
+              <div className="bg-orange-50 px-5 py-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-semibold text-lg text-gray-900">
+                    Falta la dirección
+                  </h3>
+                  <p className="text-sm text-orange-700">
+                    Este turno es a domicilio pero no tiene dirección
+                  </p>
+                </div>
+              </div>
+
+              {/* Contenido */}
+              <div className="p-5">
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-orange-800 font-medium">
+                        El cliente no tiene dirección cargada
+                      </p>
+                      <p className="text-xs text-orange-600 mt-1">
+                        Al ser un turno a domicilio, es importante tener la dirección para poder llegar al lugar.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-sm text-gray-600">
+                  ¿Querés crear el turno de todas formas? Vas a poder agregar la dirección después desde la ficha del cliente.
+                </p>
+              </div>
+
+              {/* Footer con botones */}
+              <div className="border-t border-gray-200 px-5 py-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelarFaltaDireccion}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                >
+                  Completar datos
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarSinDireccion}
+                  disabled={loading}
+                  className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Crear sin dirección'
                   )}
                 </button>
               </div>

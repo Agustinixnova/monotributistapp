@@ -37,6 +37,7 @@ export async function crearLink(datos) {
         fecha_hasta: datos.fecha_hasta,
         slots_disponibles: datos.slots_disponibles || {},
         mensaje_personalizado: datos.mensaje_personalizado || null,
+        modalidad: datos.modalidad || 'local',
         expires_at: expiresAt
       })
       .select()
@@ -151,7 +152,11 @@ export async function getServiciosByIds(serviciosIds) {
 
     const { data, error } = await supabase
       .from('agenda_servicios')
-      .select('id, nombre, duracion_minutos, precio, precio_variable')
+      .select(`
+        id, nombre, duracion_minutos, precio, precio_variable, color,
+        disponible_local, disponible_domicilio, disponible_videollamada,
+        precio_local, precio_domicilio, precio_videollamada
+      `)
       .in('id', serviciosIds)
       .eq('activo', true)
 
@@ -184,7 +189,14 @@ export async function usarLink(linkId, reserva) {
       p_cliente_nombre: reserva.cliente_datos?.nombre || null,
       p_cliente_apellido: reserva.cliente_datos?.apellido || null,
       p_cliente_telefono: reserva.cliente_datos?.telefono || null,
-      p_cliente_email: reserva.cliente_datos?.email || null
+      p_cliente_email: reserva.cliente_datos?.email || null,
+      // Campos de dirección para turnos a domicilio
+      p_direccion: reserva.cliente_datos?.direccion || null,
+      p_localidad: reserva.cliente_datos?.localidad || null,
+      p_provincia: reserva.cliente_datos?.provincia || null,
+      p_piso: reserva.cliente_datos?.piso || null,
+      p_depto: reserva.cliente_datos?.departamento || null,
+      p_indicaciones_ubicacion: reserva.cliente_datos?.indicaciones_ubicacion || null
     })
 
     if (error) throw error

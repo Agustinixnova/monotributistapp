@@ -65,9 +65,36 @@ export function useServicios(soloActivos = true) {
     }
   }
 
-  const recargar = () => {
+  const recargar = useCallback(() => {
     fetchServicios()
-  }
+  }, [fetchServicios])
+
+  /**
+   * Filtra servicios por modalidad
+   * @param {string} modalidad - 'local', 'domicilio' o 'videollamada'
+   * @returns {Array} Servicios disponibles para esa modalidad
+   */
+  const getServiciosPorModalidad = useCallback((modalidad) => {
+    if (!modalidad) return servicios
+
+    const keyDisponible = `disponible_${modalidad}`
+    return servicios.filter(s => s[keyDisponible] !== false)
+  }, [servicios])
+
+  /**
+   * Obtiene el precio de un servicio para una modalidad específica
+   * @param {Object} servicio - El servicio
+   * @param {string} modalidad - 'local', 'domicilio' o 'videollamada'
+   * @returns {number} El precio para esa modalidad (o el precio base si no tiene precio específico)
+   */
+  const getPrecioServicio = useCallback((servicio, modalidad) => {
+    if (!servicio) return 0
+    if (!modalidad) return servicio.precio || 0
+
+    const keyPrecio = `precio_${modalidad}`
+    // Si tiene precio específico para la modalidad, usarlo; sino usar precio base
+    return servicio[keyPrecio] ?? servicio.precio ?? 0
+  }, [])
 
   return {
     servicios,
@@ -76,7 +103,9 @@ export function useServicios(soloActivos = true) {
     agregar,
     actualizar,
     eliminar,
-    recargar
+    recargar,
+    getServiciosPorModalidad,
+    getPrecioServicio
   }
 }
 

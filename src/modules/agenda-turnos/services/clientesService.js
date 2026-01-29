@@ -126,6 +126,7 @@ export async function createCliente(clienteData) {
         piso: clienteData.piso || null,
         departamento: clienteData.departamento || null,
         localidad: clienteData.localidad || null,
+        provincia: clienteData.provincia || null,
         indicaciones_ubicacion: clienteData.indicaciones_ubicacion || null,
         activo: true
       })
@@ -160,6 +161,7 @@ export async function updateCliente(id, clienteData) {
     if (clienteData.piso !== undefined) updateData.piso = clienteData.piso
     if (clienteData.departamento !== undefined) updateData.departamento = clienteData.departamento
     if (clienteData.localidad !== undefined) updateData.localidad = clienteData.localidad
+    if (clienteData.provincia !== undefined) updateData.provincia = clienteData.provincia
     if (clienteData.indicaciones_ubicacion !== undefined) updateData.indicaciones_ubicacion = clienteData.indicaciones_ubicacion
 
     const { data, error } = await supabase
