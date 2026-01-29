@@ -37,6 +37,7 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `agenda_reservas_public_access.sql` | - | Permisos y RLS para acceso público sin autenticación |
 | `crear_reserva_publica_function.sql` | Función RPC | Función para crear reservas desde links públicos (soporta múltiples servicios) |
 | `agenda_mensajes_personalizados.sql` | - | Agrega instrucciones_previas a servicios, plantilla_recordatorio a negocio, es_domicilio a turnos |
+| `agenda_modalidades_trabajo.sql` | - | Modalidades de trabajo (local/domicilio/videollamada), datos de cobro (alias, CUIT), dirección mejorada |
 
 ## Diagrama de Relaciones
 
@@ -115,6 +116,7 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+29-01-2026 - Modalidades de trabajo (local/domicilio/videollamada), datos de cobro (alias, CUIT), dirección clientes
 28-01-2026 - Sistema de mensajes personalizados de WhatsApp (plantillas, instrucciones por servicio, domicilio)
 28-01-2026 - Función crear_reserva_publica actualizada para soportar múltiples servicios
 28-01-2026 - Agregada tabla agenda_reserva_links para links de reserva auto-gestionados

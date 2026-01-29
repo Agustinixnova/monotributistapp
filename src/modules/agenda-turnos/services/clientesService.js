@@ -121,6 +121,12 @@ export async function createCliente(clienteData) {
         origen: clienteData.origen || null,
         notas: clienteData.notas || null,
         es_cliente_empleado: !esDuenio && clienteData.esClientePropio, // Solo si es empleado y lo marca como propio
+        // Campos de dirección (para domicilio)
+        direccion: clienteData.direccion || null,
+        piso: clienteData.piso || null,
+        departamento: clienteData.departamento || null,
+        localidad: clienteData.localidad || null,
+        indicaciones_ubicacion: clienteData.indicaciones_ubicacion || null,
         activo: true
       })
       .select()
@@ -149,6 +155,12 @@ export async function updateCliente(id, clienteData) {
     if (clienteData.origen !== undefined) updateData.origen = clienteData.origen
     if (clienteData.notas !== undefined) updateData.notas = clienteData.notas
     if (clienteData.activo !== undefined) updateData.activo = clienteData.activo
+    // Campos de dirección
+    if (clienteData.direccion !== undefined) updateData.direccion = clienteData.direccion
+    if (clienteData.piso !== undefined) updateData.piso = clienteData.piso
+    if (clienteData.departamento !== undefined) updateData.departamento = clienteData.departamento
+    if (clienteData.localidad !== undefined) updateData.localidad = clienteData.localidad
+    if (clienteData.indicaciones_ubicacion !== undefined) updateData.indicaciones_ubicacion = clienteData.indicaciones_ubicacion
 
     const { data, error } = await supabase
       .from('agenda_clientes')

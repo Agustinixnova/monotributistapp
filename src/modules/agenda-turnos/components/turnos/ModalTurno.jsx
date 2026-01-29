@@ -4,8 +4,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle } from 'lucide-react'
+import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle, Home, Store, Video, MapPin, ExternalLink } from 'lucide-react'
 import { formatearMonto, formatearHora, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
+import { useNegocio } from '../../hooks/useNegocio'
 import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, getHoraActualArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
 import { TIPOS_RECURRENCIA, generarFechasRecurrentes } from '../../utils/recurrenciaUtils'
 import useServicios from '../../hooks/useServicios'
@@ -39,6 +40,7 @@ export default function ModalTurno({
   // Usar props si están disponibles, sino cargar internamente
   const { servicios: serviciosInterno, loading: loadingServiciosInterno } = useServicios()
   const { clientes: clientesInterno, buscar: buscarClientes } = useClientes({ autoLoad: false })
+  const { modalidades, requiereSeleccionModalidad, modalidadDefault, tieneDomicilio, tieneVideollamada } = useNegocio()
 
   const servicios = serviciosProp || serviciosInterno
   const loadingServicios = serviciosProp ? false : loadingServiciosInterno
@@ -58,7 +60,9 @@ export default function ModalTurno({
     cliente: null,
     servicios_seleccionados: [],
     notas: '',
-    estado: 'pendiente'
+    estado: 'pendiente',
+    modalidad: 'local',
+    link_videollamada: ''
   })
 
   // Estado de seña
@@ -105,7 +109,9 @@ export default function ModalTurno({
             duracion: s.duracion
           })) || [],
           notas: turno.notas || '',
-          estado: turno.estado || 'pendiente'
+          estado: turno.estado || 'pendiente',
+          modalidad: turno.modalidad || modalidadDefault,
+          link_videollamada: turno.link_videollamada || ''
         })
         // Reset seña al editar
         setSena({ pedir: false, cobrada: false, monto: 0, metodo_pago: null })
@@ -118,7 +124,9 @@ export default function ModalTurno({
           cliente: null,
           servicios_seleccionados: [],
           notas: '',
-          estado: 'pendiente'
+          estado: 'pendiente',
+          modalidad: modalidadDefault,
+          link_videollamada: ''
         })
         setSena({ pedir: false, cobrada: false, monto: 0, metodo_pago: null })
         setEsRecurrente(false)
@@ -130,7 +138,7 @@ export default function ModalTurno({
       setBusquedaCliente('')
       setClientesBuscados([])
     }
-  }, [isOpen, turno, fechaInicial, horaInicial])
+  }, [isOpen, turno, fechaInicial, horaInicial, modalidadDefault])
 
   // Buscar clientes cuando cambia el texto
   useEffect(() => {
@@ -428,6 +436,9 @@ export default function ModalTurno({
       notas: form.notas || null,
       estado: form.estado,
       precio_total: precioTotal,
+      // Modalidad de atención
+      modalidad: form.modalidad,
+      link_videollamada: form.modalidad === 'videollamada' ? form.link_videollamada : null,
       // Si hay seña disponible de turno cancelado y el usuario quiere usarla
       transferirSenaDe: (senaDisponible && usarSenaExistente) ? senaDisponible.turnoId : null
     }
@@ -755,6 +766,131 @@ export default function ModalTurno({
                   </div>
                 )}
               </div>
+
+              {/* Modalidad de atención (solo si hay múltiples modalidades) */}
+              {requiereSeleccionModalidad && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Modalidad de atención
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {modalidades.includes('local') && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, modalidad: 'local' }))}
+                        className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                          form.modalidad === 'local'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Store className={`w-5 h-5 ${form.modalidad === 'local' ? 'text-blue-600' : 'text-gray-500'}`} />
+                        <span className={`text-xs font-medium ${form.modalidad === 'local' ? 'text-blue-700' : 'text-gray-600'}`}>
+                          En local
+                        </span>
+                      </button>
+                    )}
+                    {modalidades.includes('domicilio') && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, modalidad: 'domicilio' }))}
+                        className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                          form.modalidad === 'domicilio'
+                            ? 'border-orange-500 bg-orange-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Home className={`w-5 h-5 ${form.modalidad === 'domicilio' ? 'text-orange-600' : 'text-gray-500'}`} />
+                        <span className={`text-xs font-medium ${form.modalidad === 'domicilio' ? 'text-orange-700' : 'text-gray-600'}`}>
+                          A domicilio
+                        </span>
+                      </button>
+                    )}
+                    {modalidades.includes('videollamada') && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, modalidad: 'videollamada' }))}
+                        className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                          form.modalidad === 'videollamada'
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <Video className={`w-5 h-5 ${form.modalidad === 'videollamada' ? 'text-purple-600' : 'text-gray-500'}`} />
+                        <span className={`text-xs font-medium ${form.modalidad === 'videollamada' ? 'text-purple-700' : 'text-gray-600'}`}>
+                          Videollamada
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Dirección del cliente (solo si es domicilio y hay cliente seleccionado) */}
+              {form.modalidad === 'domicilio' && form.cliente && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-orange-800 text-sm">Dirección del cliente</p>
+                      {form.cliente.direccion ? (
+                        <>
+                          <p className="text-sm text-orange-700 mt-1">
+                            {form.cliente.direccion}
+                            {form.cliente.piso && `, Piso ${form.cliente.piso}`}
+                            {form.cliente.departamento && ` ${form.cliente.departamento}`}
+                          </p>
+                          {form.cliente.localidad && (
+                            <p className="text-xs text-orange-600">{form.cliente.localidad}</p>
+                          )}
+                          {form.cliente.indicaciones_ubicacion && (
+                            <p className="text-xs text-orange-600 mt-1 italic">
+                              "{form.cliente.indicaciones_ubicacion}"
+                            </p>
+                          )}
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              `${form.cliente.direccion}${form.cliente.localidad ? ', ' + form.cliente.localidad : ''}`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-orange-700 hover:text-orange-800 mt-2 underline"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Ver en Google Maps
+                          </a>
+                        </>
+                      ) : (
+                        <p className="text-xs text-orange-600 mt-1">
+                          Este cliente no tiene dirección cargada. Podés editarlo para agregarla.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Link de videollamada (solo si es videollamada) */}
+              {form.modalidad === 'videollamada' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Video className="w-4 h-4 inline mr-1" />
+                    Link de la videollamada (opcional)
+                  </label>
+                  <input
+                    type="url"
+                    value={form.link_videollamada}
+                    onChange={(e) => setForm(f => ({ ...f, link_videollamada: e.target.value }))}
+                    placeholder="https://meet.google.com/xxx o https://zoom.us/j/xxx"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Zoom, Google Meet, u otra plataforma
+                  </p>
+                </div>
+              )}
 
               {/* Servicios con precio editable */}
               <div>

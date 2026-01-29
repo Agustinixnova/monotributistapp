@@ -52,13 +52,37 @@ export function useNegocio() {
     cargar()
   }, [cargar])
 
+  // Helpers para modalidades de trabajo
+  const modalidades = negocio?.modalidades_trabajo || ['local']
+  const tieneModalidad = useCallback((modalidad) => {
+    return modalidades.includes(modalidad)
+  }, [modalidades])
+
+  const tieneLocal = tieneModalidad('local')
+  const tieneDomicilio = tieneModalidad('domicilio')
+  const tieneVideollamada = tieneModalidad('videollamada')
+
+  // Si tiene múltiples modalidades, el turno debe elegir cuál
+  const requiereSeleccionModalidad = modalidades.length > 1
+
+  // Modalidad por defecto (la primera configurada)
+  const modalidadDefault = modalidades[0] || 'local'
+
   return {
     negocio,
     loading,
     saving,
     error,
     guardar,
-    recargar: cargar
+    recargar: cargar,
+    // Helpers de modalidades
+    modalidades,
+    tieneModalidad,
+    tieneLocal,
+    tieneDomicilio,
+    tieneVideollamada,
+    requiereSeleccionModalidad,
+    modalidadDefault
   }
 }
 

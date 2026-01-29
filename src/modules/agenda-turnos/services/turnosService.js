@@ -26,7 +26,7 @@ export async function getTurnos(fechaInicio, fechaFin, options = {}) {
       .from('agenda_turnos')
       .select(`
         *,
-        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp),
+        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, direccion, piso, departamento, localidad, indicaciones_ubicacion),
         servicios:agenda_turno_servicios(
           id,
           precio,
@@ -74,7 +74,7 @@ export async function getTurnoById(id) {
       .from('agenda_turnos')
       .select(`
         *,
-        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, email, notas),
+        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp, email, notas, direccion, piso, departamento, localidad, indicaciones_ubicacion),
         servicios:agenda_turno_servicios(
           id,
           precio,
@@ -122,7 +122,10 @@ export async function createTurno(turnoData) {
         es_recurrente: turnoData.es_recurrente || false,
         recurrencia_tipo: turnoData.recurrencia_tipo || null,
         recurrencia_fin: turnoData.recurrencia_fin || null,
-        turno_padre_id: turnoData.turno_padre_id || null
+        turno_padre_id: turnoData.turno_padre_id || null,
+        // Modalidad de atención
+        modalidad: turnoData.modalidad || 'local',
+        link_videollamada: turnoData.link_videollamada || null
       })
       .select()
       .single()
@@ -305,6 +308,8 @@ export async function updateTurno(id, turnoData) {
     }
     if (turnoData.notas !== undefined) updateData.notas = turnoData.notas
     if (turnoData.notas_internas !== undefined) updateData.notas_internas = turnoData.notas_internas
+    if (turnoData.modalidad !== undefined) updateData.modalidad = turnoData.modalidad
+    if (turnoData.link_videollamada !== undefined) updateData.link_videollamada = turnoData.link_videollamada
     if (turnoData.recordatorio_enviado !== undefined) {
       updateData.recordatorio_enviado = turnoData.recordatorio_enviado
       if (turnoData.recordatorio_enviado) {

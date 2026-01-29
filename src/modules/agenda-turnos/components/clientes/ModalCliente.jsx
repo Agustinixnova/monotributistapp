@@ -1,9 +1,11 @@
 /**
  * Modal para crear/editar clientes de agenda
+ * Incluye campos de dirección cuando hay domicilio habilitado
  */
 
 import { useState, useEffect } from 'react'
-import { X, User, Mail, FileText, Loader2, Briefcase, Home, Instagram, ChevronDown, MapPin } from 'lucide-react'
+import { X, User, Mail, FileText, Loader2, Briefcase, Home, Instagram, ChevronDown, MapPin, Navigation } from 'lucide-react'
+import { useNegocio } from '../../hooks/useNegocio'
 
 const ORIGENES = [
   { value: '', label: 'Seleccionar...' },
@@ -22,6 +24,7 @@ export default function ModalCliente({
   cliente = null, // null = crear nuevo
   esEmpleado = false // Si el usuario actual es empleado
 }) {
+  const { tieneDomicilio } = useNegocio()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -33,7 +36,13 @@ export default function ModalCliente({
     instagram: '',
     origen: '',
     notas: '',
-    esClientePropio: false // Solo para empleados: true = cliente privado
+    esClientePropio: false, // Solo para empleados: true = cliente privado
+    // Campos de dirección (para domicilio)
+    direccion: '',
+    piso: '',
+    departamento: '',
+    localidad: '',
+    indicaciones_ubicacion: ''
   })
 
   // Reset form cuando se abre/cierra o cambia el cliente
@@ -48,7 +57,12 @@ export default function ModalCliente({
           instagram: cliente.instagram || '',
           origen: cliente.origen || '',
           notas: cliente.notas || '',
-          esClientePropio: cliente.es_cliente_empleado || false
+          esClientePropio: cliente.es_cliente_empleado || false,
+          direccion: cliente.direccion || '',
+          piso: cliente.piso || '',
+          departamento: cliente.departamento || '',
+          localidad: cliente.localidad || '',
+          indicaciones_ubicacion: cliente.indicaciones_ubicacion || ''
         })
       } else {
         setForm({
@@ -59,7 +73,12 @@ export default function ModalCliente({
           instagram: '',
           origen: '',
           notas: '',
-          esClientePropio: false
+          esClientePropio: false,
+          direccion: '',
+          piso: '',
+          departamento: '',
+          localidad: '',
+          indicaciones_ubicacion: ''
         })
       }
       setError(null)
@@ -86,7 +105,13 @@ export default function ModalCliente({
         instagram: form.instagram.trim() || null,
         origen: form.origen || null,
         notas: form.notas.trim() || null,
-        esClientePropio: esEmpleado ? form.esClientePropio : false
+        esClientePropio: esEmpleado ? form.esClientePropio : false,
+        // Campos de dirección
+        direccion: form.direccion.trim() || null,
+        piso: form.piso.trim() || null,
+        departamento: form.departamento.trim() || null,
+        localidad: form.localidad.trim() || null,
+        indicaciones_ubicacion: form.indicaciones_ubicacion.trim() || null
       })
       onClose()
     } catch (err) {
@@ -229,6 +254,69 @@ export default function ModalCliente({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
+
+            {/* Dirección (solo si hay domicilio habilitado) */}
+            {tieneDomicilio && (
+              <div className="border-t pt-4 space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  <Navigation className="w-4 h-4 inline mr-1" />
+                  Dirección del cliente
+                </label>
+                <p className="text-xs text-gray-500 -mt-2">
+                  Para servicios a domicilio
+                </p>
+
+                <div>
+                  <input
+                    type="text"
+                    value={form.direccion}
+                    onChange={(e) => setForm(f => ({ ...f, direccion: e.target.value }))}
+                    placeholder="Calle y número"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <input
+                      type="text"
+                      value={form.piso}
+                      onChange={(e) => setForm(f => ({ ...f, piso: e.target.value }))}
+                      placeholder="Piso"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={form.departamento}
+                      onChange={(e) => setForm(f => ({ ...f, departamento: e.target.value }))}
+                      placeholder="Depto"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={form.localidad}
+                      onChange={(e) => setForm(f => ({ ...f, localidad: e.target.value }))}
+                      placeholder="Localidad"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={form.indicaciones_ubicacion}
+                    onChange={(e) => setForm(f => ({ ...f, indicaciones_ubicacion: e.target.value }))}
+                    placeholder="Indicaciones: timbre, portón, referencias..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Notas */}
             <div>
