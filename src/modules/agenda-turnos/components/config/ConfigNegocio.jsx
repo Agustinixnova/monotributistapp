@@ -37,7 +37,6 @@ export default function ConfigNegocio() {
     tiktok: '',
     facebook: '',
     web: '',
-    horario_atencion: '',
     // Nuevos campos
     modalidades_trabajo: ['local'],
     alias_pago: '',
@@ -63,7 +62,6 @@ export default function ConfigNegocio() {
         tiktok: negocio.tiktok || '',
         facebook: negocio.facebook || '',
         web: negocio.web || '',
-        horario_atencion: negocio.horario_atencion || '',
         modalidades_trabajo: negocio.modalidades_trabajo || ['local'],
         alias_pago: negocio.alias_pago || '',
         cuit: negocio.cuit || ''
@@ -462,23 +460,6 @@ export default function ConfigNegocio() {
             </div>
           </div>
         </div>
-
-        {/* Horario de atención - Solo visible si tiene local */}
-        {tieneLocal && (
-          <div className="space-y-4">
-            <h4 className="font-medium text-gray-700">Horario de atención (texto para mostrar)</h4>
-            <textarea
-              value={form.horario_atencion}
-              onChange={(e) => handleChange('horario_atencion', e.target.value)}
-              placeholder="Ej: Lunes a Viernes de 9 a 18hs&#10;Sábados de 9 a 13hs"
-              rows={3}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 resize-none"
-            />
-            <p className="text-xs text-gray-500">
-              Este texto se mostrará a tus clientes en la página de reservas
-            </p>
-          </div>
-        )}
 
       </div>
 
