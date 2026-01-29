@@ -7,13 +7,15 @@ import { useState, useEffect } from 'react'
 import {
   X, User, Mail, Phone, Instagram, MapPin, FileText, Calendar,
   Clock, DollarSign, TrendingUp, Star, CheckCircle, XCircle,
-  Loader2, Save, Edit2, MessageCircle, ChevronDown, AlertCircle
+  Loader2, Save, Edit2, MessageCircle, ChevronDown, AlertCircle,
+  Navigation
 } from 'lucide-react'
 import { supabase } from '../../../../lib/supabase'
 import { getEffectiveUserId } from '../../../caja-diaria/services/empleadosService'
 import { updateCliente } from '../../services/clientesService'
 import { formatFechaCorta, formatFechaLarga } from '../../utils/dateUtils'
 import { formatearMonto } from '../../utils/formatters'
+import { useNegocio } from '../../hooks/useNegocio'
 
 const ORIGENES = [
   { value: '', label: 'Sin especificar' },
@@ -35,6 +37,7 @@ const ORIGENES_MAP = {
 }
 
 export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClienteActualizado }) {
+  const { tieneDomicilio } = useNegocio()
   const [cliente, setCliente] = useState(null)
   const [turnos, setTurnos] = useState([])
   const [estadisticas, setEstadisticas] = useState(null)
@@ -51,7 +54,12 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
     email: '',
     instagram: '',
     origen: '',
-    notas: ''
+    notas: '',
+    direccion: '',
+    piso: '',
+    departamento: '',
+    localidad: '',
+    indicaciones_ubicacion: ''
   })
 
   useEffect(() => {
@@ -82,7 +90,12 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
         email: clienteData.email || '',
         instagram: clienteData.instagram || '',
         origen: clienteData.origen || '',
-        notas: clienteData.notas || ''
+        notas: clienteData.notas || '',
+        direccion: clienteData.direccion || '',
+        piso: clienteData.piso || '',
+        departamento: clienteData.departamento || '',
+        localidad: clienteData.localidad || '',
+        indicaciones_ubicacion: clienteData.indicaciones_ubicacion || ''
       })
 
       // Cargar turnos del cliente
@@ -199,7 +212,12 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
         email: form.email.trim() || null,
         instagram: form.instagram.trim() || null,
         origen: form.origen || null,
-        notas: form.notas.trim() || null
+        notas: form.notas.trim() || null,
+        direccion: form.direccion.trim() || null,
+        piso: form.piso.trim() || null,
+        departamento: form.departamento.trim() || null,
+        localidad: form.localidad.trim() || null,
+        indicaciones_ubicacion: form.indicaciones_ubicacion.trim() || null
       })
 
       if (updateError) throw updateError
@@ -221,7 +239,12 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
       email: cliente?.email || '',
       instagram: cliente?.instagram || '',
       origen: cliente?.origen || '',
-      notas: cliente?.notas || ''
+      notas: cliente?.notas || '',
+      direccion: cliente?.direccion || '',
+      piso: cliente?.piso || '',
+      departamento: cliente?.departamento || '',
+      localidad: cliente?.localidad || '',
+      indicaciones_ubicacion: cliente?.indicaciones_ubicacion || ''
     })
     setEditando(false)
     setError(null)
@@ -426,6 +449,79 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                         />
                       </div>
                     </div>
+
+                    {/* Dirección (solo si trabaja a domicilio) */}
+                    {tieneDomicilio && (
+                      <>
+                        <div className="pt-3 border-t">
+                          <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                            <Navigation className="w-4 h-4" />
+                            Dirección del cliente
+                          </h5>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">
+                              Dirección (opcional)
+                            </label>
+                            <input
+                              type="text"
+                              value={form.direccion}
+                              onChange={(e) => setForm(f => ({ ...f, direccion: e.target.value }))}
+                              placeholder="Calle y número"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Piso</label>
+                              <input
+                                type="text"
+                                value={form.piso}
+                                onChange={(e) => setForm(f => ({ ...f, piso: e.target.value }))}
+                                placeholder="Ej: 2"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Depto</label>
+                              <input
+                                type="text"
+                                value={form.departamento}
+                                onChange={(e) => setForm(f => ({ ...f, departamento: e.target.value }))}
+                                placeholder="Ej: A"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Localidad</label>
+                              <input
+                                type="text"
+                                value={form.localidad}
+                                onChange={(e) => setForm(f => ({ ...f, localidad: e.target.value }))}
+                                placeholder="Ciudad"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">
+                              Indicaciones adicionales
+                            </label>
+                            <textarea
+                              value={form.indicaciones_ubicacion}
+                              onChange={(e) => setForm(f => ({ ...f, indicaciones_ubicacion: e.target.value }))}
+                              placeholder="Timbre, portón, entre calles, referencias..."
+                              rows={2}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : (
                   /* Modo visualización */
@@ -498,6 +594,44 @@ export default function ModalFichaCliente({ clienteId, isOpen, onClose, onClient
                         <div>
                           <p className="text-xs text-gray-500">Notas</p>
                           <p className="text-sm text-gray-700">{cliente.notas}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dirección (solo si trabaja a domicilio y tiene dirección) */}
+                    {tieneDomicilio && cliente?.direccion && (
+                      <div className="col-span-2 md:col-span-4">
+                        <div className="border-t pt-3 mt-1">
+                          <h5 className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                            <Navigation className="w-3.5 h-3.5" />
+                            Dirección del cliente
+                          </h5>
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p className="text-sm font-medium text-gray-900">
+                              {cliente.direccion}
+                              {cliente.piso && `, Piso ${cliente.piso}`}
+                              {cliente.departamento && ` ${cliente.departamento}`}
+                            </p>
+                            {cliente.localidad && (
+                              <p className="text-sm text-gray-600 mt-0.5">{cliente.localidad}</p>
+                            )}
+                            {cliente.indicaciones_ubicacion && (
+                              <p className="text-xs text-gray-500 mt-2 italic">
+                                {cliente.indicaciones_ubicacion}
+                              </p>
+                            )}
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                `${cliente.direccion}${cliente.localidad ? ', ' + cliente.localidad : ''}`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-2 font-medium"
+                            >
+                              <MapPin className="w-3 h-3" />
+                              Ver en Google Maps
+                            </a>
+                          </div>
                         </div>
                       </div>
                     )}
