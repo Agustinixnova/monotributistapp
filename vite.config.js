@@ -76,7 +76,7 @@ export default defineConfig({
 
       workbox: {
         // Aumentar límite para archivos grandes (bundle principal)
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MB
 
         // CRÍTICO: Excluir TODAS las rutas de Supabase del cache
         navigateFallback: '/index.html',
