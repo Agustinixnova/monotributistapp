@@ -16,7 +16,7 @@ export default defineConfig({
         description: 'App de gestión para monotributistas y contadores. Control de facturación, alertas de recategorización y más.',
         start_url: '/',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any', // Permite portrait y landscape (para tablets)
         background_color: '#F9FAFB',
         theme_color: '#7C3AED',
         lang: 'es-AR',
