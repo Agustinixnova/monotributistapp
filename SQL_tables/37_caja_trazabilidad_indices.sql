@@ -43,7 +43,10 @@ COMMENT ON COLUMN public.caja_cierres.user_id IS 'Tenant ID - Dueño del negocio
 COMMENT ON COLUMN public.caja_cierres.created_by_id IS 'Usuario que creó el cierre (puede ser dueño o empleado)';
 COMMENT ON COLUMN public.caja_cierres.updated_by_id IS 'Usuario que modificó el cierre por última vez';
 
--- caja_fiados: agregar updated_by_id
+-- caja_fiados: agregar updated_at y updated_by_id
+ALTER TABLE public.caja_fiados
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 ALTER TABLE public.caja_fiados
 ADD COLUMN IF NOT EXISTS updated_by_id UUID REFERENCES auth.users(id);
 
@@ -51,7 +54,10 @@ COMMENT ON COLUMN public.caja_fiados.user_id IS 'Tenant ID - Dueño del negocio 
 COMMENT ON COLUMN public.caja_fiados.created_by_id IS 'Usuario que registró el fiado (puede ser dueño o empleado)';
 COMMENT ON COLUMN public.caja_fiados.updated_by_id IS 'Usuario que modificó el fiado por última vez';
 
--- caja_pagos_fiado: agregar updated_by_id
+-- caja_pagos_fiado: agregar updated_at y updated_by_id
+ALTER TABLE public.caja_pagos_fiado
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 ALTER TABLE public.caja_pagos_fiado
 ADD COLUMN IF NOT EXISTS updated_by_id UUID REFERENCES auth.users(id);
 
