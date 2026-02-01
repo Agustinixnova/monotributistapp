@@ -5,6 +5,7 @@ import { RenewalBanner } from '../../modules/subscriptions/components/RenewalBan
 import { RenewalModal } from '../../modules/subscriptions/components/RenewalModal'
 import { useRenewalAlert } from '../../modules/subscriptions/hooks/useRenewalAlert'
 import { ImpersonationBanner } from '../common/ImpersonationBanner'
+import FeedbackWidget from '../common/FeedbackWidget'
 
 export function Layout({ children, title = 'Dashboard' }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -49,6 +50,9 @@ export function Layout({ children, title = 'Dashboard' }) {
         isOpen={isRenewalModalOpen}
         onClose={closeRenewalModal}
       />
+
+      {/* Widget de Feedback (flotante solo en desktop) */}
+      <FeedbackWidget />
     </div>
   )
 }

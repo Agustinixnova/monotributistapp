@@ -1,0 +1,65 @@
+-- Debug: ejecutar la función y ver qué devuelve
+
+DO $$
+DECLARE
+    v_user_id UUID;
+    v_fecha DATE := '2026-01-31';
+    rec RECORD;
+BEGIN
+    -- Obtener el primer user_id que tenga movimientos
+    SELECT DISTINCT user_id INTO v_user_id
+    FROM caja_movimientos
+    WHERE fecha = v_fecha
+    LIMIT 1;
+
+    RAISE NOTICE 'Probando con user_id: %', v_user_id;
+    RAISE NOTICE 'Fecha: %', v_fecha;
+    RAISE NOTICE '====================================';
+
+    -- Ejecutar la función v2
+    FOR rec IN
+        SELECT * FROM caja_resumen_dia_v2(v_user_id, v_fecha)
+    LOOP
+        RAISE NOTICE 'RESULTADO caja_resumen_dia_v2:';
+        RAISE NOTICE '  Total Entradas: %', rec.total_entradas;
+        RAISE NOTICE '  Total Salidas: %', rec.total_salidas;
+        RAISE NOTICE '  Saldo: %', rec.saldo;
+        RAISE NOTICE '  Efectivo Entradas: %', rec.efectivo_entradas;
+        RAISE NOTICE '  Efectivo Salidas: %', rec.efectivo_salidas;
+    END LOOP;
+
+    RAISE NOTICE '====================================';
+
+    -- Mostrar movimientos del día
+    RAISE NOTICE 'MOVIMIENTOS DEL DÍA:';
+    FOR rec IN
+        SELECT m.id, m.tipo, m.monto_total, c.nombre as categoria
+        FROM caja_movimientos m
+        LEFT JOIN caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = v_user_id
+        AND m.fecha = v_fecha
+        AND m.anulado = false
+        ORDER BY m.hora
+    LOOP
+        RAISE NOTICE '  % | % | % | Cat: %',
+            rec.id,
+            rec.tipo,
+            rec.monto_total,
+            COALESCE(rec.categoria, 'Sin categoría');
+    END LOOP;
+
+    RAISE NOTICE '====================================';
+
+    -- Mostrar gastos de caja secundaria
+    RAISE NOTICE 'GASTOS CAJA SECUNDARIA:';
+    FOR rec IN
+        SELECT id, tipo, monto, origen
+        FROM caja_secundaria_movimientos
+        WHERE user_id = v_user_id
+        AND fecha = v_fecha
+        AND tipo = 'salida'
+        AND origen = 'gasto'
+    LOOP
+        RAISE NOTICE '  % | Gasto | %', rec.id, rec.monto;
+    END LOOP;
+END $$;

@@ -1,0 +1,37 @@
+-- Verificar que la función esté correctamente actualizada
+-- Esta verificación debe mostrar que efectivo_salidas NO incluye gastos de caja secundaria
+
+DO $$
+DECLARE
+    func_def TEXT;
+BEGIN
+    -- Obtener definición de caja_resumen_dia_v2
+    SELECT pg_get_functiondef(oid) INTO func_def
+    FROM pg_proc
+    WHERE proname = 'caja_resumen_dia_v2'
+    AND pronargs = 2;
+
+    RAISE NOTICE '=== VERIFICACIÓN DE FUNCIÓN ===';
+
+    -- Verificar que NO contenga gastos_secundaria_efe CTE
+    IF func_def NOT LIKE '%gastos_secundaria_efe%' THEN
+        RAISE NOTICE '✓ CORRECTO: La función NO tiene CTE gastos_secundaria_efe';
+    ELSE
+        RAISE WARNING '✗ ERROR: La función todavía contiene gastos_secundaria_efe';
+    END IF;
+
+    -- Verificar que el comentario esté correcto
+    IF func_def LIKE '%NO sumar gastos_efe%' OR
+       EXISTS (
+           SELECT 1 FROM pg_description d
+           JOIN pg_proc p ON p.oid = d.objoid
+           WHERE p.proname = 'caja_resumen_dia_v2'
+           AND d.description LIKE '%efectivo_salidas NO%'
+       ) THEN
+        RAISE NOTICE '✓ CORRECTO: Comentario indica que efectivo_salidas NO incluye gastos secundaria';
+    ELSE
+        RAISE WARNING '✗ Comentario no encontrado o incorrecto';
+    END IF;
+
+    RAISE NOTICE '=== FIN VERIFICACIÓN ===';
+END $$;

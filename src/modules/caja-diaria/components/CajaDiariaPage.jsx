@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock, Users } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock, Users, Archive } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useAuthContext } from '../../../context/AuthContext'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
@@ -35,7 +35,9 @@ import CajaNoDisponible from './CajaNoDisponible'
 import SelectorContextoCaja from './SelectorContextoCaja'
 import { useAliasPago } from '../hooks/useAliasPago'
 import { useClientesConDeuda } from '../hooks/useClientesFiado'
+import { useCajaSecundaria } from '../hooks/useCajaSecundaria'
 import { actualizarComentario } from '../services/movimientosService'
+import ModalCajaSecundaria from './ModalCajaSecundaria'
 
 export default function CajaDiariaPage() {
   // Obtener usuario actual para funcionalidades específicas
@@ -72,6 +74,9 @@ export default function CajaDiariaPage() {
   // Días anteriores sin cerrar
   const { diasSinCerrar, refresh: refreshDiasSinCerrar } = useDiasSinCerrar()
 
+  // Caja Secundaria
+  const cajaSecundaria = useCajaSecundaria()
+
   const [modalMovimiento, setModalMovimiento] = useState({ isOpen: false, tipo: null, montoInicial: 0 })
   const [modalCierre, setModalCierre] = useState(false)
   const [modalArqueo, setModalArqueo] = useState(false)
@@ -84,6 +89,7 @@ export default function CajaDiariaPage() {
   const [modalFiado, setModalFiado] = useState({ isOpen: false, montoInicial: 0 })
   const [modalCobranzas, setModalCobranzas] = useState(false)
   const [modalVentaDividida, setModalVentaDividida] = useState(false)
+  const [modalCajaSecundaria, setModalCajaSecundaria] = useState(false)
 
   // Estados para modales de confirmación
   const [confirmAnular, setConfirmAnular] = useState({ isOpen: false, id: null })
@@ -278,7 +284,8 @@ export default function CajaDiariaPage() {
     return result
   }
 
-  const handleEditarCierre = () => {
+  const handleEditarCierre = async () => {
+    await Promise.all([refreshAll(), cajaSecundaria.recargar()])
     setModalCierre(true)
   }
 
@@ -425,6 +432,20 @@ export default function CajaDiariaPage() {
               {clientesConDeuda.length > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                   {clientesConDeuda.length > 9 ? '9+' : clientesConDeuda.length}
+                </span>
+              )}
+            </button>
+
+            {/* Botón Caja Secundaria */}
+            <button
+              onClick={() => setModalCajaSecundaria(true)}
+              className="p-2 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition-colors relative"
+              title="Caja Secundaria"
+            >
+              <Archive className="w-5 h-5 text-indigo-600" />
+              {cajaSecundaria.saldo > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-indigo-600 text-white text-[10px] rounded-full flex items-center justify-center">
+                  $
                 </span>
               )}
             </button>
@@ -582,7 +603,10 @@ export default function CajaDiariaPage() {
       <div className="mb-6">
         {!estaCerrado && (
           <button
-            onClick={() => setModalCierre(true)}
+            onClick={async () => {
+              await Promise.all([refreshAll(), cajaSecundaria.recargar()])
+              setModalCierre(true)
+            }}
             className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-medium py-3 rounded-lg transition-colors"
           >
             <Lock className="w-5 h-5" />
@@ -652,6 +676,7 @@ export default function CajaDiariaPage() {
         cierreExistente={estaCerrado ? cierre.cierre : null}
         fecha={fecha}
         nombreNegocio={configuracion.nombreNegocio}
+        saldoCajaSecundaria={cajaSecundaria.saldo}
       />
 
       {/* Modal Arqueo */}
@@ -780,6 +805,31 @@ export default function CajaDiariaPage() {
           onGuardar={handleGuardarMovimiento}
         />
       )}
+
+      {/* Modal Caja Secundaria */}
+      <ModalCajaSecundaria
+        isOpen={modalCajaSecundaria}
+        onClose={async () => {
+          setModalCajaSecundaria(false)
+          await refreshAll() // Refrescar caja principal al cerrar
+        }}
+        saldo={cajaSecundaria.saldo}
+        movimientos={cajaSecundaria.movimientos}
+        loading={cajaSecundaria.loading}
+        categorias={categorias.categorias}
+        onTransferir={async (monto, descripcion) => {
+          await cajaSecundaria.transferir(monto, descripcion)
+          await refreshAll() // Actualizar caja principal
+        }}
+        onReintegrar={async (monto, descripcion) => {
+          await cajaSecundaria.reintegrar(monto, descripcion)
+          await refreshAll() // Actualizar caja principal
+        }}
+        onRegistrarGasto={async (monto, categoriaId, descripcion) => {
+          await cajaSecundaria.registrarGasto(monto, categoriaId, descripcion)
+        }}
+        onRecargar={cajaSecundaria.recargar}
+      />
       </div>
     </Layout>
   )

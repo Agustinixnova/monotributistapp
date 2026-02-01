@@ -1,0 +1,30 @@
+-- Verificar que la corrección funciona
+
+DO $$
+DECLARE
+    v_user_id UUID;
+    v_fecha DATE := '2026-01-31';
+    rec RECORD;
+BEGIN
+    SELECT DISTINCT user_id INTO v_user_id
+    FROM caja_movimientos
+    WHERE fecha = v_fecha
+    LIMIT 1;
+
+    RAISE NOTICE 'VERIFICANDO CORRECCIÓN';
+    RAISE NOTICE '=====================';
+
+    FOR rec IN
+        SELECT * FROM caja_resumen_dia_v2(v_user_id, v_fecha)
+    LOOP
+        RAISE NOTICE 'Total Entradas: % (esperado: 26100)', rec.total_entradas;
+        RAISE NOTICE 'Total Salidas: % (esperado: 90000 gastos secundaria)', rec.total_salidas;
+        RAISE NOTICE 'Saldo: %', rec.saldo;
+
+        IF rec.total_salidas = 90000 THEN
+            RAISE NOTICE '✓ CORRECTO - Solo cuenta los gastos de caja secundaria';
+        ELSE
+            RAISE WARNING '✗ INCORRECTO - Debería ser 90000';
+        END IF;
+    END LOOP;
+END $$;

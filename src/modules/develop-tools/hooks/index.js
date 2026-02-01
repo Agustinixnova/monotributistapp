@@ -1,0 +1,1 @@
+export { useSaludSistema } from './useSaludSistema'

@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { useSidebarModules } from '../../modules/users/hooks/useSidebarModules'
 import { useMensajesNoLeidos } from '../../modules/buzon/hooks/useMensajesNoLeidos'
+import { useFeedbackModal } from '../common/FeedbackWidget'
 import {
   LayoutDashboard,
   Users,
@@ -29,7 +30,8 @@ import {
   GraduationCap,
   Wallet,
   Wallet2,
-  TrendingUp
+  TrendingUp,
+  MessageSquarePlus
 } from 'lucide-react'
 
 // Mapeo de nombres de iconos a componentes de Lucide
@@ -75,6 +77,7 @@ export function Sidebar({ isOpen, onClose }) {
   const { user, signOut } = useAuth()
   const { modules, loading: loadingModules } = useSidebarModules()
   const { count: mensajesNoLeidos } = useMensajesNoLeidos()
+  const { openFeedback, FeedbackModal } = useFeedbackModal()
   const navigate = useNavigate()
   const location = useLocation()
   const [expandedMenus, setExpandedMenus] = useState({})
@@ -319,6 +322,17 @@ export function Sidebar({ isOpen, onClose }) {
               </p>
             </div>
           </div>
+          {/* Botón de Feedback (visible en mobile) */}
+          <button
+            onClick={() => {
+              openFeedback()
+              onClose()
+            }}
+            className="mt-2 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors lg:hidden"
+          >
+            <MessageSquarePlus size={20} strokeWidth={1.5} />
+            <span className="font-medium text-sm">Enviar feedback</span>
+          </button>
           <button
             onClick={handleSignOut}
             className="mt-2 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
@@ -328,6 +342,9 @@ export function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
       </aside>
+
+      {/* Modal de Feedback */}
+      <FeedbackModal />
     </>
   )
 }

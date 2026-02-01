@@ -15,6 +15,7 @@ import { formatearMonto, formatearFechaLarga } from './formatters'
  * @param {array} params.totalesPorMetodo - Array con totales por método de pago
  * @param {array} params.movimientos - Array con los movimientos del día
  * @param {string} params.nombreNegocio - Nombre opcional del negocio
+ * @param {number} params.saldoCajaSecundaria - Saldo de la caja secundaria
  */
 export function generarPDFCierreCaja({
   fecha,
@@ -23,7 +24,8 @@ export function generarPDFCierreCaja({
   cierre,
   totalesPorMetodo = [],
   movimientos = [],
-  nombreNegocio = 'Mi Negocio'
+  nombreNegocio = 'Mi Negocio',
+  saldoCajaSecundaria = 0
 }) {
   // Crear documento A4
   const doc = new jsPDF({
@@ -157,6 +159,53 @@ export function generarPDFCierreCaja({
     doc.setFont('helvetica', 'italic')
     doc.text('Motivo: ' + cierre.motivo_diferencia, margin, y)
     y += 10
+  }
+
+  // === SECCIÓN: CAJA SECUNDARIA (si tiene saldo) ===
+  if (saldoCajaSecundaria > 0) {
+    y += 5
+    const indigo = [79, 70, 229] // indigo-600
+    doc.setFillColor(238, 242, 255) // indigo-50
+    doc.roundedRect(margin, y, pageWidth - 2 * margin, 35, 3, 3, 'F')
+
+    y += 8
+    doc.setTextColor(...indigo)
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('CAJA SECUNDARIA', margin + 5, y)
+    y += 8
+
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Saldo disponible:', margin + 5, y)
+    doc.setFont('helvetica', 'bold')
+    doc.text(formatearMonto(saldoCajaSecundaria), pageWidth - margin - 5, y, { align: 'right' })
+    y += 6
+
+    doc.setTextColor(...gris)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Este saldo se mantiene para el día siguiente', margin + 5, y)
+
+    y += 12
+
+    // Total efectivo del negocio
+    const efectivoReal = parseFloat(cierre?.efectivo_real || efectivoEsperado)
+    const totalEfectivoNegocio = efectivoReal + parseFloat(saldoCajaSecundaria)
+
+    doc.setFillColor(236, 253, 245) // emerald-50
+    doc.roundedRect(margin, y, pageWidth - 2 * margin, 20, 3, 3, 'F')
+
+    y += 8
+    doc.setTextColor(...verde)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text('TOTAL EFECTIVO DEL NEGOCIO', margin + 5, y)
+    doc.setFontSize(14)
+    doc.text(formatearMonto(totalEfectivoNegocio), pageWidth - margin - 5, y, { align: 'right' })
+
+    y += 15
   }
 
   // === SECCIÓN: MEDIOS DIGITALES ===

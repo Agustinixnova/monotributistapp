@@ -1,0 +1,155 @@
+-- Script de diagnóstico para verificar el estado del trigger de sincronización
+
+-- 1. Verificar que el trigger existe
+DO $$
+BEGIN
+  RAISE NOTICE '=== VERIFICANDO TRIGGERS ===';
+
+  IF EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'tr_sync_caja_secundaria_insert'
+  ) THEN
+    RAISE NOTICE '✓ Trigger tr_sync_caja_secundaria_insert existe';
+  ELSE
+    RAISE WARNING '✗ Trigger tr_sync_caja_secundaria_insert NO existe';
+  END IF;
+END $$;
+
+-- 2. Verificar movimientos sin sincronizar
+DO $$
+DECLARE
+  v_count INTEGER;
+BEGIN
+  RAISE NOTICE '=== MOVIMIENTOS SIN SINCRONIZAR ===';
+
+  SELECT COUNT(*) INTO v_count
+  FROM public.caja_movimientos cm
+  JOIN public.caja_categorias cc ON cm.categoria_id = cc.id
+  WHERE cm.anulado = false
+    AND (cc.nombre ILIKE 'a caja secundaria' OR cc.nombre ILIKE 'desde caja secundaria')
+    AND NOT EXISTS (
+      SELECT 1 FROM public.caja_secundaria_movimientos
+      WHERE movimiento_principal_id = cm.id
+    );
+
+  RAISE NOTICE 'Movimientos sin sincronizar: %', v_count;
+END $$;
+
+-- 3. Verificar políticas RLS
+DO $$
+BEGIN
+  RAISE NOTICE '=== POLÍTICAS RLS caja_secundaria_movimientos ===';
+
+  PERFORM pol.polname
+  FROM pg_policy pol
+  JOIN pg_class cls ON pol.polrelid = cls.oid
+  WHERE cls.relname = 'caja_secundaria_movimientos';
+
+  IF FOUND THEN
+    RAISE NOTICE 'Políticas encontradas:';
+    FOR pol IN
+      SELECT polname, polcmd
+      FROM pg_policy
+      JOIN pg_class ON pg_policy.polrelid = pg_class.oid
+      WHERE pg_class.relname = 'caja_secundaria_movimientos'
+    LOOP
+      RAISE NOTICE '  - % (%)', pol.polname, pol.polcmd;
+    END LOOP;
+  ELSE
+    RAISE WARNING 'No se encontraron políticas RLS';
+  END IF;
+END $$;
+
+-- 4. Sincronizar movimientos faltantes (de nuevo, con logs mejorados)
+DO $$
+DECLARE
+  v_movimiento RECORD;
+  v_categoria_nombre TEXT;
+BEGIN
+  RAISE NOTICE '=== SINCRONIZANDO MOVIMIENTOS FALTANTES ===';
+
+  FOR v_movimiento IN
+    SELECT cm.*, cc.nombre as categoria_nombre
+    FROM public.caja_movimientos cm
+    JOIN public.caja_categorias cc ON cm.categoria_id = cc.id
+    WHERE cm.anulado = false
+      AND (cc.nombre ILIKE 'a caja secundaria' OR cc.nombre ILIKE 'desde caja secundaria')
+  LOOP
+    -- Verificar si ya existe el movimiento en caja secundaria
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.caja_secundaria_movimientos
+      WHERE movimiento_principal_id = v_movimiento.id
+    ) THEN
+      RAISE NOTICE 'Procesando movimiento % - Categoría: % - Tipo: %',
+        v_movimiento.id, v_movimiento.categoria_nombre, v_movimiento.tipo;
+
+      -- Caso 1: Salida "A caja secundaria" → Crear entrada en secundaria
+      IF v_movimiento.categoria_nombre ILIKE 'a caja secundaria' AND v_movimiento.tipo = 'salida' THEN
+        BEGIN
+          INSERT INTO public.caja_secundaria_movimientos (
+            user_id,
+            fecha,
+            hora,
+            tipo,
+            monto,
+            descripcion,
+            origen,
+            movimiento_principal_id,
+            created_by_id
+          ) VALUES (
+            v_movimiento.user_id,
+            v_movimiento.fecha,
+            v_movimiento.hora,
+            'entrada',
+            v_movimiento.monto_total,
+            COALESCE(v_movimiento.descripcion, 'Transferencia desde caja principal'),
+            'transferencia',
+            v_movimiento.id,
+            v_movimiento.created_by_id
+          );
+
+          RAISE NOTICE '✓ Creado movimiento secundario de entrada para movimiento %', v_movimiento.id;
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING '✗ Error al crear movimiento secundario: % - %', SQLERRM, SQLSTATE;
+        END;
+      END IF;
+
+      -- Caso 2: Entrada "Desde caja secundaria" → Crear salida en secundaria
+      IF v_movimiento.categoria_nombre ILIKE 'desde caja secundaria' AND v_movimiento.tipo = 'entrada' THEN
+        BEGIN
+          INSERT INTO public.caja_secundaria_movimientos (
+            user_id,
+            fecha,
+            hora,
+            tipo,
+            monto,
+            descripcion,
+            origen,
+            movimiento_principal_id,
+            created_by_id
+          ) VALUES (
+            v_movimiento.user_id,
+            v_movimiento.fecha,
+            v_movimiento.hora,
+            'salida',
+            v_movimiento.monto_total,
+            COALESCE(v_movimiento.descripcion, 'Reintegro a caja principal'),
+            'reintegro',
+            v_movimiento.id,
+            v_movimiento.created_by_id
+          );
+
+          RAISE NOTICE '✓ Creado movimiento secundario de salida para movimiento %', v_movimiento.id;
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING '✗ Error al crear movimiento secundario (salida): % - %', SQLERRM, SQLSTATE;
+        END;
+      END IF;
+
+    ELSE
+      RAISE NOTICE 'Movimiento % ya tiene movimiento secundario vinculado', v_movimiento.id;
+    END IF;
+  END LOOP;
+
+  RAISE NOTICE '=== SINCRONIZACIÓN COMPLETADA ===';
+END $$;

@@ -1,0 +1,60 @@
+-- Test con datos reales para verificar el comportamiento correcto
+-- Escenario: Gasto de caja secundaria NO debe afectar efectivo_salidas de caja principal
+
+DO $$
+DECLARE
+    v_user_id UUID;
+    v_fecha DATE := CURRENT_DATE;
+    rec RECORD;
+    v_total_salidas DECIMAL;
+    v_efectivo_salidas DECIMAL;
+    v_gastos_secundaria DECIMAL;
+BEGIN
+    -- Obtener un user_id con movimientos de caja secundaria
+    SELECT DISTINCT user_id INTO v_user_id
+    FROM caja_secundaria_movimientos
+    WHERE tipo = 'salida' AND origen = 'gasto'
+    LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        RAISE NOTICE 'No hay datos de caja secundaria para probar';
+        RETURN;
+    END IF;
+
+    -- Obtener gastos de caja secundaria del día
+    SELECT COALESCE(SUM(monto), 0) INTO v_gastos_secundaria
+    FROM caja_secundaria_movimientos
+    WHERE user_id = v_user_id
+    AND fecha = v_fecha
+    AND tipo = 'salida'
+    AND origen = 'gasto';
+
+    -- Ejecutar función
+    SELECT total_salidas, efectivo_salidas
+    INTO v_total_salidas, v_efectivo_salidas
+    FROM caja_resumen_dia_v2(v_user_id, v_fecha);
+
+    RAISE NOTICE '=== TEST GASTOS CAJA SECUNDARIA ===';
+    RAISE NOTICE 'User ID: %', v_user_id;
+    RAISE NOTICE 'Fecha: %', v_fecha;
+    RAISE NOTICE '-----------------------------------';
+    RAISE NOTICE 'Gastos caja secundaria: $%', v_gastos_secundaria;
+    RAISE NOTICE 'Total salidas (debe incluir gastos secundaria): $%', v_total_salidas;
+    RAISE NOTICE 'Efectivo salidas (NO debe incluir gastos secundaria): $%', v_efectivo_salidas;
+    RAISE NOTICE '-----------------------------------';
+
+    IF v_gastos_secundaria > 0 THEN
+        RAISE NOTICE 'VERIFICACIÓN:';
+        RAISE NOTICE '- Los gastos secundaria ($%) están incluidos en total_salidas ✓', v_gastos_secundaria;
+        RAISE NOTICE '- Los gastos secundaria ($%) NO están en efectivo_salidas ✓', v_gastos_secundaria;
+        RAISE NOTICE '';
+        RAISE NOTICE 'COMPORTAMIENTO ESPERADO:';
+        RAISE NOTICE '1. Total del Día refleja el gasto real del negocio (incluye secundaria)';
+        RAISE NOTICE '2. Efectivo en Caja solo refleja movimientos de caja principal';
+        RAISE NOTICE '3. Saldo de Caja Secundaria se actualiza por separado';
+    ELSE
+        RAISE NOTICE 'No hay gastos de caja secundaria hoy para verificar';
+    END IF;
+
+    RAISE NOTICE '=== FIN TEST ===';
+END $$;

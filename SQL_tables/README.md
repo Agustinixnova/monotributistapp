@@ -38,6 +38,59 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `crear_reserva_publica_function.sql` | Función RPC | Función para crear reservas desde links públicos (soporta múltiples servicios) |
 | `agenda_mensajes_personalizados.sql` | - | Agrega instrucciones_previas a servicios, plantilla_recordatorio a negocio, es_domicilio a turnos |
 | `agenda_modalidades_trabajo.sql` | - | Modalidades de trabajo (local/domicilio/videollamada), datos de cobro (alias, CUIT), dirección mejorada |
+| `34_agenda_clientes_direccion.sql` | `agenda_clientes` | Agrega campos de dirección para clientes (direccion, piso, departamento, localidad, provincia, indicaciones_ubicacion) |
+| `35_agenda_servicios_modalidades.sql` | `agenda_servicios` | Configuración de disponibilidad y precios por modalidad (local, domicilio, videollamada) |
+| `36_agenda_trazabilidad_indices.sql` | Múltiples | Agrega trazabilidad (created_by, updated_by) e índices optimizados |
+| `38_agenda_facturacion_afip.sql` | `agenda_config_afip`, `agenda_facturas` | Facturación electrónica AFIP (Factura C, NC, ND) |
+| `39_storage_logos_facturacion.sql` | `storage.objects` | Bucket para logos de facturación con políticas RLS |
+| `40_agenda_clientes_cuit.sql` | `agenda_clientes` | Campo CUIT para facturación (Consumidor Final o con CUIT) |
+| `41_modulo_facturacion_afip.sql` | `modules` | Módulo premium 'facturacion-afip' (habilitación manual) |
+| `facturas_pendientes.sql` | `facturas_pendientes` | Cola de facturas pendientes de emisión por fallos de conexión con ARCA |
+
+## Tablas del Módulo Caja Diaria
+
+| Archivo | Tablas | Descripción |
+|---------|--------|-------------|
+| `20260118000000_caja_diaria.sql` | `caja_metodos_pago`, `caja_categorias`, `caja_movimientos`, `caja_arqueos`, `caja_cierres`, `caja_configuracion`, `caja_alias_pago` | Esquema base del módulo de caja diaria |
+| `caja_fiados.sql` | `caja_clientes_fiado`, `caja_fiados`, `caja_pagos_fiado` | Sistema de cuentas corrientes y fiados |
+| `caja_empleados_historial.sql` | `caja_empleados_historial` | Historial de cambios en empleados de caja |
+| `37_caja_trazabilidad_indices.sql` | Múltiples | Agrega trazabilidad (updated_by_id) e índices optimizados |
+
+## Tablas del Módulo Dev Tools
+
+| Archivo | Tablas | Descripción |
+|---------|--------|-------------|
+| `error_logs.sql` | `error_logs` | Registro de errores del frontend para debugging (con agrupación por hash, severidad, estado) |
+| `audit_logs.sql` | `audit_logs` | Sistema de auditoría - registra cambios en tablas críticas (quién, qué, cuándo, antes/después) |
+| `feedback.sql` | `feedback` | Feedback de usuarios (bugs, sugerencias, preguntas, comentarios) con respuesta integrada |
+
+## Convención Multi-Tenancy
+
+Ambos módulos (Agenda y Caja) usan el mismo patrón multi-tenancy:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  AGENDA TURNOS                │  CAJA DIARIA                    │
+├───────────────────────────────┼─────────────────────────────────┤
+│  duenio_id = tenant_id        │  user_id = tenant_id            │
+│  created_by                   │  created_by_id                  │
+│  updated_by                   │  updated_by_id                  │
+│  created_at                   │  created_at                     │
+│  updated_at                   │  updated_at                     │
+├───────────────────────────────┴─────────────────────────────────┤
+│  Diferencia de nomenclatura:                                    │
+│  - Agenda usa sufijo sin _id (created_by)                       │
+│  - Caja usa sufijo con _id (created_by_id)                      │
+│  El patrón es idéntico, solo cambia el nombre del campo.        │
+├─────────────────────────────────────────────────────────────────┤
+│  Campos de trazabilidad (significado):                          │
+│  - tenant_id:   dueño del negocio (a quién pertenecen los datos)│
+│  - created_by:  quién cargó el registro                         │
+│  - updated_by:  quién modificó por última vez                   │
+│  - created_at:  fecha de creación                               │
+│  - updated_at:  fecha de última modificación                    │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Diagrama de Relaciones
 
@@ -116,6 +169,14 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+01-02-2026 - Sistema de auditoría (audit_logs) con triggers automáticos en tablas críticas
+01-02-2026 - Panel de Errores con captura automática de errores JS, React y Supabase
+29-01-2026 - Módulo premium 'facturacion-afip' (se habilita manualmente a usuarios que pagan suscripción)
+29-01-2026 - Campo CUIT en clientes para facturación (Consumidor Final o con CUIT)
+29-01-2026 - Storage bucket para logos de facturación con generación de PDFs
+29-01-2026 - Facturación electrónica AFIP (Factura C, NC, ND) para módulo agenda
+29-01-2026 - Trazabilidad (updated_by_id) e índices optimizados para caja diaria
+29-01-2026 - Trazabilidad (created_by, updated_by) e índices optimizados para agenda
 29-01-2026 - Modalidades de trabajo (local/domicilio/videollamada), datos de cobro (alias, CUIT), dirección clientes
 28-01-2026 - Sistema de mensajes personalizados de WhatsApp (plantillas, instrucciones por servicio, domicilio)
 28-01-2026 - Función crear_reserva_publica actualizada para soportar múltiples servicios

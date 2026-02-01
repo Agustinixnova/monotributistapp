@@ -1,0 +1,198 @@
+-- Corregir para que gastos de caja secundaria NO afecten el efectivo de caja principal
+-- Los gastos secundaria SOLO deben afectar total_salidas, NO efectivo_salidas
+
+CREATE OR REPLACE FUNCTION public.caja_resumen_dia_v2(
+    p_user_id UUID,
+    p_fecha DATE DEFAULT CURRENT_DATE
+)
+RETURNS TABLE (
+    total_entradas DECIMAL(12,2),
+    total_salidas DECIMAL(12,2),
+    saldo DECIMAL(12,2),
+    cantidad_movimientos INT,
+    efectivo_entradas DECIMAL(12,2),
+    efectivo_salidas DECIMAL(12,2),
+    efectivo_saldo DECIMAL(12,2),
+    digital_entradas DECIMAL(12,2),
+    digital_salidas DECIMAL(12,2)
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH movimientos_principal AS (
+        -- Solo movimientos de caja principal que NO sean transferencias internas
+        SELECT
+            m.tipo,
+            m.monto_total
+        FROM public.caja_movimientos m
+        LEFT JOIN public.caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = p_user_id
+        AND m.fecha = p_fecha
+        AND m.anulado = false
+        AND NOT (c.nombre ILIKE '%caja secundaria%')
+    ),
+    gastos_secundaria AS (
+        -- Gastos reales desde caja secundaria
+        SELECT
+            'salida'::TEXT as tipo,
+            cs.monto as monto_total
+        FROM public.caja_secundaria_movimientos cs
+        WHERE cs.user_id = p_user_id
+        AND cs.fecha = p_fecha
+        AND cs.tipo = 'salida'
+        AND cs.origen = 'gasto'
+    ),
+    todos_movimientos AS (
+        SELECT * FROM movimientos_principal
+        UNION ALL
+        SELECT * FROM gastos_secundaria
+    ),
+    totales AS (
+        SELECT
+            COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN monto_total ELSE 0 END), 0) as sum_entradas,
+            COALESCE(SUM(CASE WHEN tipo = 'salida' THEN monto_total ELSE 0 END), 0) as sum_salidas,
+            COUNT(*)::INT as cant
+        FROM todos_movimientos
+    ),
+    efectivo_principal AS (
+        -- SOLO efectivo de caja principal (NO incluir gastos secundaria)
+        SELECT
+            COALESCE(SUM(CASE WHEN m.tipo = 'entrada' THEN p.monto ELSE 0 END), 0) as efe_entradas,
+            COALESCE(SUM(CASE WHEN m.tipo = 'salida' THEN p.monto ELSE 0 END), 0) as efe_salidas
+        FROM public.caja_movimientos m
+        INNER JOIN public.caja_movimientos_pagos p ON p.movimiento_id = m.id
+        INNER JOIN public.caja_metodos_pago mp ON mp.id = p.metodo_pago_id
+        LEFT JOIN public.caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = p_user_id
+        AND m.fecha = p_fecha
+        AND m.anulado = false
+        AND mp.es_efectivo = true
+        AND NOT (c.nombre ILIKE '%caja secundaria%')
+    ),
+    digital AS (
+        SELECT
+            COALESCE(SUM(CASE WHEN m.tipo = 'entrada' THEN p.monto ELSE 0 END), 0) as dig_entradas,
+            COALESCE(SUM(CASE WHEN m.tipo = 'salida' THEN p.monto ELSE 0 END), 0) as dig_salidas
+        FROM public.caja_movimientos m
+        INNER JOIN public.caja_movimientos_pagos p ON p.movimiento_id = m.id
+        INNER JOIN public.caja_metodos_pago mp ON mp.id = p.metodo_pago_id
+        LEFT JOIN public.caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = p_user_id
+        AND m.fecha = p_fecha
+        AND m.anulado = false
+        AND mp.es_efectivo = false
+        AND NOT (c.nombre ILIKE '%caja secundaria%')
+    )
+    SELECT
+        t.sum_entradas,
+        t.sum_salidas,
+        t.sum_entradas - t.sum_salidas as saldo,
+        t.cant,
+        e.efe_entradas,
+        e.efe_salidas,  -- NO sumar gastos_efe aquí
+        e.efe_entradas - e.efe_salidas,  -- Saldo de efectivo SOLO de caja principal
+        d.dig_entradas,
+        d.dig_salidas
+    FROM totales t, efectivo_principal e, digital d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION public.caja_resumen_dia_v2 IS
+'Resumen del día: total_salidas incluye gastos secundaria, pero efectivo_salidas NO (solo caja principal)';
+
+-- También actualizar la versión sin _v2
+CREATE OR REPLACE FUNCTION public.caja_resumen_dia(p_fecha DATE DEFAULT CURRENT_DATE)
+RETURNS TABLE (
+    total_entradas DECIMAL(12,2),
+    total_salidas DECIMAL(12,2),
+    saldo DECIMAL(12,2),
+    cantidad_movimientos INT,
+    efectivo_entradas DECIMAL(12,2),
+    efectivo_salidas DECIMAL(12,2),
+    efectivo_saldo DECIMAL(12,2),
+    digital_entradas DECIMAL(12,2),
+    digital_salidas DECIMAL(12,2)
+) AS $$
+DECLARE
+    v_owner_id UUID;
+BEGIN
+    v_owner_id := public.get_caja_owner_id();
+
+    RETURN QUERY
+    WITH movimientos_principal AS (
+        SELECT
+            m.tipo,
+            m.monto_total
+        FROM public.caja_movimientos m
+        LEFT JOIN public.caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = v_owner_id
+        AND m.fecha = p_fecha
+        AND m.anulado = false
+        AND NOT (c.nombre ILIKE '%caja secundaria%')
+    ),
+    gastos_secundaria AS (
+        SELECT
+            'salida'::TEXT as tipo,
+            cs.monto as monto_total
+        FROM public.caja_secundaria_movimientos cs
+        WHERE cs.user_id = v_owner_id
+        AND cs.fecha = p_fecha
+        AND cs.tipo = 'salida'
+        AND cs.origen = 'gasto'
+    ),
+    todos_movimientos AS (
+        SELECT * FROM movimientos_principal
+        UNION ALL
+        SELECT * FROM gastos_secundaria
+    ),
+    totales AS (
+        SELECT
+            COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN monto_total ELSE 0 END), 0) as sum_entradas,
+            COALESCE(SUM(CASE WHEN tipo = 'salida' THEN monto_total ELSE 0 END), 0) as sum_salidas,
+            COUNT(*)::INT as cant
+        FROM todos_movimientos
+    ),
+    efectivo_principal AS (
+        -- SOLO efectivo de caja principal
+        SELECT
+            COALESCE(SUM(CASE WHEN m.tipo = 'entrada' THEN p.monto ELSE 0 END), 0) as efe_entradas,
+            COALESCE(SUM(CASE WHEN m.tipo = 'salida' THEN p.monto ELSE 0 END), 0) as efe_salidas
+        FROM public.caja_movimientos m
+        INNER JOIN public.caja_movimientos_pagos p ON p.movimiento_id = m.id
+        INNER JOIN public.caja_metodos_pago mp ON mp.id = p.metodo_pago_id
+        LEFT JOIN public.caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = v_owner_id
+        AND m.fecha = p_fecha
+        AND m.anulado = false
+        AND mp.es_efectivo = true
+        AND NOT (c.nombre ILIKE '%caja secundaria%')
+    ),
+    digital AS (
+        SELECT
+            COALESCE(SUM(CASE WHEN m.tipo = 'entrada' THEN p.monto ELSE 0 END), 0) as dig_entradas,
+            COALESCE(SUM(CASE WHEN m.tipo = 'salida' THEN p.monto ELSE 0 END), 0) as dig_salidas
+        FROM public.caja_movimientos m
+        INNER JOIN public.caja_movimientos_pagos p ON p.movimiento_id = m.id
+        INNER JOIN public.caja_metodos_pago mp ON mp.id = p.metodo_pago_id
+        LEFT JOIN public.caja_categorias c ON m.categoria_id = c.id
+        WHERE m.user_id = v_owner_id
+        AND m.fecha = p_fecha
+        AND m.anulado = false
+        AND mp.es_efectivo = false
+        AND NOT (c.nombre ILIKE '%caja secundaria%')
+    )
+    SELECT
+        t.sum_entradas::DECIMAL(12,2),
+        t.sum_salidas::DECIMAL(12,2),
+        (t.sum_entradas - t.sum_salidas)::DECIMAL(12,2),
+        t.cant,
+        e.efe_entradas::DECIMAL(12,2),
+        e.efe_salidas::DECIMAL(12,2),  -- NO sumar gastos_efe
+        (e.efe_entradas - e.efe_salidas)::DECIMAL(12,2),
+        d.dig_entradas::DECIMAL(12,2),
+        d.dig_salidas::DECIMAL(12,2)
+    FROM totales t, efectivo_principal e, digital d;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+COMMENT ON FUNCTION public.caja_resumen_dia(DATE) IS
+'Resumen del día: total_salidas incluye gastos secundaria, pero efectivo_salidas NO (solo caja principal)';

@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { X, Lock, CheckCircle, AlertCircle, FileDown, Printer } from 'lucide-react'
+import { X, Lock, CheckCircle, AlertCircle, FileDown, Printer, Archive } from 'lucide-react'
 import InputMonto from './InputMonto'
 import IconoDinamico from './IconoDinamico'
 import { formatearMonto } from '../utils/formatters'
@@ -22,7 +22,8 @@ export default function ModalCierreCaja({
   onGuardar,
   cierreExistente = null, // Para modo edición
   fecha = null, // Fecha del cierre
-  nombreNegocio = 'Mi Negocio' // Nombre del negocio para PDF
+  nombreNegocio = 'Mi Negocio', // Nombre del negocio para PDF
+  saldoCajaSecundaria = 0 // Saldo de la caja secundaria
 }) {
   const [efectivoReal, setEfectivoReal] = useState(0)
   const [motivoDiferencia, setMotivoDiferencia] = useState('')
@@ -107,7 +108,9 @@ export default function ModalCierreCaja({
     },
     totalesPorMetodo,
     movimientos, // Incluir movimientos para la segunda página del PDF
-    nombreNegocio
+    nombreNegocio,
+    saldoCajaSecundaria, // Incluir saldo de caja secundaria
+    totalEfectivoNegocio: efectivoEsperado + saldoCajaSecundaria // Total del negocio
   }
 
   const handleDescargarPDF = () => {
@@ -161,10 +164,10 @@ export default function ModalCierreCaja({
 
           {/* Contenido */}
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {/* Efectivo en caja */}
+            {/* Efectivo en Caja Principal */}
             <div className="bg-violet-50 rounded-lg p-4">
               <h4 className="font-heading font-semibold text-violet-900 mb-3">
-                Efectivo en caja
+                Efectivo en Caja Principal
               </h4>
 
               <div className="space-y-2 text-sm">
@@ -195,6 +198,44 @@ export default function ModalCierreCaja({
                 </div>
               </div>
             </div>
+
+            {/* Caja Secundaria */}
+            {saldoCajaSecundaria > 0 && (
+              <div className="bg-indigo-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Archive className="w-4 h-4 text-indigo-600" />
+                  <h4 className="font-heading font-semibold text-indigo-900">
+                    Caja Secundaria
+                  </h4>
+                </div>
+                <div className="flex justify-between text-base">
+                  <span className="text-indigo-700">Saldo actual:</span>
+                  <span className="font-bold text-indigo-700">
+                    {formatearMonto(saldoCajaSecundaria)}
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-500 mt-2">
+                  Este saldo se mantiene para el día siguiente
+                </p>
+              </div>
+            )}
+
+            {/* Total Efectivo del Negocio */}
+            {saldoCajaSecundaria > 0 && (
+              <div className="bg-gradient-to-r from-violet-100 to-indigo-100 rounded-lg p-4 border border-violet-200">
+                <div className="flex justify-between items-center">
+                  <span className="font-heading font-semibold text-gray-800">
+                    TOTAL EFECTIVO DEL NEGOCIO
+                  </span>
+                  <span className="text-xl font-bold text-violet-700">
+                    {formatearMonto(efectivoEsperado + saldoCajaSecundaria)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Caja Principal ({formatearMonto(efectivoEsperado)}) + Caja Secundaria ({formatearMonto(saldoCajaSecundaria)})
+                </p>
+              </div>
+            )}
 
             {/* Input efectivo real */}
             <div>

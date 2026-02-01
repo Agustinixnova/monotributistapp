@@ -1,0 +1,36 @@
+-- Script de diagnóstico para verificar la función caja_resumen_dia
+
+-- Obtener la definición de la función
+DO $$
+DECLARE
+    func_def TEXT;
+BEGIN
+    SELECT pg_get_functiondef(oid) INTO func_def
+    FROM pg_proc
+    WHERE proname = 'caja_resumen_dia_v2';
+
+    -- Verificar si contiene el filtro de caja secundaria
+    IF func_def LIKE '%caja_secundaria%' THEN
+        RAISE NOTICE '✓ Función caja_resumen_dia_v2 TIENE el filtro de caja secundaria';
+    ELSE
+        RAISE WARNING '✗ Función caja_resumen_dia_v2 NO TIENE el filtro de caja secundaria';
+    END IF;
+END $$;
+
+-- Verificar también la función sin _v2
+DO $$
+DECLARE
+    func_def TEXT;
+BEGIN
+    SELECT pg_get_functiondef(oid) INTO func_def
+    FROM pg_proc
+    WHERE proname = 'caja_resumen_dia'
+    AND pronargs = 1;  -- La que recibe solo fecha
+
+    -- Verificar si contiene el filtro de caja secundaria
+    IF func_def LIKE '%caja_secundaria%' THEN
+        RAISE NOTICE '✓ Función caja_resumen_dia TIENE el filtro de caja secundaria';
+    ELSE
+        RAISE WARNING '✗ Función caja_resumen_dia NO TIENE el filtro de caja secundaria';
+    END IF;
+END $$;

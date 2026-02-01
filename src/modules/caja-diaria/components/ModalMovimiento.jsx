@@ -72,7 +72,7 @@ export default function ModalMovimiento({
   }
 
   // Seleccionar categoría (pasa automáticamente si hay monto)
-  const handleSelectCategoria = (id) => {
+  const handleSelectCategoria = async (id) => {
     const categoriaSeleccionada = categorias.find(c => c.id === id)
 
     // Detectar si es la categoría "Cuenta Corriente" (entrada - venta a crédito)
@@ -88,6 +88,51 @@ export default function ModalMovimiento({
       // Cerrar este modal y notificar al padre para abrir el modal de cobranzas
       onClose()
       onCobroDeuda()
+      return
+    }
+
+    // Detectar si es caja secundaria (A caja secundaria o Desde caja secundaria)
+    const esCajaSecundaria =
+      categoriaSeleccionada?.nombre?.toLowerCase() === 'a caja secundaria' ||
+      categoriaSeleccionada?.nombre?.toLowerCase() === 'desde caja secundaria'
+
+    if (esCajaSecundaria && monto > 0) {
+      // Buscar método de pago "Efectivo"
+      const metodoEfectivo = metodosPago.find(m => m.es_efectivo === true)
+
+      if (!metodoEfectivo) {
+        setError('No se encontró el método de pago Efectivo')
+        return
+      }
+
+      // Determinar descripción por defecto según la categoría
+      let descripcionFinal = descripcion.trim()
+      if (!descripcionFinal) {
+        if (categoriaSeleccionada?.nombre?.toLowerCase() === 'a caja secundaria') {
+          descripcionFinal = 'Ingreso desde caja principal'
+        } else if (categoriaSeleccionada?.nombre?.toLowerCase() === 'desde caja secundaria') {
+          descripcionFinal = 'Egreso a caja principal'
+        }
+      }
+
+      // Guardar directamente con efectivo
+      setGuardando(true)
+      setError('')
+
+      try {
+        await onGuardar({
+          tipo,
+          categoria_id: id,
+          descripcion: descripcionFinal,
+          monto_total: monto,
+          pagos: [{ metodo_pago_id: metodoEfectivo.id, monto }]
+        })
+        onClose()
+      } catch (err) {
+        setError(err.message || 'Error al guardar')
+      } finally {
+        setGuardando(false)
+      }
       return
     }
 
@@ -179,9 +224,16 @@ export default function ModalMovimiento({
 
   // Filtrar categorías según tipo y excluir las de uso interno del sistema (arqueo/cierre)
   const categoriasOcultas = ['Sobrante de caja', 'Faltante de caja', 'Ajuste de caja']
-  const categoriasDisponibles = categorias.filter(
-    cat => (cat.tipo === tipo || cat.tipo === 'ambos') && !categoriasOcultas.includes(cat.nombre)
-  )
+  const categoriasAlFinal = ['Desde caja secundaria', 'A caja secundaria']
+  const categoriasDisponibles = categorias
+    .filter(cat => (cat.tipo === tipo || cat.tipo === 'ambos') && !categoriasOcultas.includes(cat.nombre))
+    .sort((a, b) => {
+      const aAlFinal = categoriasAlFinal.includes(a.nombre)
+      const bAlFinal = categoriasAlFinal.includes(b.nombre)
+      if (aAlFinal && !bAlFinal) return 1
+      if (!aAlFinal && bAlFinal) return -1
+      return 0
+    })
 
   // Total pagado
   const totalPagado = pagos.reduce((sum, p) => sum + parseFloat(p.monto || 0), 0)

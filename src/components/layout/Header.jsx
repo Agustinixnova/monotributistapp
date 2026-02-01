@@ -1,15 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Bell } from 'lucide-react'
+import { Menu, Bell, Wrench } from 'lucide-react'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { RenewalBadgeCompact } from '../../modules/subscriptions/components/RenewalBadge'
 import { NotificacionesDropdown, BadgeNotificaciones } from '../../modules/notificaciones/components'
 import { useNotificacionesCount } from '../../modules/notificaciones/hooks'
+import { DevToolsModal } from '../../modules/develop-tools/components'
+
+const DEV_USER_EMAIL = 'agustin@ixnova.com.ar'
 
 export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
   const { user } = useAuth()
   const [showNotificaciones, setShowNotificaciones] = useState(false)
+  const [showDevTools, setShowDevTools] = useState(false)
   const { count } = useNotificacionesCount()
   const dropdownRef = useRef(null)
+
+  const isDevUser = user?.email === DEV_USER_EMAIL
 
   const getUserInitial = () => {
     if (user?.email) {
@@ -49,6 +55,17 @@ export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
           {/* Badge de renovación */}
           <RenewalBadgeCompact onClick={onRenewalClick} />
 
+          {/* Dev Tools - Solo para agustin@ixnova.com.ar */}
+          {isDevUser && (
+            <button
+              onClick={() => setShowDevTools(true)}
+              className="p-2 hover:bg-orange-100 rounded-lg transition-colors"
+              title="Dev Tools"
+            >
+              <Wrench size={20} className="text-orange-500" />
+            </button>
+          )}
+
           {/* Notificaciones */}
           <div className="relative" ref={dropdownRef}>
             <button
@@ -72,6 +89,14 @@ export function Header({ onMenuClick, title = 'Dashboard', onRenewalClick }) {
           </button>
         </div>
       </div>
+
+      {/* Modal Dev Tools */}
+      {isDevUser && (
+        <DevToolsModal
+          isOpen={showDevTools}
+          onClose={() => setShowDevTools(false)}
+        />
+      )}
     </header>
   )
 }

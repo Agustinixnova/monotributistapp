@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PublicRedirect } from './components/PublicRedirect'
+import ErrorBoundary from './components/common/ErrorBoundary'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Dashboard } from './pages/Dashboard'
@@ -49,13 +50,14 @@ function GlobalComponents() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          {/* PWA Prompts y Cookie Banner - solo en rutas internas */}
-          <GlobalComponents />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
+            {/* PWA Prompts y Cookie Banner - solo en rutas internas */}
+            <GlobalComponents />
 
-          <Routes>
+            <Routes>
           {/* Rutas públicas */}
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Register />} />
@@ -323,10 +325,11 @@ function App() {
               </ProtectedRoute>
             }
           />
-          </Routes>
-        </ToastProvider>
-      </AuthProvider>
-    </BrowserRouter>
+            </Routes>
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

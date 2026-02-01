@@ -60,7 +60,13 @@
       "Bash(del check-category.js)",
       "Bash(git restore:*)",
       "Bash(git checkout:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(npm search:*)",
+      "Bash(openssl genrsa:*)",
+      "Bash(openssl req:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(__NEW_LINE_881ee44936f289c5__ npx supabase db push --linked)"
     ]
   }
 }

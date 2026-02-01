@@ -9,6 +9,29 @@
 
 import Afip from '@afipsdk/afip.js'
 import { supabase } from '../../../lib/supabase'
+import { captureError } from '../../develop-tools/services/errorService'
+import { registrarApiLog } from '../../develop-tools/services/apiLogService'
+
+/**
+ * Captura errores de ARCA/AFIP con contexto completo
+ */
+async function captureAfipError(error, operacion, contexto = {}) {
+  await captureError(error, {
+    tipo: 'network',
+    severidad: 'error',
+    accion: `ARCA/AFIP: ${operacion}`,
+    contexto: {
+      servicio: 'ARCA/AFIP',
+      operacion,
+      // Extraer detalles específicos de errores AFIP
+      afipCode: error?.code,
+      afipMessage: error?.message,
+      afipDetails: error?.details || error?.response || null,
+      // Contexto adicional
+      ...contexto
+    }
+  })
+}
 
 // Tipos de comprobante
 export const TIPOS_COMPROBANTE = {
@@ -128,6 +151,8 @@ function crearInstanciaAfip(config) {
  * Verifica la conexión con AFIP
  */
 export async function verificarConexionAfip(duenioId) {
+  const startTime = Date.now()
+
   try {
     const config = await getConfiguracionAfip(duenioId)
     if (!config) {
@@ -152,6 +177,20 @@ export async function verificarConexionAfip(duenioId) {
       TIPOS_COMPROBANTE.FACTURA_C
     )
 
+    // Registrar API log exitoso
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.getLastVoucher',
+      metodo: 'POST',
+      requestBody: { puntoVenta: config.punto_venta, tipoComprobante: TIPOS_COMPROBANTE.FACTURA_C },
+      responseBody: { ultimoComprobante: ultimoAutorizado },
+      duracionMs: Date.now() - startTime,
+      exitoso: true,
+      modulo: 'agenda-turnos',
+      accion: 'verificar_conexion',
+      contexto: { duenioId, ambiente: config.ambiente }
+    })
+
     // Actualizar estado de verificación
     await supabase
       .from('agenda_config_afip')
@@ -167,6 +206,23 @@ export async function verificarConexionAfip(duenioId) {
       ambiente: config.ambiente
     }
   } catch (error) {
+    // Registrar API log de error
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.getLastVoucher',
+      metodo: 'POST',
+      duracionMs: Date.now() - startTime,
+      exitoso: false,
+      errorMensaje: error.message,
+      errorCodigo: error.code || 'AFIP_ERROR',
+      modulo: 'agenda-turnos',
+      accion: 'verificar_conexion',
+      contexto: { duenioId, errorDetails: error.details || null }
+    })
+
+    // Capturar error para debugging
+    await captureAfipError(error, 'Verificar conexión', { duenioId })
+
     // Guardar el error
     await supabase
       .from('agenda_config_afip')
@@ -184,17 +240,52 @@ export async function verificarConexionAfip(duenioId) {
  * Obtiene el último número de comprobante autorizado en AFIP
  */
 export async function getUltimoComprobante(duenioId, tipoComprobante = TIPOS_COMPROBANTE.FACTURA_C) {
-  const config = await getConfiguracionAfip(duenioId)
-  if (!config) throw new Error('No hay configuración AFIP')
+  const startTime = Date.now()
 
-  const afip = crearInstanciaAfip(config)
+  try {
+    const config = await getConfiguracionAfip(duenioId)
+    if (!config) throw new Error('No hay configuración AFIP')
 
-  const ultimo = await afip.ElectronicBilling.getLastVoucher(
-    config.punto_venta,
-    tipoComprobante
-  )
+    const afip = crearInstanciaAfip(config)
 
-  return ultimo
+    const ultimo = await afip.ElectronicBilling.getLastVoucher(
+      config.punto_venta,
+      tipoComprobante
+    )
+
+    // Registrar API log exitoso
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.getLastVoucher',
+      metodo: 'POST',
+      requestBody: { puntoVenta: config.punto_venta, tipoComprobante },
+      responseBody: { ultimoComprobante: ultimo },
+      duracionMs: Date.now() - startTime,
+      exitoso: true,
+      modulo: 'agenda-turnos',
+      accion: 'obtener_ultimo_comprobante',
+      contexto: { duenioId, ambiente: config.ambiente }
+    })
+
+    return ultimo
+  } catch (error) {
+    // Registrar API log de error
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.getLastVoucher',
+      metodo: 'POST',
+      duracionMs: Date.now() - startTime,
+      exitoso: false,
+      errorMensaje: error.message,
+      errorCodigo: error.code || 'AFIP_ERROR',
+      modulo: 'agenda-turnos',
+      accion: 'obtener_ultimo_comprobante',
+      contexto: { duenioId, tipoComprobante }
+    })
+
+    await captureAfipError(error, 'Obtener último comprobante', { duenioId, tipoComprobante })
+    throw error
+  }
 }
 
 /**
@@ -253,118 +344,176 @@ async function emitirComprobante(duenioId, datos) {
     comprobanteAsociado // Para NC y ND
   } = datos
 
-  // Obtener configuración
-  const config = await getConfiguracionAfip(duenioId)
-  if (!config) throw new Error('No hay configuración AFIP')
-  if (!config.activo) throw new Error('La facturación está desactivada')
+  // Variables para logging en caso de error
+  let datosComprobante = null
+  let config = null
+  const startTime = Date.now()
 
-  const afip = crearInstanciaAfip(config)
+  try {
+    // Obtener configuración
+    config = await getConfiguracionAfip(duenioId)
+    if (!config) throw new Error('No hay configuración AFIP')
+    if (!config.activo) throw new Error('La facturación está desactivada')
 
-  // Obtener último número
-  const ultimoNumero = await afip.ElectronicBilling.getLastVoucher(
-    config.punto_venta,
-    tipoComprobante
-  )
-  const nuevoNumero = ultimoNumero + 1
+    const afip = crearInstanciaAfip(config)
 
-  // Fecha actual en formato AFIP (YYYYMMDD)
-  const hoy = new Date()
-  const fechaHoy = hoy.toISOString().split('T')[0].replace(/-/g, '')
+    // Obtener último número
+    const getLastVoucherStart = Date.now()
+    const ultimoNumero = await afip.ElectronicBilling.getLastVoucher(
+      config.punto_venta,
+      tipoComprobante
+    )
+    const nuevoNumero = ultimoNumero + 1
 
-  // Construir datos del comprobante
-  const datosComprobante = {
-    CantReg: 1,
-    PtoVta: config.punto_venta,
-    CbteTipo: tipoComprobante,
-    Concepto: concepto,
-    DocTipo: receptorTipoDoc,
-    DocNro: receptorNroDoc === '0' ? 0 : parseInt(receptorNroDoc),
-    CbteDesde: nuevoNumero,
-    CbteHasta: nuevoNumero,
-    CbteFch: fechaHoy,
-    ImpTotal: importeTotal,
-    ImpTotConc: 0, // No gravado
-    ImpNeto: importeTotal, // Para Factura C, neto = total
-    ImpOpEx: 0, // Exento
-    ImpIVA: 0, // Monotributista no discrimina IVA
-    ImpTrib: 0, // Tributos
-    MonId: 'PES', // Pesos argentinos
-    MonCotiz: 1
-  }
-
-  // Si es servicios, agregar fechas de servicio
-  if (concepto === CONCEPTOS.SERVICIOS || concepto === CONCEPTOS.PRODUCTOS_Y_SERVICIOS) {
-    const fechaDesde = fechaServicioDesde
-      ? fechaServicioDesde.replace(/-/g, '')
-      : fechaHoy
-    const fechaHasta = fechaServicioHasta
-      ? fechaServicioHasta.replace(/-/g, '')
-      : fechaHoy
-
-    datosComprobante.FchServDesde = fechaDesde
-    datosComprobante.FchServHasta = fechaHasta
-    datosComprobante.FchVtoPago = fechaHoy
-  }
-
-  // Si es NC o ND, agregar comprobante asociado
-  if (comprobanteAsociado && (tipoComprobante === TIPOS_COMPROBANTE.NOTA_CREDITO_C || tipoComprobante === TIPOS_COMPROBANTE.NOTA_DEBITO_C)) {
-    datosComprobante.CbtesAsoc = [{
-      Tipo: comprobanteAsociado.tipo,
-      PtoVta: comprobanteAsociado.puntoVenta,
-      Nro: comprobanteAsociado.numero,
-      Cuit: config.cuit,
-      CbteFch: comprobanteAsociado.fecha?.replace(/-/g, '') || fechaHoy
-    }]
-  }
-
-  // Emitir comprobante
-  const resultado = await afip.ElectronicBilling.createVoucher(datosComprobante)
-
-  // Formatear CAE vencimiento - AFIP devuelve en formato YYYYMMDD
-  let caeVencimientoFormateado = formatearFechaAfip(resultado.CAEFchVto)
-
-  // Fallback: si no viene el vencimiento, usar fecha actual + 10 días (default AFIP)
-  if (!caeVencimientoFormateado) {
-    const fechaVto = new Date()
-    fechaVto.setDate(fechaVto.getDate() + 10)
-    caeVencimientoFormateado = fechaVto.toISOString().split('T')[0]
-    console.warn('CAEFchVto no recibido de AFIP, usando fallback:', caeVencimientoFormateado)
-  }
-
-  // Guardar en base de datos
-  const { data: facturaGuardada, error: errorGuardar } = await supabase
-    .from('agenda_facturas')
-    .insert({
-      duenio_id: duenioId,
-      turno_id: turnoId || null,
-      tipo_comprobante: tipoComprobante,
-      punto_venta: config.punto_venta,
-      numero_comprobante: nuevoNumero,
-      cae: resultado.CAE,
-      cae_vencimiento: caeVencimientoFormateado,
-      receptor_tipo_doc: receptorTipoDoc,
-      receptor_nro_doc: receptorNroDoc,
-      receptor_nombre: receptorNombre,
-      importe_total: importeTotal,
-      importe_neto: importeTotal,
-      concepto: concepto,
-      fecha_comprobante: hoy.toISOString().split('T')[0],
-      fecha_servicio_desde: fechaServicioDesde || hoy.toISOString().split('T')[0],
-      fecha_servicio_hasta: fechaServicioHasta || hoy.toISOString().split('T')[0],
-      comprobante_asociado_tipo: comprobanteAsociado?.tipo,
-      comprobante_asociado_pto_vta: comprobanteAsociado?.puntoVenta,
-      comprobante_asociado_nro: comprobanteAsociado?.numero,
-      descripcion: descripcion,
-      afip_response: resultado,
-      created_by: duenioId
+    // Log de getLastVoucher
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.getLastVoucher',
+      metodo: 'POST',
+      requestBody: { puntoVenta: config.punto_venta, tipoComprobante },
+      responseBody: { ultimoComprobante: ultimoNumero },
+      duracionMs: Date.now() - getLastVoucherStart,
+      exitoso: true,
+      modulo: 'agenda-turnos',
+      accion: 'emitir_comprobante_paso1',
+      contexto: { duenioId, turnoId, ambiente: config.ambiente }
     })
-    .select()
-    .single()
 
-  if (errorGuardar) {
-    console.error('Error guardando factura en DB:', errorGuardar)
-    // La factura ya se emitió en AFIP, no podemos revertir
-    // Devolvemos el resultado pero marcamos el error
+    // Fecha actual en formato AFIP (YYYYMMDD)
+    const hoy = new Date()
+    const fechaHoy = hoy.toISOString().split('T')[0].replace(/-/g, '')
+
+    // Construir datos del comprobante
+    datosComprobante = {
+      CantReg: 1,
+      PtoVta: config.punto_venta,
+      CbteTipo: tipoComprobante,
+      Concepto: concepto,
+      DocTipo: receptorTipoDoc,
+      DocNro: receptorNroDoc === '0' ? 0 : parseInt(receptorNroDoc),
+      CbteDesde: nuevoNumero,
+      CbteHasta: nuevoNumero,
+      CbteFch: fechaHoy,
+      ImpTotal: importeTotal,
+      ImpTotConc: 0,
+      ImpNeto: importeTotal,
+      ImpOpEx: 0,
+      ImpIVA: 0,
+      ImpTrib: 0,
+      MonId: 'PES',
+      MonCotiz: 1
+    }
+
+    // Si es servicios, agregar fechas de servicio
+    if (concepto === CONCEPTOS.SERVICIOS || concepto === CONCEPTOS.PRODUCTOS_Y_SERVICIOS) {
+      const fechaDesde = fechaServicioDesde
+        ? fechaServicioDesde.replace(/-/g, '')
+        : fechaHoy
+      const fechaHasta = fechaServicioHasta
+        ? fechaServicioHasta.replace(/-/g, '')
+        : fechaHoy
+
+      datosComprobante.FchServDesde = fechaDesde
+      datosComprobante.FchServHasta = fechaHasta
+      datosComprobante.FchVtoPago = fechaHoy
+    }
+
+    // Si es NC o ND, agregar comprobante asociado
+    if (comprobanteAsociado && (tipoComprobante === TIPOS_COMPROBANTE.NOTA_CREDITO_C || tipoComprobante === TIPOS_COMPROBANTE.NOTA_DEBITO_C)) {
+      datosComprobante.CbtesAsoc = [{
+        Tipo: comprobanteAsociado.tipo,
+        PtoVta: comprobanteAsociado.puntoVenta,
+        Nro: comprobanteAsociado.numero,
+        Cuit: config.cuit,
+        CbteFch: comprobanteAsociado.fecha?.replace(/-/g, '') || fechaHoy
+      }]
+    }
+
+    // Emitir comprobante en AFIP
+    const createVoucherStart = Date.now()
+    const resultado = await afip.ElectronicBilling.createVoucher(datosComprobante)
+
+    // Log de createVoucher exitoso
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.createVoucher',
+      metodo: 'POST',
+      requestBody: datosComprobante,
+      responseBody: resultado,
+      duracionMs: Date.now() - createVoucherStart,
+      exitoso: true,
+      modulo: 'agenda-turnos',
+      accion: 'emitir_comprobante',
+      contexto: {
+        duenioId,
+        turnoId,
+        tipoComprobante,
+        numero: nuevoNumero,
+        importe: importeTotal,
+        ambiente: config.ambiente,
+        cae: resultado.CAE
+      }
+    })
+
+    // Formatear CAE vencimiento
+    let caeVencimientoFormateado = formatearFechaAfip(resultado.CAEFchVto)
+
+    if (!caeVencimientoFormateado) {
+      const fechaVto = new Date()
+      fechaVto.setDate(fechaVto.getDate() + 10)
+      caeVencimientoFormateado = fechaVto.toISOString().split('T')[0]
+      console.warn('CAEFchVto no recibido de AFIP, usando fallback:', caeVencimientoFormateado)
+    }
+
+    // Guardar en base de datos
+    const { data: facturaGuardada, error: errorGuardar } = await supabase
+      .from('agenda_facturas')
+      .insert({
+        duenio_id: duenioId,
+        turno_id: turnoId || null,
+        tipo_comprobante: tipoComprobante,
+        punto_venta: config.punto_venta,
+        numero_comprobante: nuevoNumero,
+        cae: resultado.CAE,
+        cae_vencimiento: caeVencimientoFormateado,
+        receptor_tipo_doc: receptorTipoDoc,
+        receptor_nro_doc: receptorNroDoc,
+        receptor_nombre: receptorNombre,
+        importe_total: importeTotal,
+        importe_neto: importeTotal,
+        concepto: concepto,
+        fecha_comprobante: hoy.toISOString().split('T')[0],
+        fecha_servicio_desde: fechaServicioDesde || hoy.toISOString().split('T')[0],
+        fecha_servicio_hasta: fechaServicioHasta || hoy.toISOString().split('T')[0],
+        comprobante_asociado_tipo: comprobanteAsociado?.tipo,
+        comprobante_asociado_pto_vta: comprobanteAsociado?.puntoVenta,
+        comprobante_asociado_nro: comprobanteAsociado?.numero,
+        descripcion: descripcion,
+        afip_response: resultado,
+        created_by: duenioId
+      })
+      .select()
+      .single()
+
+    if (errorGuardar) {
+      console.error('Error guardando factura en DB:', errorGuardar)
+      return {
+        ok: true,
+        factura: {
+          tipo: tipoComprobante,
+          puntoVenta: config.punto_venta,
+          numero: nuevoNumero,
+          cae: resultado.CAE,
+          caeVencimiento: resultado.CAEFchVto,
+          importeTotal: importeTotal,
+          fecha: hoy.toISOString().split('T')[0]
+        },
+        facturaDb: null,
+        afipResponse: resultado,
+        advertencia: 'La factura se emitió en AFIP pero hubo un error al guardarla en la base de datos. Contactá al soporte.'
+      }
+    }
+
     return {
       ok: true,
       factura: {
@@ -376,25 +525,52 @@ async function emitirComprobante(duenioId, datos) {
         importeTotal: importeTotal,
         fecha: hoy.toISOString().split('T')[0]
       },
-      facturaDb: null,
-      afipResponse: resultado,
-      advertencia: 'La factura se emitió en AFIP pero hubo un error al guardarla en la base de datos. Contactá al soporte.'
+      facturaDb: facturaGuardada,
+      afipResponse: resultado
     }
-  }
 
-  return {
-    ok: true,
-    factura: {
-      tipo: tipoComprobante,
-      puntoVenta: config.punto_venta,
-      numero: nuevoNumero,
-      cae: resultado.CAE,
-      caeVencimiento: resultado.CAEFchVto,
-      importeTotal: importeTotal,
-      fecha: hoy.toISOString().split('T')[0]
-    },
-    facturaDb: facturaGuardada,
-    afipResponse: resultado
+  } catch (error) {
+    // Registrar API log de error
+    await registrarApiLog({
+      api: 'arca',
+      endpoint: 'ElectronicBilling.createVoucher',
+      metodo: 'POST',
+      requestBody: datosComprobante,
+      duracionMs: Date.now() - startTime,
+      exitoso: false,
+      errorMensaje: error.message,
+      errorCodigo: error.code || 'AFIP_ERROR',
+      modulo: 'agenda-turnos',
+      accion: 'emitir_comprobante',
+      contexto: {
+        duenioId,
+        turnoId,
+        tipoComprobante,
+        importeTotal,
+        receptorTipoDoc,
+        receptorNroDoc,
+        ambiente: config?.ambiente,
+        puntoVenta: config?.punto_venta,
+        errorDetails: error.details || error.response || null
+      }
+    })
+
+    // Capturar error con todo el contexto para debugging
+    await captureAfipError(error, 'Emitir comprobante', {
+      duenioId,
+      tipoComprobante,
+      importeTotal,
+      receptorTipoDoc,
+      receptorNroDoc,
+      receptorNombre,
+      turnoId,
+      datosComprobante,
+      puntoVenta: config?.punto_venta,
+      ambiente: config?.ambiente
+    })
+
+    // Re-lanzar el error para que el llamador lo maneje
+    throw error
   }
 }
 
