@@ -7,14 +7,14 @@ import {
   X, Calendar, Clock, User, Scissors, DollarSign, CreditCard,
   Check, AlertCircle, Loader2, Phone, MessageCircle, Edit2,
   Wallet, Undo2, CheckCircle2, XCircle, Ban, Send, History,
-  Banknote, Smartphone, QrCode, RotateCcw, Store, Car, Video, MapPin, ExternalLink, Navigation, Trash2
+  Banknote, Smartphone, QrCode, RotateCcw, Store, Car, Video, MapPin, ExternalLink, Navigation, Trash2, Repeat, ChevronRight
 } from 'lucide-react'
 import { formatearMonto, formatearHora, ESTADOS_TURNO } from '../../utils/formatters'
 import { formatFechaLarga, formatDuracion, getFechaHoyArgentina, generarSlotsTiempo } from '../../utils/dateUtils'
 import { usePagosTurno, useSenaRequerida } from '../../hooks/usePagos'
 import { useNegocio } from '../../hooks/useNegocio'
 import { generarLinkRecordatorio, generarLinkConfirmacion, abrirWhatsApp } from '../../utils/whatsappUtils'
-import { createTurno, getTurnosDia } from '../../services/turnosService'
+import { createTurno, getTurnosDia, getTurnosFuturosDeSerie, cambiarEstadoTurno } from '../../services/turnosService'
 import ModalPago from '../pagos/ModalPago'
 
 // Métodos de pago para el modal de finalizar
@@ -60,6 +60,13 @@ export default function ModalDetalleTurno({
   // Estado para eliminar pago
   const [pagoAEliminar, setPagoAEliminar] = useState(null)
   const [eliminandoPago, setEliminandoPago] = useState(false)
+
+  // Estado para cancelación de turnos recurrentes
+  const [modalCancelarRecurrente, setModalCancelarRecurrente] = useState({
+    mostrar: false,
+    cantidadFuturos: 0
+  })
+  const [opcionCancelar, setOpcionCancelar] = useState('solo_este')
 
   const {
     pagos,
@@ -185,7 +192,31 @@ export default function ModalDetalleTurno({
   }
 
   // Handler para cancelar turno
-  const handleCancelarTurno = () => {
+  const handleCancelarTurno = async () => {
+    // Verificar si es turno recurrente
+    const esRecurrente = turno.es_recurrente || turno.turno_padre_id
+
+    if (esRecurrente) {
+      // Obtener cantidad de turnos futuros
+      const { cantidadFuturos } = await getTurnosFuturosDeSerie(turno.id, turno.fecha, false)
+
+      if (cantidadFuturos > 0) {
+        // Mostrar modal de opciones para recurrente
+        setModalCancelarRecurrente({
+          mostrar: true,
+          cantidadFuturos
+        })
+        setOpcionCancelar('solo_este')
+        return
+      }
+    }
+
+    // Si no es recurrente o no hay futuros, proceder normalmente
+    procederConCancelacion()
+  }
+
+  // Proceder con la cancelación (después de elegir opción si es recurrente)
+  const procederConCancelacion = () => {
     // Si tiene seña pagada, mostrar modal de opciones
     const tieneSenaPagada = pagos.some(p => p.tipo === 'sena')
     if (tieneSenaPagada) {
@@ -194,6 +225,33 @@ export default function ModalDetalleTurno({
       // Cancelar directamente y cerrar modal
       onCambiarEstado?.(turno.id, 'cancelado')
       onClose?.()
+    }
+  }
+
+  // Confirmar cancelación de turno recurrente
+  const handleConfirmarCancelacionRecurrente = async () => {
+    setCancelando(true)
+    try {
+      if (opcionCancelar === 'todos_futuros') {
+        // Cancelar este turno y todos los futuros
+        const { data: turnosFuturos } = await getTurnosFuturosDeSerie(turno.id, turno.fecha, true)
+
+        // Cancelar todos los turnos futuros
+        for (const t of turnosFuturos || []) {
+          await cambiarEstadoTurno(t.id, 'cancelado')
+        }
+
+        setModalCancelarRecurrente({ mostrar: false, cantidadFuturos: 0 })
+        onClose?.()
+      } else {
+        // Solo cancelar este turno
+        setModalCancelarRecurrente({ mostrar: false, cantidadFuturos: 0 })
+        procederConCancelacion()
+      }
+    } catch (error) {
+      console.error('Error cancelando turnos:', error)
+    } finally {
+      setCancelando(false)
     }
   }
 
@@ -547,6 +605,14 @@ export default function ModalDetalleTurno({
       if (turnoEsFuturo) {
         return (
           <div className="space-y-3">
+            {/* Botón Editar - siempre visible */}
+            <button
+              onClick={() => onEditar?.(turno)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium border border-gray-300"
+            >
+              <Edit2 className="w-4 h-4" />
+              Editar turno
+            </button>
             {/* Botón principal: Confirmar */}
             <button
               onClick={() => setModalConfirmar(true)}
@@ -570,6 +636,14 @@ export default function ModalDetalleTurno({
       // Turno de hoy o pasado: mostrar todas las acciones
       return (
         <div className="space-y-3">
+          {/* Botón Editar - siempre visible */}
+          <button
+            onClick={() => onEditar?.(turno)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium border border-gray-300"
+          >
+            <Edit2 className="w-4 h-4" />
+            Editar turno
+          </button>
           {/* Botón principal: Confirmar */}
           <button
             onClick={() => setModalConfirmar(true)}
@@ -613,13 +687,62 @@ export default function ModalDetalleTurno({
       // Si es turno futuro confirmado: mostrar Reprogramar en lugar de Finalizar
       if (turnoEsFuturo) {
         return (
+          <div className="space-y-3">
+            {/* Botón Editar - siempre visible */}
+            <button
+              onClick={() => onEditar?.(turno)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium border border-gray-300"
+            >
+              <Edit2 className="w-4 h-4" />
+              Editar turno
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleAbrirReprogramar}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium"
+              >
+                <Calendar className="w-4 h-4" />
+                Reprogramar
+              </button>
+              <button
+                onClick={handleCancelarTurno}
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium"
+              >
+                <Ban className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )
+      }
+
+      // Turno de hoy o pasado: acciones normales
+      return (
+        <div className="space-y-3">
+          {/* Botón Editar - siempre visible */}
+          <button
+            onClick={() => onEditar?.(turno)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium border border-gray-300"
+          >
+            <Edit2 className="w-4 h-4" />
+            Editar turno
+          </button>
           <div className="flex gap-2">
             <button
-              onClick={handleAbrirReprogramar}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium"
+              onClick={handleFinalizarTurno}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
             >
-              <Calendar className="w-4 h-4" />
-              Reprogramar
+              <CheckCircle2 className="w-4 h-4" />
+              Finalizar
+            </button>
+            <button
+              onClick={() => {
+                onCambiarEstado?.(turno.id, 'no_asistio')
+                onClose?.()
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium"
+            >
+              <XCircle className="w-4 h-4" />
+              No asistió
             </button>
             <button
               onClick={handleCancelarTurno}
@@ -628,35 +751,6 @@ export default function ModalDetalleTurno({
               <Ban className="w-4 h-4" />
             </button>
           </div>
-        )
-      }
-
-      // Turno de hoy o pasado: acciones normales
-      return (
-        <div className="flex gap-2">
-          <button
-            onClick={handleFinalizarTurno}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            Finalizar
-          </button>
-          <button
-            onClick={() => {
-              onCambiarEstado?.(turno.id, 'no_asistio')
-              onClose?.()
-            }}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium"
-          >
-            <XCircle className="w-4 h-4" />
-            No asistió
-          </button>
-          <button
-            onClick={handleCancelarTurno}
-            className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium"
-          >
-            <Ban className="w-4 h-4" />
-          </button>
         </div>
       )
     }
@@ -1946,6 +2040,166 @@ export default function ModalDetalleTurno({
                     <>
                       <Trash2 className="w-4 h-4" />
                       Eliminar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de cancelar turno recurrente */}
+      {modalCancelarRecurrente.mostrar && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !cancelando && setModalCancelarRecurrente({ mostrar: false, cantidadFuturos: 0 })}
+          />
+
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+              {/* Header */}
+              <div className="bg-red-50 px-5 py-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <Repeat className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-heading font-semibold text-lg text-gray-900">
+                    Cancelar turno recurrente
+                  </h3>
+                  <p className="text-sm text-red-700">
+                    Este turno es parte de una serie
+                  </p>
+                </div>
+                <button
+                  onClick={() => setModalCancelarRecurrente({ mostrar: false, cantidadFuturos: 0 })}
+                  disabled={cancelando}
+                  className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Contenido */}
+              <div className="p-5 space-y-4">
+                <p className="text-gray-600">
+                  ¿Qué turnos querés cancelar?
+                </p>
+
+                {/* Opción 1: Solo este turno */}
+                <button
+                  type="button"
+                  onClick={() => setOpcionCancelar('solo_este')}
+                  disabled={cancelando}
+                  className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                    opcionCancelar === 'solo_este'
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                      opcionCancelar === 'solo_este'
+                        ? 'border-red-500 bg-red-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {opcionCancelar === 'solo_este' && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-medium ${opcionCancelar === 'solo_este' ? 'text-red-900' : 'text-gray-800'}`}>
+                        Solo este turno
+                      </p>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        Los demás turnos de la serie no se cancelan
+                      </p>
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-500">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {formatFechaLarga(turno.fecha)}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Opción 2: Este y todos los futuros */}
+                <button
+                  type="button"
+                  onClick={() => setOpcionCancelar('todos_futuros')}
+                  disabled={cancelando}
+                  className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                    opcionCancelar === 'todos_futuros'
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                      opcionCancelar === 'todos_futuros'
+                        ? 'border-red-500 bg-red-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {opcionCancelar === 'todos_futuros' && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-medium ${opcionCancelar === 'todos_futuros' ? 'text-red-900' : 'text-gray-800'}`}>
+                        Este y todos los siguientes
+                      </p>
+                      <p className="text-sm text-gray-500 mt-0.5">
+                        Se cancelarán todos los turnos futuros de la serie
+                      </p>
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600 font-medium">
+                        <ChevronRight className="w-3.5 h-3.5" />
+                        {modalCancelarRecurrente.cantidadFuturos + 1} turnos serán cancelados
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Aviso */}
+                {opcionCancelar === 'todos_futuros' && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-amber-800 font-medium">
+                        Acción irreversible
+                      </p>
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        Se cancelarán todos los turnos de esta serie desde hoy en adelante.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-200 px-5 py-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalCancelarRecurrente({ mostrar: false, cantidadFuturos: 0 })}
+                  disabled={cancelando}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  Volver
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarCancelacionRecurrente}
+                  disabled={cancelando}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {cancelando ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Cancelando...
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="w-4 h-4" />
+                      Cancelar
                     </>
                   )}
                 </button>

@@ -5,15 +5,17 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle, Car, Store, Video, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
-import { formatearMonto, formatearHora, getEstadoConfig, ESTADOS_TURNO } from '../../utils/formatters'
+import { formatearMonto, formatearHora } from '../../utils/formatters'
 import { useNegocio } from '../../hooks/useNegocio'
 import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, getHoraActualArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
-import { TIPOS_RECURRENCIA, generarFechasRecurrentes } from '../../utils/recurrenciaUtils'
+import { TIPOS_RECURRENCIA, generarFechasRecurrentes, TURNOS_INDETERMINADO } from '../../utils/recurrenciaUtils'
 import useServicios from '../../hooks/useServicios'
 import useClientes from '../../hooks/useClientes'
 import ModalCliente from '../clientes/ModalCliente'
+import ModalEditarRecurrente from './ModalEditarRecurrente'
 import { getSenaDisponibleCliente } from '../../services/pagosService'
 import { createCliente, updateCliente } from '../../services/clientesService'
+import { getTurnosFuturosDeSerie } from '../../services/turnosService'
 
 // Provincias de Argentina para el selector
 const PROVINCIAS_ARGENTINA = [
@@ -133,6 +135,15 @@ export default function ModalTurno({
     turnosSuperpuestos: [],
     datosParaGuardar: null,
     horariosDisponibles: []
+  })
+
+  // Modal de edición recurrente (propagación)
+  const [modalPropagacion, setModalPropagacion] = useState({
+    mostrar: false,
+    datosParaGuardar: null,
+    cantidadFuturos: 0,
+    cambioFecha: false,
+    fechaOriginal: null
   })
 
   // Reset form cuando se abre/cierra o cambia el turno
@@ -573,13 +584,37 @@ export default function ModalTurno({
       }
     }
 
-    // Agregar datos de recurrencia si aplica
+    // Agregar datos de recurrencia si aplica (solo para nuevo turno)
     if (esRecurrente && !turno) {
       turnoData.es_recurrente = true
       turnoData.recurrencia = {
         tipo: recurrencia.tipo,
-        cantidad: recurrencia.cantidad
+        cantidad: recurrencia.cantidad // Puede ser número o 'indeterminado'
       }
+      // Si es indeterminado, marcarlo
+      if (recurrencia.cantidad === 'indeterminado') {
+        turnoData.es_indeterminado = true
+      }
+    }
+
+    // Si estamos EDITANDO un turno recurrente, mostrar modal de propagación
+    const esEdicionRecurrente = turno && (turno.es_recurrente || turno.turno_padre_id)
+    if (esEdicionRecurrente) {
+      // Verificar si hubo cambio de fecha (día de la semana)
+      const cambioFecha = turno.fecha !== form.fecha
+
+      // Obtener cantidad de turnos futuros
+      const { cantidadFuturos } = await getTurnosFuturosDeSerie(turno.id, form.fecha, false)
+
+      // Mostrar modal de propagación
+      setModalPropagacion({
+        mostrar: true,
+        datosParaGuardar: turnoData,
+        cantidadFuturos: cantidadFuturos || 0,
+        cambioFecha,
+        fechaOriginal: turno.fecha
+      })
+      return // No continuar, esperar confirmación del modal
     }
 
     // Verificar superposiciones
@@ -683,6 +718,71 @@ export default function ModalTurno({
   const handleCancelarFaltaDireccion = () => {
     setAlertaFaltaDireccion({ mostrar: false, datosParaGuardar: null })
     setDireccionExpanded(true) // Expandir la sección de dirección para que complete los datos
+  }
+
+  // Confirmar propagación de cambios en turno recurrente
+  const handleConfirmarPropagacion = async ({ propagarAFuturos, cambioFecha }) => {
+    if (!modalPropagacion.datosParaGuardar) return
+
+    // Agregar opciones de propagación al turnoData
+    const turnoData = {
+      ...modalPropagacion.datosParaGuardar,
+      _propagacion: {
+        propagarAFuturos,
+        cambioFecha,
+        fechaOriginal: modalPropagacion.fechaOriginal
+      }
+    }
+
+    // Cerrar modal de propagación
+    setModalPropagacion({
+      mostrar: false,
+      datosParaGuardar: null,
+      cantidadFuturos: 0,
+      cambioFecha: false,
+      fechaOriginal: null
+    })
+
+    // Continuar con la verificación de superposiciones y guardado
+    const superpuestos = verificarSuperposicion(form.hora_inicio, horaFin, form.fecha)
+
+    if (superpuestos.length > 0) {
+      const horariosLibres = obtenerHorariosDisponibles(duracionTotal, form.fecha)
+      setAlertaSuperposicion({
+        mostrar: true,
+        turnosSuperpuestos: superpuestos,
+        datosParaGuardar: turnoData,
+        horariosDisponibles: horariosLibres
+      })
+      return
+    }
+
+    // Verificar si falta dirección
+    const clienteTieneDireccion = form.cliente?.direccion && form.cliente?.localidad && form.cliente?.provincia
+    const direccionTemporalCompleta = direccionTemporal.direccion && direccionTemporal.localidad && direccionTemporal.provincia
+    const faltaDireccionDomicilio = form.modalidad === 'domicilio' && !clienteTieneDireccion && !direccionTemporalCompleta
+
+    if (faltaDireccionDomicilio) {
+      setAlertaFaltaDireccion({
+        mostrar: true,
+        datosParaGuardar: turnoData
+      })
+      return
+    }
+
+    // Guardar directamente
+    await guardarTurno(turnoData)
+  }
+
+  // Cancelar modal de propagación
+  const handleCancelarPropagacion = () => {
+    setModalPropagacion({
+      mostrar: false,
+      datosParaGuardar: null,
+      cantidadFuturos: 0,
+      cambioFecha: false,
+      fechaOriginal: null
+    })
   }
 
   // Cancelar el turno (cambiar estado a cancelado)
@@ -1489,7 +1589,13 @@ export default function ModalTurno({
                           </label>
                           <select
                             value={recurrencia.cantidad}
-                            onChange={(e) => setRecurrencia(r => ({ ...r, cantidad: parseInt(e.target.value) }))}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setRecurrencia(r => ({
+                                ...r,
+                                cantidad: val === 'indeterminado' ? 'indeterminado' : parseInt(val)
+                              }))
+                            }}
                             className="w-full px-3 py-2 border rounded-lg text-sm"
                           >
                             {[2, 3, 4, 5, 6, 8, 10, 12].map(n => (
@@ -1497,12 +1603,18 @@ export default function ModalTurno({
                                 {n} turnos
                               </option>
                             ))}
+                            <option value="indeterminado">Sin fecha fin</option>
                           </select>
                         </div>
                       </div>
 
                       <div className="text-xs text-purple-700">
-                        <p className="font-medium mb-1">Fechas:</p>
+                        <p className="font-medium mb-1">
+                          {recurrencia.cantidad === 'indeterminado'
+                            ? 'Primeros turnos (serie sin fecha fin):'
+                            : 'Fechas:'
+                          }
+                        </p>
                         <div className="flex flex-wrap gap-1">
                           {generarFechasRecurrentes({
                             fechaInicio: form.fecha,
@@ -1513,42 +1625,27 @@ export default function ModalTurno({
                               {new Date(f + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
                             </span>
                           ))}
-                          {recurrencia.cantidad > 6 && (
+                          {recurrencia.cantidad === 'indeterminado' ? (
+                            <span className="px-2 py-0.5 text-purple-600 font-medium">
+                              +{TURNOS_INDETERMINADO - 6} más (se extiende automáticamente)
+                            </span>
+                          ) : recurrencia.cantidad > 6 && (
                             <span className="px-2 py-0.5 text-purple-600">
                               +{recurrencia.cantidad - 6} más
                             </span>
                           )}
                         </div>
+                        {recurrencia.cantidad === 'indeterminado' && (
+                          <p className="mt-2 text-purple-600 italic">
+                            Se crearán ~6 meses de turnos. La serie se extiende automáticamente.
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Estado (solo en edición) */}
-              {turno && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estado
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(ESTADOS_TURNO).map(([key, config]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, estado: key }))}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          form.estado === key
-                            ? `${config.bgClass} ${config.textClass} ring-2 ring-offset-1`
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {config.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Resumen */}
               {form.servicios_seleccionados.length > 0 && (
@@ -1793,6 +1890,17 @@ export default function ModalTurno({
           </div>
         </div>
       )}
+
+      {/* Modal de propagación para turnos recurrentes */}
+      <ModalEditarRecurrente
+        isOpen={modalPropagacion.mostrar}
+        onClose={handleCancelarPropagacion}
+        onConfirmar={handleConfirmarPropagacion}
+        turno={turno}
+        cantidadFuturos={modalPropagacion.cantidadFuturos}
+        loading={loading}
+        cambiosFecha={modalPropagacion.cambioFecha}
+      />
 
       {/* Modal alerta de falta de dirección */}
       {alertaFaltaDireccion.mostrar && (

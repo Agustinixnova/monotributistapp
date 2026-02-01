@@ -4,7 +4,7 @@
 
 import { supabase } from '../../../lib/supabase'
 import { getEffectiveUserId } from '../../caja-diaria/services/empleadosService'
-import { generarFechasRecurrentes } from '../utils/recurrenciaUtils'
+import { generarFechasRecurrentes, TURNOS_EXTENSION, recalcularFechasFuturas } from '../utils/recurrenciaUtils'
 import { transferirPagos } from './pagosService'
 
 /**
@@ -120,7 +120,8 @@ export async function createTurno(turnoData) {
       es_recurrente: turnoData.es_recurrente || false,
       recurrencia_tipo: turnoData.recurrencia_tipo || null,
       recurrencia_fin: turnoData.recurrencia_fin || null,
-      turno_padre_id: turnoData.turno_padre_id || null
+      turno_padre_id: turnoData.turno_padre_id || null,
+      es_indeterminado: turnoData.es_indeterminado || false
     }
 
     // Agregar modalidad solo si se proporciona (columna opcional)
@@ -232,6 +233,8 @@ export async function createTurnosRecurrentes(turnoData, recurrencia) {
     const { userId, error: userError } = await getEffectiveUserId()
     if (userError || !userId) throw userError || new Error('Usuario no autenticado')
 
+    const esIndeterminado = recurrencia.cantidad === 'indeterminado'
+
     // Generar las fechas de los turnos recurrentes
     const fechas = generarFechasRecurrentes({
       fechaInicio: turnoData.fecha,
@@ -249,7 +252,8 @@ export async function createTurnosRecurrentes(turnoData, recurrencia) {
       ...turnoData,
       es_recurrente: true,
       recurrencia_tipo: recurrencia.tipo,
-      recurrencia_fin: fechas[fechas.length - 1]
+      recurrencia_fin: esIndeterminado ? null : fechas[fechas.length - 1],
+      es_indeterminado: esIndeterminado
     }
 
     const { data: turnoPadre, error: errorPadre } = await createTurno(primerTurnoData)
@@ -264,7 +268,8 @@ export async function createTurnosRecurrentes(turnoData, recurrencia) {
         fecha: fechas[i],
         es_recurrente: true,
         recurrencia_tipo: recurrencia.tipo,
-        turno_padre_id: turnoPadre.id
+        turno_padre_id: turnoPadre.id,
+        es_indeterminado: esIndeterminado
       }
 
       const { data: turnoHijo, error: errorHijo } = await createTurno(turnoHijoData)
@@ -279,7 +284,8 @@ export async function createTurnosRecurrentes(turnoData, recurrencia) {
     return {
       data: turnosCreados,
       error: null,
-      mensaje: `Se crearon ${turnosCreados.length} turnos`
+      mensaje: `Se crearon ${turnosCreados.length} turnos`,
+      esIndeterminado
     }
   } catch (error) {
     console.error('Error creating turnos recurrentes:', error)
@@ -432,5 +438,314 @@ export async function getTurnosCliente(clienteId, limite = 10) {
   } catch (error) {
     console.error('Error fetching turnos cliente:', error)
     return { data: null, error }
+  }
+}
+
+/**
+ * Obtener todos los turnos de una serie recurrente
+ * @param {string} turnoId - ID de cualquier turno de la serie
+ * @returns {Object} { data: turnos[], serieId, turnoPadre }
+ */
+export async function getTurnosDeSerie(turnoId) {
+  try {
+    // Primero obtener el turno para saber su padre o si ES el padre
+    const { data: turno, error: turnoError } = await getTurnoById(turnoId)
+    if (turnoError) throw turnoError
+
+    // El ID de la serie es el del padre, o el propio si es el padre
+    const serieId = turno.turno_padre_id || turno.id
+
+    // Buscar todos los turnos de la serie
+    const { data, error } = await supabase
+      .from('agenda_turnos')
+      .select(`
+        *,
+        cliente:agenda_clientes(id, nombre, apellido, telefono, whatsapp),
+        servicios:agenda_turno_servicios(
+          id,
+          precio,
+          duracion,
+          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio)
+        )
+      `)
+      .or(`id.eq.${serieId},turno_padre_id.eq.${serieId}`)
+      .order('fecha', { ascending: true })
+      .order('hora_inicio', { ascending: true })
+
+    if (error) throw error
+
+    return {
+      data: data || [],
+      serieId,
+      turnoPadre: data?.find(t => t.id === serieId) || null,
+      error: null
+    }
+  } catch (error) {
+    console.error('Error fetching turnos de serie:', error)
+    return { data: null, serieId: null, turnoPadre: null, error }
+  }
+}
+
+/**
+ * Obtener turnos futuros de una serie (desde una fecha en adelante)
+ * @param {string} turnoId - ID del turno actual
+ * @param {string} fechaDesde - Fecha desde la cual buscar (YYYY-MM-DD)
+ * @param {boolean} incluirActual - Si incluir el turno actual en el resultado
+ */
+export async function getTurnosFuturosDeSerie(turnoId, fechaDesde, incluirActual = false) {
+  try {
+    // Primero obtener el turno para saber su padre
+    const { data: turno, error: turnoError } = await getTurnoById(turnoId)
+    if (turnoError) throw turnoError
+
+    const serieId = turno.turno_padre_id || turno.id
+
+    // Buscar todos los de la serie con fecha >= fechaDesde
+    let query = supabase
+      .from('agenda_turnos')
+      .select(`
+        *,
+        servicios:agenda_turno_servicios(
+          id,
+          precio,
+          duracion,
+          servicio:agenda_servicios(id, nombre, color, duracion_minutos, precio)
+        )
+      `)
+      .or(`id.eq.${serieId},turno_padre_id.eq.${serieId}`)
+      .gte('fecha', fechaDesde)
+      .not('estado', 'in', '(cancelado,no_asistio)') // Excluir cancelados
+      .order('fecha', { ascending: true })
+
+    if (!incluirActual) {
+      query = query.neq('id', turnoId) // Excluir el actual
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return {
+      data: data || [],
+      cantidadFuturos: data?.length || 0,
+      error: null
+    }
+  } catch (error) {
+    console.error('Error fetching turnos futuros de serie:', error)
+    return { data: null, cantidadFuturos: 0, error }
+  }
+}
+
+/**
+ * Contar turnos pendientes de una serie indeterminada
+ * @param {string} turnoId - ID de cualquier turno de la serie
+ */
+export async function contarTurnosPendientesSerie(turnoId) {
+  try {
+    const { data: turno } = await getTurnoById(turnoId)
+    if (!turno) return { cantidad: 0, error: new Error('Turno no encontrado') }
+
+    const serieId = turno.turno_padre_id || turno.id
+    const hoy = new Date().toISOString().split('T')[0]
+
+    const { count, error } = await supabase
+      .from('agenda_turnos')
+      .select('*', { count: 'exact', head: true })
+      .or(`id.eq.${serieId},turno_padre_id.eq.${serieId}`)
+      .gte('fecha', hoy)
+      .not('estado', 'in', '(cancelado,no_asistio,completado)')
+
+    if (error) throw error
+
+    return { cantidad: count || 0, serieId, error: null }
+  } catch (error) {
+    console.error('Error contando turnos pendientes:', error)
+    return { cantidad: 0, serieId: null, error }
+  }
+}
+
+/**
+ * Extender una serie recurrente indeterminada
+ * Agrega más turnos a partir del último turno existente
+ * @param {string} serieId - ID del turno padre de la serie
+ * @param {number} cantidadNuevos - Cantidad de turnos a agregar (default: TURNOS_EXTENSION)
+ */
+export async function extenderSerieRecurrente(serieId, cantidadNuevos = TURNOS_EXTENSION) {
+  try {
+    // Obtener el turno padre para conocer la configuración
+    const { data: turnoPadre, error: padreError } = await getTurnoById(serieId)
+    if (padreError) throw padreError
+    if (!turnoPadre) throw new Error('Turno padre no encontrado')
+
+    // Verificar que sea una serie indeterminada
+    if (!turnoPadre.es_indeterminado) {
+      return { data: null, error: new Error('La serie no es indeterminada'), turnosCreados: 0 }
+    }
+
+    // Obtener el último turno de la serie
+    const { data: ultimosTurnos, error: ultimoError } = await supabase
+      .from('agenda_turnos')
+      .select('*')
+      .or(`id.eq.${serieId},turno_padre_id.eq.${serieId}`)
+      .order('fecha', { ascending: false })
+      .limit(1)
+
+    if (ultimoError) throw ultimoError
+
+    const ultimoTurno = ultimosTurnos?.[0]
+    if (!ultimoTurno) throw new Error('No se encontró el último turno de la serie')
+
+    // Generar nuevas fechas a partir del día siguiente al último turno
+    const fechaInicio = new Date(ultimoTurno.fecha + 'T12:00:00')
+    // Avanzar según el tipo de recurrencia para obtener la primera fecha nueva
+    const tipoRecurrencia = turnoPadre.recurrencia_tipo
+    if (tipoRecurrencia === 'mensual') {
+      fechaInicio.setMonth(fechaInicio.getMonth() + 1)
+    } else {
+      const dias = tipoRecurrencia === 'quincenal' ? 14 : 7
+      fechaInicio.setDate(fechaInicio.getDate() + dias)
+    }
+
+    const fechasNuevas = generarFechasRecurrentes({
+      fechaInicio: fechaInicio.toISOString().split('T')[0],
+      tipo: tipoRecurrencia,
+      cantidad: cantidadNuevos
+    })
+
+    // Crear los nuevos turnos
+    const turnosCreados = []
+    for (const fecha of fechasNuevas) {
+      const turnoData = {
+        cliente_id: turnoPadre.cliente_id,
+        fecha,
+        hora_inicio: ultimoTurno.hora_inicio,
+        hora_fin: ultimoTurno.hora_fin,
+        servicios: turnoPadre.servicios?.map(s => ({
+          servicio_id: s.servicio?.id || s.servicio_id,
+          precio: s.precio,
+          duracion: s.duracion
+        })) || [],
+        notas: turnoPadre.notas,
+        modalidad: turnoPadre.modalidad,
+        link_videollamada: turnoPadre.link_videollamada,
+        es_recurrente: true,
+        recurrencia_tipo: tipoRecurrencia,
+        turno_padre_id: serieId,
+        es_indeterminado: true
+      }
+
+      const { data: nuevoTurno, error: createError } = await createTurno(turnoData)
+      if (createError) {
+        console.error(`Error creando turno de extensión para ${fecha}:`, createError)
+      } else {
+        turnosCreados.push(nuevoTurno)
+      }
+    }
+
+    return {
+      data: turnosCreados,
+      turnosCreados: turnosCreados.length,
+      error: null,
+      mensaje: `Se agregaron ${turnosCreados.length} turnos a la serie`
+    }
+  } catch (error) {
+    console.error('Error extendiendo serie recurrente:', error)
+    return { data: null, turnosCreados: 0, error }
+  }
+}
+
+/**
+ * Actualizar un turno con opción de propagar cambios a futuros
+ * @param {string} id - ID del turno a actualizar
+ * @param {Object} turnoData - Datos a actualizar
+ * @param {Object} opciones - Opciones de propagación
+ * @param {boolean} opciones.propagarAFuturos - Si propagar a turnos futuros
+ * @param {boolean} opciones.cambioFecha - Si hubo cambio de fecha (requiere recálculo)
+ * @param {string} opciones.fechaOriginal - Fecha original del turno (si cambió)
+ */
+export async function updateTurnoConPropagacion(id, turnoData, opciones = {}) {
+  try {
+    const { propagarAFuturos = false, cambioFecha = false, fechaOriginal } = opciones
+
+    // Actualizar el turno principal
+    const { data: turnoActualizado, error: updateError } = await updateTurno(id, turnoData)
+    if (updateError) throw updateError
+
+    // Si no hay que propagar, retornar
+    if (!propagarAFuturos) {
+      return {
+        data: turnoActualizado,
+        turnosActualizados: 1,
+        error: null
+      }
+    }
+
+    // Obtener turnos futuros de la serie
+    const fechaActual = turnoData.fecha || turnoActualizado.fecha
+    const { data: turnosFuturos, error: futError } = await getTurnosFuturosDeSerie(
+      id,
+      fechaActual,
+      false // No incluir el actual
+    )
+
+    if (futError || !turnosFuturos || turnosFuturos.length === 0) {
+      return {
+        data: turnoActualizado,
+        turnosActualizados: 1,
+        error: null
+      }
+    }
+
+    // Preparar datos para propagar (solo ciertos campos)
+    const datosParaPropagar = {}
+    if (turnoData.hora_inicio !== undefined) datosParaPropagar.hora_inicio = turnoData.hora_inicio
+    if (turnoData.hora_fin !== undefined) datosParaPropagar.hora_fin = turnoData.hora_fin
+    if (turnoData.notas !== undefined) datosParaPropagar.notas = turnoData.notas
+    if (turnoData.modalidad !== undefined) datosParaPropagar.modalidad = turnoData.modalidad
+    if (turnoData.link_videollamada !== undefined) datosParaPropagar.link_videollamada = turnoData.link_videollamada
+
+    // Si hay cambio de fecha, recalcular fechas de turnos futuros
+    let fechasRecalculadas = null
+    if (cambioFecha && fechaOriginal && turnoData.fecha && fechaOriginal !== turnoData.fecha) {
+      fechasRecalculadas = recalcularFechasFuturas(
+        fechaOriginal,
+        turnoData.fecha,
+        turnosFuturos.map(t => t.fecha),
+        turnoActualizado.recurrencia_tipo
+      )
+    }
+
+    // Actualizar cada turno futuro
+    let turnosActualizados = 1 // Ya contamos el principal
+    for (let i = 0; i < turnosFuturos.length; i++) {
+      const turnoFuturo = turnosFuturos[i]
+      const datosActualizar = { ...datosParaPropagar }
+
+      // Si hay fechas recalculadas, incluir la nueva fecha
+      if (fechasRecalculadas && fechasRecalculadas[i]) {
+        datosActualizar.fecha = fechasRecalculadas[i].fechaNueva
+      }
+
+      // Actualizar servicios si se proporcionaron
+      if (turnoData.servicios !== undefined) {
+        datosActualizar.servicios = turnoData.servicios
+      }
+
+      const { error: upError } = await updateTurno(turnoFuturo.id, datosActualizar)
+      if (upError) {
+        console.error(`Error actualizando turno futuro ${turnoFuturo.id}:`, upError)
+      } else {
+        turnosActualizados++
+      }
+    }
+
+    return {
+      data: turnoActualizado,
+      turnosActualizados,
+      error: null
+    }
+  } catch (error) {
+    console.error('Error updating turno con propagación:', error)
+    return { data: null, turnosActualizados: 0, error }
   }
 }

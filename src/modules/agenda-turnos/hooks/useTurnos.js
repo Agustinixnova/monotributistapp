@@ -10,10 +10,14 @@ import {
   createTurno,
   createTurnosRecurrentes,
   updateTurno,
+  updateTurnoConPropagacion,
   deleteTurno,
   cambiarEstadoTurno,
-  verificarDisponibilidad
+  verificarDisponibilidad,
+  contarTurnosPendientesSerie,
+  extenderSerieRecurrente
 } from '../services/turnosService'
+import { TURNOS_MINIMOS_PARA_EXTENSION } from '../utils/recurrenciaUtils'
 import { getFechaHoyArgentina, getDiasSemana, getPrimerDiaMes, getUltimoDiaMes } from '../utils/dateUtils'
 
 /**
@@ -77,12 +81,41 @@ export function useTurnosDia(fecha = null, options = {}) {
   }
 
   const actualizar = async (id, turnoData) => {
-    const { data, error: updateError } = await updateTurno(id, turnoData)
-    if (updateError) {
-      throw updateError
+    // Extraer opciones de propagación si existen
+    const { _propagacion, ...datosLimpios } = turnoData
+
+    let result
+    if (_propagacion) {
+      // Usar updateTurnoConPropagacion si hay opciones de propagación
+      const { data, error: updateError, turnosActualizados } = await updateTurnoConPropagacion(
+        id,
+        datosLimpios,
+        {
+          propagarAFuturos: _propagacion.propagarAFuturos,
+          cambioFecha: _propagacion.cambioFecha,
+          fechaOriginal: _propagacion.fechaOriginal
+        }
+      )
+      if (updateError) {
+        throw updateError
+      }
+      result = data
+      // Si se propagó, recargar todos los turnos para reflejar cambios
+      if (_propagacion.propagarAFuturos && turnosActualizados > 1) {
+        fetchTurnos()
+        return result
+      }
+    } else {
+      // Actualización normal sin propagación
+      const { data, error: updateError } = await updateTurno(id, datosLimpios)
+      if (updateError) {
+        throw updateError
+      }
+      result = data
     }
-    setTurnos(prev => prev.map(t => t.id === id ? data : t))
-    return data
+
+    setTurnos(prev => prev.map(t => t.id === id ? result : t))
+    return result
   }
 
   const eliminar = async (id) => {
@@ -106,6 +139,44 @@ export function useTurnosDia(fecha = null, options = {}) {
     fetchTurnos()
   }
 
+  // Verificar y extender series indeterminadas que tengan pocos turnos pendientes
+  const verificarYExtenderSeriesIndeterminadas = useCallback(async () => {
+    // Buscar turnos indeterminados en los turnos cargados
+    const turnosIndeterminados = turnos.filter(t => t.es_indeterminado && t.es_recurrente)
+
+    // Agrupar por serie (turno_padre_id o id si es el padre)
+    const seriesVerificadas = new Set()
+
+    for (const turno of turnosIndeterminados) {
+      const serieId = turno.turno_padre_id || turno.id
+
+      // Evitar verificar la misma serie más de una vez
+      if (seriesVerificadas.has(serieId)) continue
+      seriesVerificadas.add(serieId)
+
+      // Contar turnos pendientes de esta serie
+      const { cantidad } = await contarTurnosPendientesSerie(turno.id)
+
+      // Si hay pocos turnos pendientes, extender la serie
+      if (cantidad < TURNOS_MINIMOS_PARA_EXTENSION) {
+        console.log(`[useTurnos] Serie ${serieId} tiene ${cantidad} turnos pendientes, extendiendo...`)
+        const { turnosCreados, error: extError } = await extenderSerieRecurrente(serieId)
+        if (extError) {
+          console.error(`[useTurnos] Error extendiendo serie ${serieId}:`, extError)
+        } else {
+          console.log(`[useTurnos] Serie ${serieId} extendida con ${turnosCreados} turnos nuevos`)
+        }
+      }
+    }
+  }, [turnos])
+
+  // Auto-verificar series indeterminadas cuando se cargan los turnos
+  useEffect(() => {
+    if (!loading && turnos.length > 0) {
+      verificarYExtenderSeriesIndeterminadas()
+    }
+  }, [loading, verificarYExtenderSeriesIndeterminadas])
+
   return {
     turnos,
     loading,
@@ -114,7 +185,8 @@ export function useTurnosDia(fecha = null, options = {}) {
     actualizar,
     eliminar,
     cambiarEstado,
-    recargar
+    recargar,
+    verificarYExtenderSeriesIndeterminadas
   }
 }
 

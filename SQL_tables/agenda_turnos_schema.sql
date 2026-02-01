@@ -594,3 +594,12 @@ ALTER TABLE public.agenda_turno_pagos ADD COLUMN IF NOT EXISTS hora_pago TIME;
 -- Agregar columna direccion_cliente para turnos a domicilio (dirección completa con piso/depto)
 ALTER TABLE public.agenda_turnos ADD COLUMN IF NOT EXISTS direccion_cliente TEXT;
 COMMENT ON COLUMN public.agenda_turnos.direccion_cliente IS 'Dirección completa para turnos a domicilio (incluye calle, número, piso, depto, localidad, provincia)';
+
+-- Agregar columna es_indeterminado para series recurrentes sin fecha fin
+ALTER TABLE public.agenda_turnos ADD COLUMN IF NOT EXISTS es_indeterminado BOOLEAN DEFAULT false;
+COMMENT ON COLUMN public.agenda_turnos.es_indeterminado IS 'Indica si la serie recurrente no tiene fecha fin. Cuando es true, el sistema auto-extiende la serie cuando quedan pocos turnos pendientes.';
+
+-- Índice para consultas eficientes de series indeterminadas
+CREATE INDEX IF NOT EXISTS idx_agenda_turnos_indeterminado
+ON public.agenda_turnos (es_indeterminado, es_recurrente, turno_padre_id)
+WHERE es_indeterminado = true;
