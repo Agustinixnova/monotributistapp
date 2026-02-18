@@ -46,6 +46,7 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `40_agenda_clientes_cuit.sql` | `agenda_clientes` | Campo CUIT para facturación (Consumidor Final o con CUIT) |
 | `41_modulo_facturacion_afip.sql` | `modules` | Módulo premium 'facturacion-afip' (habilitación manual) |
 | `facturas_pendientes.sql` | `facturas_pendientes` | Cola de facturas pendientes de emisión por fallos de conexión con ARCA |
+| `agenda_espacios.sql` | `agenda_espacios` | Espacios/salones para alquilar (modo espacios) |
 
 ## Tablas del Módulo Caja Diaria
 
@@ -55,6 +56,7 @@ Este directorio contiene todas las definiciones de tablas SQL del proyecto.
 | `caja_fiados.sql` | `caja_clientes_fiado`, `caja_fiados`, `caja_pagos_fiado` | Sistema de cuentas corrientes y fiados |
 | `caja_empleados_historial.sql` | `caja_empleados_historial` | Historial de cambios en empleados de caja |
 | `37_caja_trazabilidad_indices.sql` | Múltiples | Agrega trazabilidad (updated_by_id) e índices optimizados |
+| `caja_proveedores.sql` | `caja_proveedores`, `caja_facturas_compra` | Proveedores y facturas de compra con reporte por proveedor |
 
 ## Tablas del Módulo Dev Tools
 
@@ -169,6 +171,8 @@ npx supabase db push
 
 ## Ultima Actualizacion
 
+18-02-2026 - Proveedores y facturas de compra (caja_proveedores, caja_facturas_compra) con reporte por proveedor
+01-02-2026 - Modos de agenda (personal/equipo/espacios) con tabla agenda_espacios para alquiler de salones
 01-02-2026 - Sistema de auditoría (audit_logs) con triggers automáticos en tablas críticas
 01-02-2026 - Panel de Errores con captura automática de errores JS, React y Supabase
 29-01-2026 - Módulo premium 'facturacion-afip' (se habilita manualmente a usuarios que pagan suscripción)

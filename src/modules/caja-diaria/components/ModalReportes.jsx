@@ -3,12 +3,13 @@
  */
 
 import { useState } from 'react'
-import { X, FileText, Calendar, ChevronRight, Users, Receipt, TrendingUp, TrendingDown } from 'lucide-react'
+import { X, FileText, Calendar, ChevronRight, Users, Receipt, TrendingUp, TrendingDown, ShoppingBag } from 'lucide-react'
 import ModalReportePeriodo from './ModalReportePeriodo'
 import ModalReporteDeudores from './ModalReporteDeudores'
 import ModalReporteMovimientosCuenta from './ModalReporteMovimientosCuenta'
 import ModalReporteIngresosCategorias from './ModalReporteIngresosCategorias'
 import ModalReporteEgresosCategorias from './ModalReporteEgresosCategorias'
+import ModalReporteCompras from './ModalReporteCompras'
 
 export default function ModalReportes({ isOpen, onClose, nombreNegocio }) {
   const [reporteActivo, setReporteActivo] = useState(null)
@@ -51,6 +52,13 @@ export default function ModalReportes({ isOpen, onClose, nombreNegocio }) {
       descripcion: 'Historial de cuenta corriente con filtros opcionales',
       icono: Receipt,
       color: 'amber'
+    },
+    {
+      id: 'compras-proveedor',
+      nombre: 'Compras por Proveedor',
+      descripcion: 'Detalle de compras y facturas agrupado por proveedor',
+      icono: ShoppingBag,
+      color: 'sky'
     }
   ]
 
@@ -75,7 +83,8 @@ export default function ModalReportes({ isOpen, onClose, nombreNegocio }) {
       red: { border: '#fca5a5', bg: '#fef2f2', iconBg: '#fee2e2', icon: '#dc2626' },
       amber: { border: '#fcd34d', bg: '#fffbeb', iconBg: '#fef3c7', icon: '#d97706' },
       emerald: { border: '#6ee7b7', bg: '#ecfdf5', iconBg: '#d1fae5', icon: '#059669' },
-      orange: { border: '#fdba74', bg: '#fff7ed', iconBg: '#ffedd5', icon: '#ea580c' }
+      orange: { border: '#fdba74', bg: '#fff7ed', iconBg: '#ffedd5', icon: '#ea580c' },
+      sky: { border: '#7dd3fc', bg: '#f0f9ff', iconBg: '#e0f2fe', icon: '#0284c7' }
     }
     return colors[color]?.[type] || colors.indigo[type]
   }
@@ -188,6 +197,13 @@ export default function ModalReportes({ isOpen, onClose, nombreNegocio }) {
       {/* Modal de Egresos por Categoría */}
       <ModalReporteEgresosCategorias
         isOpen={reporteActivo === 'egresos-categorias'}
+        onClose={handleCloseReporte}
+        nombreNegocio={nombreNegocio}
+      />
+
+      {/* Modal de Compras por Proveedor */}
+      <ModalReporteCompras
+        isOpen={reporteActivo === 'compras-proveedor'}
         onClose={handleCloseReporte}
         nombreNegocio={nombreNegocio}
       />

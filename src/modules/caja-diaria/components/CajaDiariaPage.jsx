@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock, Users, Archive } from 'lucide-react'
+import { Wallet, Calendar, Lock, RefreshCw, AlertCircle, Settings, Edit2, LockOpen, FileDown, Calculator, QrCode, FileText, Banknote, BarChart3, Clock, Users, Archive, ShoppingBag } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { useAuthContext } from '../../../context/AuthContext'
 import { useCajaDiaria } from '../hooks/useCajaDiaria'
@@ -38,6 +38,7 @@ import { useClientesConDeuda } from '../hooks/useClientesFiado'
 import { useCajaSecundaria } from '../hooks/useCajaSecundaria'
 import { actualizarComentario } from '../services/movimientosService'
 import ModalCajaSecundaria from './ModalCajaSecundaria'
+import ModalCompras from './ModalCompras'
 
 export default function CajaDiariaPage() {
   // Obtener usuario actual para funcionalidades específicas
@@ -90,6 +91,7 @@ export default function CajaDiariaPage() {
   const [modalCobranzas, setModalCobranzas] = useState(false)
   const [modalVentaDividida, setModalVentaDividida] = useState(false)
   const [modalCajaSecundaria, setModalCajaSecundaria] = useState(false)
+  const [modalCompras, setModalCompras] = useState(false)
 
   // Estados para modales de confirmación
   const [confirmAnular, setConfirmAnular] = useState({ isOpen: false, id: null })
@@ -434,6 +436,15 @@ export default function CajaDiariaPage() {
                   {clientesConDeuda.length > 9 ? '9+' : clientesConDeuda.length}
                 </span>
               )}
+            </button>
+
+            {/* Botón Compras/Proveedores */}
+            <button
+              onClick={() => setModalCompras(true)}
+              className="p-2 bg-sky-100 hover:bg-sky-200 rounded-lg transition-colors"
+              title="Compras"
+            >
+              <ShoppingBag className="w-5 h-5 text-sky-600" />
             </button>
 
             {/* Botón Caja Secundaria */}
@@ -805,6 +816,16 @@ export default function CajaDiariaPage() {
           onGuardar={handleGuardarMovimiento}
         />
       )}
+
+      {/* Modal Compras */}
+      <ModalCompras
+        isOpen={modalCompras}
+        onClose={() => setModalCompras(false)}
+        metodosPago={metodosPago.metodos}
+        onFacturaConEgreso={async () => {
+          await refreshAll()
+        }}
+      />
 
       {/* Modal Caja Secundaria */}
       <ModalCajaSecundaria
