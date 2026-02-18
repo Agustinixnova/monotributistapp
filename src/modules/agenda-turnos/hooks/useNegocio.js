@@ -68,6 +68,12 @@ export function useNegocio() {
   // Modalidad por defecto (la primera configurada)
   const modalidadDefault = modalidades[0] || 'local'
 
+  // Helpers para modo de agenda
+  const modoAgenda = negocio?.modo_agenda || 'personal'
+  const esModoPersonal = modoAgenda === 'personal'
+  const esModoEquipo = modoAgenda === 'equipo'
+  const esModoEspacios = modoAgenda === 'espacios'
+
   return {
     negocio,
     loading,
@@ -82,7 +88,12 @@ export function useNegocio() {
     tieneDomicilio,
     tieneVideollamada,
     requiereSeleccionModalidad,
-    modalidadDefault
+    modalidadDefault,
+    // Helpers de modo de agenda
+    modoAgenda,
+    esModoPersonal,
+    esModoEquipo,
+    esModoEspacios
   }
 }
 

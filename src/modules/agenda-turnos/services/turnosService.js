@@ -13,10 +13,11 @@ import { transferirPagos } from './pagosService'
  * @param {string} fechaFin - YYYY-MM-DD
  * @param {Object} options
  * @param {string} options.profesionalId - Filtrar por profesional
+ * @param {string} options.espacioId - Filtrar por espacio/salón
  * @param {string} options.estado - Filtrar por estado
  */
 export async function getTurnos(fechaInicio, fechaFin, options = {}) {
-  const { profesionalId, estado } = options
+  const { profesionalId, espacioId, estado } = options
 
   try {
     const { userId, error: userError } = await getEffectiveUserId()
@@ -42,6 +43,10 @@ export async function getTurnos(fechaInicio, fechaFin, options = {}) {
 
     if (profesionalId) {
       query = query.eq('profesional_id', profesionalId)
+    }
+
+    if (espacioId) {
+      query = query.eq('espacio_id', espacioId)
     }
 
     if (estado) {
@@ -124,9 +129,10 @@ export async function createTurno(turnoData) {
       es_indeterminado: turnoData.es_indeterminado || false
     }
 
-    // Agregar modalidad solo si se proporciona (columna opcional)
+    // Agregar campos opcionales solo si se proporcionan
     if (turnoData.modalidad) turnoInsert.modalidad = turnoData.modalidad
     if (turnoData.link_videollamada) turnoInsert.link_videollamada = turnoData.link_videollamada
+    if (turnoData.espacio_id) turnoInsert.espacio_id = turnoData.espacio_id
 
     const { data: turno, error: turnoError } = await supabase
       .from('agenda_turnos')

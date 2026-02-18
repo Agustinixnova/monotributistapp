@@ -24,11 +24,19 @@ export async function getDisponibilidad(profesionalId = null) {
   const { userId } = await getEffectiveUserId()
   const targetId = profesionalId || userId
 
+  console.log('[disponibilidadService] Obteniendo disponibilidad para:', targetId)
+
   const { data, error } = await supabase
     .from('agenda_disponibilidad')
     .select('*')
     .eq('profesional_id', targetId)
     .order('dia_semana', { ascending: true })
+
+  if (error) {
+    console.error('[disponibilidadService] Error obteniendo disponibilidad:', error)
+  } else {
+    console.log('[disponibilidadService] Disponibilidad obtenida:', data)
+  }
 
   return { data, error }
 }
@@ -40,11 +48,19 @@ export async function guardarDisponibilidad(disponibilidad, profesionalId = null
   const { userId } = await getEffectiveUserId()
   const targetId = profesionalId || userId
 
+  console.log('[disponibilidadService] Guardando disponibilidad para:', targetId)
+  console.log('[disponibilidadService] Datos a guardar:', disponibilidad)
+
   // Eliminar disponibilidad existente
-  await supabase
+  const { error: deleteError } = await supabase
     .from('agenda_disponibilidad')
     .delete()
     .eq('profesional_id', targetId)
+
+  if (deleteError) {
+    console.error('[disponibilidadService] Error eliminando disponibilidad:', deleteError)
+    return { data: null, error: deleteError }
+  }
 
   // Insertar nueva disponibilidad
   const registros = disponibilidad
@@ -57,7 +73,10 @@ export async function guardarDisponibilidad(disponibilidad, profesionalId = null
       activo: true
     }))
 
+  console.log('[disponibilidadService] Registros a insertar:', registros)
+
   if (registros.length === 0) {
+    console.log('[disponibilidadService] No hay registros activos para insertar')
     return { data: [], error: null }
   }
 
@@ -65,6 +84,12 @@ export async function guardarDisponibilidad(disponibilidad, profesionalId = null
     .from('agenda_disponibilidad')
     .insert(registros)
     .select()
+
+  if (error) {
+    console.error('[disponibilidadService] Error insertando disponibilidad:', error)
+  } else {
+    console.log('[disponibilidadService] Disponibilidad guardada:', data)
+  }
 
   return { data, error }
 }

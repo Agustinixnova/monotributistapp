@@ -3,9 +3,9 @@
  * Fase 2: Vistas semana/mes, turno rápido, múltiples servicios
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock, MessageCircle, Car, Video, Filter } from 'lucide-react'
+import { Calendar, Scissors, Users, Plus, Loader2, CalendarDays, CalendarRange, LayoutGrid, Settings, BarChart3, DollarSign, Search, X, Link2, AlertCircle, Store, Clock, MessageCircle, Car, Video, Filter, DoorOpen, ChevronDown } from 'lucide-react'
 import { Layout } from '../../../components/layout'
 import { getFechaHoyArgentina, getPrimerDiaSemana } from '../utils/dateUtils'
 import { useTurnosDia, useTurnosSemana, useTurnosMes } from '../hooks/useTurnos'
@@ -14,6 +14,8 @@ import { useClientes } from '../hooks/useClientes'
 import CalendarioDia from '../components/calendario/CalendarioDia'
 import CalendarioSemana from '../components/calendario/CalendarioSemana'
 import CalendarioMes from '../components/calendario/CalendarioMes'
+import CalendarioEspacios from '../components/calendario/CalendarioEspacios'
+import ModalFiltros, { BotonFiltros } from '../components/calendario/ModalFiltros'
 import ModalTurno from '../components/turnos/ModalTurno'
 import ModalTurnoRapido from '../components/turnos/ModalTurnoRapido'
 import ModalDetalleTurno from '../components/turnos/ModalDetalleTurno'
@@ -25,12 +27,15 @@ import ConfigDisponibilidad from '../components/disponibilidad/ConfigDisponibili
 import ConfigNegocio from '../components/config/ConfigNegocio'
 import ConfigWhatsApp from '../components/config/ConfigWhatsApp'
 import SelectorProfesional from '../components/disponibilidad/SelectorProfesional'
+import SelectorEspacio from '../components/disponibilidad/SelectorEspacio'
 import EstadisticasAgenda from '../components/estadisticas/EstadisticasAgenda'
 import CobrosAgenda from '../components/cobros/CobrosAgenda'
 import HistorialCliente from '../components/clientes/HistorialCliente'
 import ListaReservaLinks from '../components/reservas/ListaReservaLinks'
 import ModalGenerarLink from '../components/reservas/ModalGenerarLink'
-import { useProfesionales } from '../hooks/useDisponibilidad'
+import ConfigEspacios from '../components/config/ConfigEspacios'
+import { useProfesionales, useDisponibilidad } from '../hooks/useDisponibilidad'
+import { useEspaciosActivos } from '../hooks/useEspacios'
 import { useNegocio } from '../hooks/useNegocio'
 import { formatearMonto } from '../utils/formatters'
 import { formatDuracion } from '../utils/dateUtils'
@@ -61,7 +66,7 @@ export default function AgendaTurnosPage() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState(getFechaHoyArgentina())
 
   // Modales
-  const [modalTurno, setModalTurno] = useState({ abierto: false, turno: null, fecha: null, hora: null })
+  const [modalTurno, setModalTurno] = useState({ abierto: false, turno: null, fecha: null, hora: null, espacioId: null })
   const [modalTurnoRapido, setModalTurnoRapido] = useState({ abierto: false, fecha: null, hora: null })
   const [modalDetalle, setModalDetalle] = useState({ abierto: false, turno: null })
   const [modalServicio, setModalServicio] = useState({ abierto: false, servicio: null })
@@ -73,6 +78,7 @@ export default function AgendaTurnosPage() {
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [configSubTab, setConfigSubTab] = useState('negocio') // 'negocio' | 'disponibilidad'
   const [filtroModalidad, setFiltroModalidad] = useState('todos') // 'todos' | 'local' | 'domicilio' | 'videollamada'
+  const [bottomSheetFiltros, setBottomSheetFiltros] = useState(false)
 
   // Efecto para abrir turno desde URL (ej: ?turno=uuid)
   useEffect(() => {
@@ -111,22 +117,82 @@ export default function AgendaTurnosPage() {
     tieneMuchos: tieneMuchosProfesionales
   } = useProfesionales()
 
-  // Hook de negocio para obtener modalidades de trabajo configuradas
+  // Hook de negocio para obtener modalidades de trabajo y modo configurado
   const {
     tieneLocal,
     tieneDomicilio,
     tieneVideollamada,
     modalidades: modalidadesConfiguradas,
+    modoAgenda,
+    esModoPersonal,
+    esModoEquipo,
+    esModoEspacios,
     recargar: recargarNegocio
   } = useNegocio()
 
+  // Hook de espacios (solo se usa en modo espacios)
+  const {
+    espacios,
+    espacioActivo,
+    setEspacioActivo,
+    tieneMuchos: tieneMuchosEspacios
+  } = useEspaciosActivos()
+
+  // Hook de disponibilidad horaria (para obtener horarios configurados)
+  const { disponibilidad } = useDisponibilidad()
+
+  // Calcular horarios del día seleccionado basado en la configuración
+  const horariosDelDia = useMemo(() => {
+    if (!disponibilidad || disponibilidad.length === 0) {
+      return { horaInicio: '08:00', horaFin: '21:00' }
+    }
+
+    // Obtener día de la semana de la fecha seleccionada (0=Dom, 1=Lun, etc)
+    const date = new Date(fechaSeleccionada + 'T12:00:00')
+    const diaSemana = date.getDay()
+
+    // Buscar configuración para este día
+    const configDia = disponibilidad.find(d => d.dia_semana === diaSemana && d.activo)
+
+    if (configDia) {
+      // Normalizar formato de hora (de '08:00:00' a '08:00')
+      const horaInicio = configDia.hora_inicio?.substring(0, 5) || '08:00'
+      const horaFin = configDia.hora_fin?.substring(0, 5) || '21:00'
+      return { horaInicio, horaFin }
+    }
+
+    // Si el día no está activo, usar valores por defecto
+    return { horaInicio: '08:00', horaFin: '21:00' }
+  }, [disponibilidad, fechaSeleccionada])
+
   // Solo mostrar filtro si tiene más de una modalidad configurada
   const mostrarFiltroModalidad = (modalidadesConfiguradas?.length || 0) > 1
+
+  // Contar filtros activos para el badge
+  const filtrosActivos = useMemo(() => {
+    let count = 0
+    if (filtroModalidad !== 'todos') count++
+    if (profesionalActivo && profesionalActivo !== 'todos') count++
+    if (espacioActivo && espacioActivo !== 'todos') count++
+    return count
+  }, [filtroModalidad, profesionalActivo, espacioActivo])
+
+  // Determinar si mostrar selector de recursos (profesional o espacio)
+  const mostrarSelectorProfesional = esModoEquipo && tieneMuchosProfesionales
+  const mostrarSelectorEspacio = esModoEspacios && tieneMuchosEspacios
 
   // Opciones de filtro por profesional
   const filtrosProfesional = profesionalActivo && profesionalActivo !== 'todos'
     ? { profesionalId: profesionalActivo }
     : {}
+
+  // Opciones de filtro por espacio (modo espacios)
+  const filtrosEspacio = esModoEspacios && espacioActivo && espacioActivo !== 'todos'
+    ? { espacioId: espacioActivo }
+    : {}
+
+  // Combinar filtros
+  const filtrosCombinados = { ...filtrosProfesional, ...filtrosEspacio }
 
   // Hooks de datos - día
   const {
@@ -136,7 +202,7 @@ export default function AgendaTurnosPage() {
     actualizar: actualizarTurno,
     cambiarEstado,
     recargar: recargarTurnosDia
-  } = useTurnosDia(fechaSeleccionada, filtrosProfesional)
+  } = useTurnosDia(fechaSeleccionada, filtrosCombinados)
 
   // Hooks de datos - semana
   const inicioSemana = getPrimerDiaSemana(fechaSeleccionada)
@@ -146,14 +212,14 @@ export default function AgendaTurnosPage() {
     diasSemana,
     loading: loadingTurnosSemana,
     recargar: recargarTurnosSemana
-  } = useTurnosSemana(inicioSemana, filtrosProfesional)
+  } = useTurnosSemana(inicioSemana, filtrosCombinados)
 
   // Hooks de datos - mes (solo carga cuando está en vista mes)
   const {
     turnos: turnosMes,
     loading: loadingTurnosMes,
     recargar: recargarTurnosMes
-  } = useTurnosMes(vistaCalendario === 'mes' ? fechaSeleccionada : null, filtrosProfesional)
+  } = useTurnosMes(vistaCalendario === 'mes' ? fechaSeleccionada : null, filtrosCombinados)
 
   const {
     servicios,
@@ -204,7 +270,7 @@ export default function AgendaTurnosPage() {
   }, [recargarNegocio, recargarTurnosDia, recargarTurnosSemana, recargarTurnosMes])
 
   // Handlers de turnos
-  const handleNuevoTurno = (fecha, hora = null) => {
+  const handleNuevoTurno = (fecha, hora = null, espacioId = null) => {
     const fechaTurno = fecha || fechaSeleccionada
     const hoy = getFechaHoyArgentina()
 
@@ -234,7 +300,8 @@ export default function AgendaTurnosPage() {
       abierto: true,
       turno: null,
       fecha: fechaTurno,
-      hora
+      hora,
+      espacioId // Para modo espacios
     })
   }
 
@@ -465,110 +532,149 @@ export default function AgendaTurnosPage() {
               </div>
             </div>
 
-            {/* Subtabs de vistas de calendario */}
+            {/* Subtabs de vistas de calendario - MOBILE: compacto con filtros en bottom sheet */}
             {tabActiva === 'calendario' && (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 -mt-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Vistas de calendario */}
-                  {Object.values(VISTAS_CALENDARIO).map(vista => (
-                    <button
-                      key={vista.id}
-                      onClick={() => setVistaCalendario(vista.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        vistaCalendario === vista.id
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                      }`}
+              <div className="flex items-center justify-between gap-2 pb-3 -mt-1">
+                {/* Izquierda: Selector de vista + Filtros */}
+                <div className="flex items-center gap-2">
+                  {/* Vista: Dropdown en mobile, botones en desktop */}
+                  <div className="relative sm:hidden">
+                    <select
+                      value={vistaCalendario}
+                      onChange={(e) => setVistaCalendario(e.target.value)}
+                      className="appearance-none bg-blue-100 text-blue-700 font-medium text-sm pl-3 pr-8 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
                     >
-                      <vista.icon className="w-3.5 h-3.5" />
-                      {vista.label}
-                    </button>
-                  ))}
+                      {Object.values(VISTAS_CALENDARIO).map(vista => (
+                        <option key={vista.id} value={vista.id}>{vista.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600 pointer-events-none" />
+                  </div>
 
-                  {/* Separador visual */}
-                  {mostrarFiltroModalidad && (
-                    <div className="h-5 w-px bg-gray-300 mx-1" />
-                  )}
-
-                  {/* Filtro por modalidad - solo si tiene más de una modalidad */}
-                  {mostrarFiltroModalidad && (
-                    <>
+                  {/* Vistas de calendario - Desktop */}
+                  <div className="hidden sm:flex items-center gap-1">
+                    {Object.values(VISTAS_CALENDARIO).map(vista => (
                       <button
-                        onClick={() => setFiltroModalidad('todos')}
+                        key={vista.id}
+                        onClick={() => setVistaCalendario(vista.id)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          filtroModalidad === 'todos'
-                            ? 'bg-gray-200 text-gray-800'
+                          vistaCalendario === vista.id
+                            ? 'bg-blue-100 text-blue-700'
                             : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                         }`}
                       >
-                        <Filter className="w-3.5 h-3.5" />
-                        Todos
+                        <vista.icon className="w-3.5 h-3.5" />
+                        {vista.label}
                       </button>
+                    ))}
+                  </div>
 
-                      {tieneLocal && (
-                        <button
-                          onClick={() => setFiltroModalidad('local')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                            filtroModalidad === 'local'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Store className="w-3.5 h-3.5" />
-                          Local
-                        </button>
-                      )}
+                  {/* Botón filtros - Mobile: siempre visible, Desktop: solo si hay filtros */}
+                  {(mostrarFiltroModalidad || mostrarSelectorProfesional || (mostrarSelectorEspacio && vistaCalendario !== 'dia')) && (
+                    <>
+                      {/* Mobile: botón que abre bottom sheet */}
+                      <div className="sm:hidden">
+                        <BotonFiltros
+                          onClick={() => setBottomSheetFiltros(true)}
+                          filtrosActivos={filtrosActivos}
+                        />
+                      </div>
 
-                      {tieneDomicilio && (
-                        <button
-                          onClick={() => setFiltroModalidad('domicilio')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                            filtroModalidad === 'domicilio'
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Car className="w-3.5 h-3.5" />
-                          Domicilio
-                        </button>
-                      )}
+                      {/* Desktop: filtros inline */}
+                      <div className="hidden sm:flex items-center gap-2">
+                        {mostrarFiltroModalidad && (
+                          <>
+                            <div className="h-5 w-px bg-gray-300 mx-1" />
+                            <button
+                              onClick={() => setFiltroModalidad('todos')}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                filtroModalidad === 'todos'
+                                  ? 'bg-gray-200 text-gray-800'
+                                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <Filter className="w-3.5 h-3.5" />
+                              Todos
+                            </button>
 
-                      {tieneVideollamada && (
-                        <button
-                          onClick={() => setFiltroModalidad('videollamada')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                            filtroModalidad === 'videollamada'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <Video className="w-3.5 h-3.5" />
-                          Video
-                        </button>
-                      )}
+                            {tieneLocal && (
+                              <button
+                                onClick={() => setFiltroModalidad('local')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  filtroModalidad === 'local'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <Store className="w-3.5 h-3.5" />
+                                Local
+                              </button>
+                            )}
+
+                            {tieneDomicilio && (
+                              <button
+                                onClick={() => setFiltroModalidad('domicilio')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  filtroModalidad === 'domicilio'
+                                    ? 'bg-orange-100 text-orange-700'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <Car className="w-3.5 h-3.5" />
+                                Domicilio
+                              </button>
+                            )}
+
+                            {tieneVideollamada && (
+                              <button
+                                onClick={() => setFiltroModalidad('videollamada')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                  filtroModalidad === 'videollamada'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                Video
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Selector de profesional (modo equipo) - Desktop */}
+                        {mostrarSelectorProfesional && (
+                          <SelectorProfesional
+                            profesionales={profesionales}
+                            profesionalActivo={profesionalActivo}
+                            onChange={setProfesionalActivo}
+                          />
+                        )}
+
+                        {/* Selector de espacio (modo espacios) - solo en vista semana/mes */}
+                        {esModoEspacios && espacios.length > 0 && vistaCalendario !== 'dia' && (
+                          <SelectorEspacio
+                            espacios={espacios}
+                            espacioActivo={espacioActivo}
+                            onChange={setEspacioActivo}
+                          />
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
 
+                {/* Derecha: Botón confirmar pendientes */}
                 <div className="flex items-center gap-2">
-                  {/* Botón confirmar pendientes */}
                   {turnosPendientes.length > 0 && (
                     <button
                       onClick={() => setModalConfirmarPendientes(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-xs font-medium transition-colors"
+                      className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-xs font-medium transition-colors"
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
-                      Confirmar pendientes ({turnosPendientes.length})
+                      <span className="hidden sm:inline">Confirmar pendientes</span>
+                      <span className="sm:hidden">{turnosPendientes.length}</span>
+                      <span className="hidden sm:inline">({turnosPendientes.length})</span>
                     </button>
-                  )}
-
-                  {/* Selector de profesional */}
-                  {tieneMuchosProfesionales && (
-                    <SelectorProfesional
-                      profesionales={profesionales}
-                      profesionalActivo={profesionalActivo}
-                      onChange={setProfesionalActivo}
-                    />
                   )}
                 </div>
               </div>
@@ -581,7 +687,24 @@ export default function AgendaTurnosPage() {
           {/* Tab Calendario */}
           {tabActiva === 'calendario' && (
             <>
-              {vistaCalendario === 'dia' && (
+              {/* Vista especial para modo espacios */}
+              {esModoEspacios && vistaCalendario === 'dia' && (
+                <CalendarioEspacios
+                  fecha={fechaSeleccionada}
+                  onFechaChange={handleFechaChange}
+                  espacios={espacios}
+                  turnos={turnosDiaFiltrados}
+                  loading={loadingTurnosDia}
+                  onTurnoClick={handleVerTurno}
+                  onNuevoTurno={handleNuevoTurno}
+                  onTurnoRapido={handleTurnoRapido}
+                  horaInicio={horariosDelDia.horaInicio}
+                  horaFin={horariosDelDia.horaFin}
+                />
+              )}
+
+              {/* Vista día normal (modo personal/equipo) */}
+              {!esModoEspacios && vistaCalendario === 'dia' && (
                 <CalendarioDia
                   fecha={fechaSeleccionada}
                   onFechaChange={handleFechaChange}
@@ -935,6 +1058,22 @@ export default function AgendaTurnosPage() {
                   <Store className="w-4 h-4" />
                   Mi Negocio
                 </button>
+
+                {/* Tab Espacios - solo en modo espacios */}
+                {esModoEspacios && (
+                  <button
+                    onClick={() => setConfigSubTab('espacios')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                      configSubTab === 'espacios'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <DoorOpen className="w-4 h-4" />
+                    Espacios
+                  </button>
+                )}
+
                 <button
                   onClick={() => setConfigSubTab('disponibilidad')}
                   className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
@@ -964,11 +1103,16 @@ export default function AgendaTurnosPage() {
                 <ConfigNegocio onGuardar={handleConfigGuardada} />
               )}
 
+              {/* Contenido de Espacios (solo modo espacios) */}
+              {configSubTab === 'espacios' && esModoEspacios && (
+                <ConfigEspacios />
+              )}
+
               {/* Contenido de Disponibilidad Horaria */}
               {configSubTab === 'disponibilidad' && (
                 <div className="space-y-4">
-                  {/* Selector de profesional si hay varios */}
-                  {tieneMuchosProfesionales && (
+                  {/* Selector de profesional si hay varios (solo modo equipo, no espacios) */}
+                  {mostrarSelectorProfesional && !esModoEspacios && (
                     <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
                       <span className="text-sm text-blue-700">Configurar horario de:</span>
                       <SelectorProfesional
@@ -980,9 +1124,18 @@ export default function AgendaTurnosPage() {
                     </div>
                   )}
 
+                  {/* En modo espacios, mostrar mensaje de que es horario del local */}
+                  {esModoEspacios && (
+                    <div className="p-3 bg-indigo-50 rounded-xl">
+                      <p className="text-sm text-indigo-700">
+                        Horario de operación del local (aplica a todos los espacios)
+                      </p>
+                    </div>
+                  )}
+
                   <ConfigDisponibilidad
-                    profesionalId={profesionalActivo}
-                    profesionalNombre={profesionales.find(p => p.id === profesionalActivo)?.nombre}
+                    profesionalId={esModoEspacios ? null : profesionalActivo}
+                    profesionalNombre={esModoEspacios ? 'Horario del local' : profesionales.find(p => p.id === profesionalActivo)?.nombre}
                   />
                 </div>
               )}
@@ -998,11 +1151,13 @@ export default function AgendaTurnosPage() {
         {/* Modales */}
         <ModalTurno
           isOpen={modalTurno.abierto}
-          onClose={() => setModalTurno({ abierto: false, turno: null, fecha: null, hora: null })}
+          onClose={() => setModalTurno({ abierto: false, turno: null, fecha: null, hora: null, espacioId: null })}
           onGuardar={handleGuardarTurno}
           turno={modalTurno.turno}
           fechaInicial={modalTurno.fecha}
           horaInicial={modalTurno.hora}
+          espacioIdInicial={modalTurno.espacioId}
+          espacios={esModoEspacios ? espacios : []}
           servicios={servicios}
           clientes={clientes}
           onNuevoCliente={() => setModalCliente({ abierto: true, cliente: null })}
@@ -1075,6 +1230,29 @@ export default function AgendaTurnosPage() {
             setModalConfirmarPendientes(false)
             setModalDetalle({ abierto: true, turno })
           }}
+        />
+
+        {/* Modal de Filtros - Mobile */}
+        <ModalFiltros
+          isOpen={bottomSheetFiltros}
+          onClose={() => setBottomSheetFiltros(false)}
+          // Filtro modalidad
+          filtroModalidad={filtroModalidad}
+          onFiltroModalidadChange={setFiltroModalidad}
+          tieneLocal={tieneLocal}
+          tieneDomicilio={tieneDomicilio}
+          tieneVideollamada={tieneVideollamada}
+          mostrarFiltroModalidad={mostrarFiltroModalidad}
+          // Selector profesional
+          mostrarSelectorProfesional={mostrarSelectorProfesional}
+          profesionales={profesionales}
+          profesionalActivo={profesionalActivo}
+          onProfesionalChange={setProfesionalActivo}
+          // Selector espacio (solo si no está en vista día)
+          mostrarSelectorEspacio={mostrarSelectorEspacio && vistaCalendario !== 'dia'}
+          espacios={espacios}
+          espacioActivo={espacioActivo}
+          onEspacioChange={setEspacioActivo}
         />
       </div>
     </Layout>

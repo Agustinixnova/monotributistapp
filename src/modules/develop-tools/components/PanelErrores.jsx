@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 // Usar supabaseRaw para evitar que errores de este panel se logueen a sí mismos
 import { supabaseRaw as supabase } from '../../../lib/supabase'
+import { formatearFechaArg } from '../utils/dateUtils'
 
 // Colores por severidad (dark mode)
 const SEVERIDAD_CONFIG = {
@@ -319,7 +320,7 @@ export default function PanelErrores() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock size={12} />
-                          {new Date(error.ultima_vez).toLocaleString('es-AR')}
+                          {formatearFechaArg(error.ultima_vez)}
                         </span>
                         {error.usuario_email && (
                           <span className="flex items-center gap-1">
@@ -440,7 +441,7 @@ function DetalleError({ error, onClose, onCambiarEstado }) {
                 {error.mensaje}
               </h3>
               <p className="text-sm text-gray-400 mt-1">
-                {error.tipo} • {new Date(error.ultima_vez).toLocaleString('es-AR')}
+                {error.tipo} • {formatearFechaArg(error.ultima_vez)}
                 {error.ocurrencias > 1 && ` • ${error.ocurrencias} ocurrencias`}
               </p>
             </div>
@@ -590,8 +591,8 @@ function DetalleError({ error, onClose, onCambiarEstado }) {
 **Navegador:** ${error.navegador}
 **Viewport:** ${error.viewport}
 **Ocurrencias:** ${error.ocurrencias}
-**Primera vez:** ${new Date(error.primera_vez).toLocaleString('es-AR')}
-**Última vez:** ${new Date(error.ultima_vez).toLocaleString('es-AR')}
+**Primera vez:** ${formatearFechaArg(error.primera_vez)}
+**Última vez:** ${formatearFechaArg(error.ultima_vez)}
 ${error.accion_previa ? `**Acción previa:** ${error.accion_previa}` : ''}
 ${error.supabase_code ? `**Código Supabase:** ${error.supabase_code}` : ''}
 

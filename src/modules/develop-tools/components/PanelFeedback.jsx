@@ -22,6 +22,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { supabaseRaw as supabase } from '../../../lib/supabase'
+import { formatearFechaArg } from '../utils/dateUtils'
 
 // Config por tipo
 const TIPO_CONFIG = {
@@ -230,7 +231,7 @@ export default function PanelFeedback() {
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
                         <span className="flex items-center gap-1">
                           <Clock size={12} />
-                          {new Date(feedback.created_at).toLocaleString('es-AR')}
+                          {formatearFechaArg(feedback.created_at)}
                         </span>
                         {feedback.usuario_email && (
                           <span className="flex items-center gap-1">
@@ -319,7 +320,7 @@ function DetalleFeedback({ feedback, onClose, onCambiarEstado, onActualizar }) {
                 {tipoConfig.label} de {feedback.usuario_email || 'Usuario anónimo'}
               </h3>
               <p className="text-sm text-gray-400 mt-1">
-                {new Date(feedback.created_at).toLocaleString('es-AR')}
+                {formatearFechaArg(feedback.created_at)}
               </p>
             </div>
           </div>
@@ -360,7 +361,7 @@ function DetalleFeedback({ feedback, onClose, onCambiarEstado, onActualizar }) {
               </div>
               <p className="text-green-300">{feedback.respuesta}</p>
               <p className="text-green-400/60 text-xs mt-2">
-                {feedback.respondido_at && new Date(feedback.respondido_at).toLocaleString('es-AR')}
+                {feedback.respondido_at && formatearFechaArg(feedback.respondido_at)}
               </p>
             </div>
           )}

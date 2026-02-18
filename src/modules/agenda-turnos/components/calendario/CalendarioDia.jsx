@@ -139,8 +139,8 @@ export default function CalendarioDia({
         </div>
       </div>
 
-      {/* ========== VISTA MOBILE: Lista de turnos ========== */}
-      <div className="md:hidden">
+      {/* ========== VISTA LISTA (Mobile y Desktop) ========== */}
+      <div>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
@@ -168,15 +168,19 @@ export default function CalendarioDia({
               const duracion = diferenciaMinutos(turno.hora_inicio, turno.hora_fin)
               const esCancelado = turno.estado === 'cancelado' || turno.estado === 'no_asistio'
 
+              // Calcular total del turno
+              const totalTurno = turno.servicios?.reduce((sum, s) => sum + (s.precio || 0), 0) || 0
+
               return (
                 <div
                   key={turno.id}
                   onClick={() => onTurnoClick?.(turno)}
-                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                  className={`p-4 md:p-5 hover:bg-gray-50 cursor-pointer transition-colors ${
                     esCancelado ? 'opacity-60' : ''
                   }`}
                 >
-                  <div className="flex gap-3">
+                  {/* Layout mobile: vertical */}
+                  <div className="md:hidden flex gap-3">
                     {/* Barra de color */}
                     <div
                       className="w-1 rounded-full flex-shrink-0"
@@ -196,7 +200,6 @@ export default function CalendarioDia({
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          {/* Indicador de modalidad */}
                           {turno.modalidad && (
                             <span
                               className={`flex items-center justify-center w-7 h-7 rounded-full ${
@@ -254,76 +257,99 @@ export default function CalendarioDia({
                       )}
                     </div>
                   </div>
+
+                  {/* Layout desktop: horizontal con más info */}
+                  <div className="hidden md:flex items-center gap-4">
+                    {/* Hora grande */}
+                    <div className="w-28 flex-shrink-0 text-center">
+                      <div className="text-lg font-bold text-gray-900">
+                        {formatearHora(turno.hora_inicio)}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {formatearHora(turno.hora_fin)} · {formatDuracion(duracion)}
+                      </div>
+                    </div>
+
+                    {/* Barra de color vertical */}
+                    <div
+                      className="w-1.5 h-16 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: colorServicio }}
+                    />
+
+                    {/* Info del cliente */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0"
+                          style={{ backgroundColor: colorServicio }}
+                        >
+                          {turno.cliente?.nombre?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 truncate text-base">{clienteNombre}</p>
+                          {turno.cliente?.whatsapp && (
+                            <p className="text-sm text-gray-500">{turno.cliente.whatsapp}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Servicios en desktop */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {turno.servicios?.map((s, i) => (
+                          <span
+                            key={i}
+                            className="text-xs px-2.5 py-1 rounded-full font-medium"
+                            style={{
+                              backgroundColor: `${s.servicio?.color || colorServicio}15`,
+                              color: s.servicio?.color || colorServicio
+                            }}
+                          >
+                            {s.servicio?.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Modalidad */}
+                    <div className="flex-shrink-0">
+                      {turno.modalidad && (
+                        <span
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                            turno.modalidad === 'local' ? 'bg-blue-50 text-blue-700' :
+                            turno.modalidad === 'domicilio' ? 'bg-orange-50 text-orange-700' :
+                            'bg-purple-50 text-purple-700'
+                          }`}
+                        >
+                          {turno.modalidad === 'local' && <Store className="w-4 h-4" />}
+                          {turno.modalidad === 'domicilio' && <Car className="w-4 h-4" />}
+                          {turno.modalidad === 'videollamada' && <Video className="w-4 h-4" />}
+                          <span className="hidden lg:inline">
+                            {turno.modalidad === 'local' ? 'En local' :
+                             turno.modalidad === 'domicilio' ? 'A domicilio' : 'Videollamada'}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Precio */}
+                    {totalTurno > 0 && (
+                      <div className="w-24 flex-shrink-0 text-right">
+                        <div className="text-lg font-bold text-gray-900">
+                          ${totalTurno.toLocaleString('es-AR')}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Estado */}
+                    <div className="w-28 flex-shrink-0 text-right">
+                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-medium ${estadoConfig.bgClass} ${estadoConfig.textClass}`}>
+                        {estadoConfig.label}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )
             })}
-          </div>
-        )}
-      </div>
-
-      {/* ========== VISTA DESKTOP: Grid de horas ========== */}
-      <div className="hidden md:block relative">
-        {loading && (
-          <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          </div>
-        )}
-
-        {/* Grid de horas */}
-        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
-          {slots.map((hora, index) => (
-            <div
-              key={hora}
-              className={`flex border-b border-gray-100`}
-              style={{ minHeight: '80px' }}
-            >
-              {/* Columna de hora */}
-              <div className="w-16 flex-shrink-0 pr-2 pt-1 text-right">
-                <span className="text-xs text-gray-400 font-medium">{hora}</span>
-              </div>
-
-              {/* Área de turnos */}
-              <div
-                className="flex-1 relative border-l border-gray-100 hover:bg-gray-50/50 transition-colors cursor-pointer"
-                onClick={() => onNuevoTurno?.(fecha, hora)}
-              >
-                {/* Turnos que empiezan en esta hora */}
-                {turnosPorHora[hora]?.map((turno, i) => (
-                  <div
-                    key={turno.id}
-                    className="absolute left-1 right-1 z-10"
-                    style={{
-                      ...calcularEstiloTurno(turno),
-                      top: '4px',
-                      marginLeft: i > 0 ? `${i * 8}px` : '0',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <TurnoCard
-                      turno={turno}
-                      onClick={() => onTurnoClick?.(turno)}
-                      onCambiarEstado={onCambiarEstado}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Sin turnos */}
-        {!loading && turnosActivos.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center">
-              <Calendar className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-400">No hay turnos para este día</p>
-              <button
-                onClick={() => onNuevoTurno?.(fecha)}
-                className="mt-3 text-blue-600 hover:text-blue-700 font-medium pointer-events-auto"
-              >
-                + Agregar turno
-              </button>
-            </div>
           </div>
         )}
       </div>

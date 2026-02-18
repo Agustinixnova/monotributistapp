@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { supabaseRaw as supabase } from '../../../lib/supabase'
 import { APIS_CONOCIDAS } from '../services/apiLogService'
+import { formatearFechaArg } from '../utils/dateUtils'
 
 // Colores por estado
 const STATUS_CONFIG = {
@@ -110,7 +111,7 @@ export default function PanelApiLogs() {
 ${errores.map((e, i) => `
 ### Error ${i + 1}: ${e.api.toUpperCase()} - ${e.endpoint}
 
-- **Fecha:** ${new Date(e.created_at).toLocaleString('es-AR')}
+- **Fecha:** ${formatearFechaArg(e.created_at)}
 - **Método:** ${e.metodo}
 - **Status:** ${e.status_code || 'N/A'}
 - **Error:** ${e.error_mensaje || 'Sin mensaje'}
@@ -270,7 +271,7 @@ ${JSON.stringify(e.contexto, null, 2) || 'null'}
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
                         <span className="flex items-center gap-1">
                           <Clock size={12} />
-                          {new Date(log.created_at).toLocaleString('es-AR')}
+                          {formatearFechaArg(log.created_at)}
                         </span>
                         {log.duracion_ms && (
                           <span className="flex items-center gap-1">
@@ -334,7 +335,7 @@ function DetalleApiLog({ log, onClose }) {
 
 **API:** ${apiConfig.nombre} (${log.api})
 **Endpoint:** ${log.metodo} ${log.endpoint}
-**Fecha:** ${new Date(log.created_at).toLocaleString('es-AR')}
+**Fecha:** ${formatearFechaArg(log.created_at)}
 **Estado:** ${log.exitoso ? 'Exitoso' : 'Error'}
 **Status Code:** ${log.status_code || 'N/A'}
 **Duración:** ${log.duracion_ms || 'N/A'}ms
@@ -392,7 +393,7 @@ ${JSON.stringify(log.contexto, null, 2) || 'null'}
                 </h3>
               </div>
               <p className="text-sm text-gray-400 mt-1">
-                {new Date(log.created_at).toLocaleString('es-AR')}
+                {formatearFechaArg(log.created_at)}
                 {log.duracion_ms && ` • ${log.duracion_ms}ms`}
                 {log.usuario_email && ` • ${log.usuario_email}`}
               </p>

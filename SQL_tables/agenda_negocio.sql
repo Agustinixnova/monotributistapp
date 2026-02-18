@@ -130,3 +130,7 @@ ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_recordatori
 ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_en_camino TEXT;
 ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_sena TEXT;
 ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS plantilla_pago TEXT;
+ALTER TABLE public.agenda_negocio ADD COLUMN IF NOT EXISTS modo_agenda VARCHAR(20) DEFAULT 'personal';
+
+-- Comentario para modo_agenda
+COMMENT ON COLUMN public.agenda_negocio.modo_agenda IS 'Modo de operación: personal (solo yo), equipo (múltiples profesionales), espacios (múltiples espacios/salones)';

@@ -46,7 +46,15 @@ export function useDisponibilidad(profesionalId = null) {
       // Merge con días base
       const merged = DIAS_SEMANA.map(dia => {
         const encontrado = data.find(d => d.dia_semana === dia.id)
-        return encontrado || {
+        if (encontrado) {
+          // Normalizar formato de hora (de '08:00:00' a '08:00')
+          return {
+            ...encontrado,
+            hora_inicio: encontrado.hora_inicio?.substring(0, 5) || '09:00',
+            hora_fin: encontrado.hora_fin?.substring(0, 5) || '18:00'
+          }
+        }
+        return {
           dia_semana: dia.id,
           hora_inicio: '09:00',
           hora_fin: '18:00',

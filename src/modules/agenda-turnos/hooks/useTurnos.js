@@ -43,7 +43,7 @@ export function useTurnosDia(fecha = null, options = {}) {
     }
 
     setLoading(false)
-  }, [fechaActual, options.profesionalId, options.estado])
+  }, [fechaActual, options.profesionalId, options.espacioId, options.estado])
 
   useEffect(() => {
     fetchTurnos()
@@ -243,7 +243,7 @@ export function useTurnosSemana(fechaBase = null, options = {}) {
     }
 
     setLoading(false)
-  }, [fechaActual, options.profesionalId, options.estado])
+  }, [fechaActual, options.profesionalId, options.espacioId, options.estado])
 
   useEffect(() => {
     fetchTurnos()
@@ -295,7 +295,7 @@ export function useTurnosMes(fechaBase = null, options = {}) {
     }
 
     setLoading(false)
-  }, [fechaActual, options.profesionalId, options.estado])
+  }, [fechaActual, options.profesionalId, options.espacioId, options.estado])
 
   useEffect(() => {
     fetchTurnos()

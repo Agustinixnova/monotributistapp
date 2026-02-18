@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle, Car, Store, Video, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Calendar, Clock, User, Scissors, Search, Plus, Loader2, Check, Repeat, DollarSign, AlertCircle, CreditCard, Banknote, Smartphone, QrCode, Wallet, XCircle, Car, Store, Video, MapPin, ExternalLink, ChevronDown, ChevronUp, DoorOpen } from 'lucide-react'
 import { formatearMonto, formatearHora } from '../../utils/formatters'
 import { useNegocio } from '../../hooks/useNegocio'
 import { formatDuracion, sumarMinutosAHora, getFechaHoyArgentina, getHoraActualArgentina, formatFechaLarga, generarSlotsTiempo } from '../../utils/dateUtils'
@@ -63,6 +63,8 @@ export default function ModalTurno({
   turno = null, // null = crear nuevo
   fechaInicial = null,
   horaInicial = null,
+  espacioIdInicial = null, // Para modo espacios
+  espacios = [], // Lista de espacios disponibles (modo espacios)
   servicios: serviciosProp = null,
   clientes: clientesProp = null,
   onNuevoCliente = null,
@@ -107,7 +109,8 @@ export default function ModalTurno({
     notas: '',
     estado: 'pendiente',
     modalidad: 'local',
-    link_videollamada: ''
+    link_videollamada: '',
+    espacio_id: null // Para modo espacios
   })
 
   // Estado de seña
@@ -165,7 +168,8 @@ export default function ModalTurno({
           notas: turno.notas || '',
           estado: turno.estado || 'pendiente',
           modalidad: turno.modalidad || modalidadDefault,
-          link_videollamada: turno.link_videollamada || ''
+          link_videollamada: turno.link_videollamada || '',
+          espacio_id: turno.espacio_id || null
         })
         // Reset seña al editar
         setSena({ pedir: false, cobrada: false, monto: 0, metodo_pago: null })
@@ -180,7 +184,8 @@ export default function ModalTurno({
           notas: '',
           estado: 'pendiente',
           modalidad: modalidadDefault,
-          link_videollamada: ''
+          link_videollamada: '',
+          espacio_id: espacioIdInicial || (espacios.length > 0 ? espacios[0].id : null)
         })
         setSena({ pedir: false, cobrada: false, monto: 0, metodo_pago: null })
         setEsRecurrente(false)
@@ -203,7 +208,7 @@ export default function ModalTurno({
       })
       setAlertaFaltaDireccion({ mostrar: false, datosParaGuardar: null })
     }
-  }, [isOpen, turno, fechaInicial, horaInicial, modalidadDefault])
+  }, [isOpen, turno, fechaInicial, horaInicial, modalidadDefault, espacioIdInicial, espacios])
 
   // Buscar clientes cuando cambia el texto
   useEffect(() => {
@@ -570,6 +575,8 @@ export default function ModalTurno({
       // Modalidad de atención
       modalidad: form.modalidad,
       link_videollamada: form.modalidad === 'videollamada' ? form.link_videollamada : null,
+      // Espacio/Salón (modo espacios)
+      espacio_id: form.espacio_id || null,
       // Si hay seña disponible de turno cancelado y el usuario quiere usarla
       transferirSenaDe: (senaDisponible && usarSenaExistente) ? senaDisponible.turnoId : null
     }
@@ -1032,6 +1039,40 @@ export default function ModalTurno({
                   </div>
                 )}
               </div>
+
+              {/* Selector de espacio (solo si hay espacios configurados) */}
+              {espacios && espacios.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <DoorOpen className="w-4 h-4 inline mr-1" />
+                    Espacio / Salón
+                  </label>
+                  <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+                    {espacios.filter(e => e.activo).map(espacio => (
+                      <button
+                        key={espacio.id}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, espacio_id: espacio.id }))}
+                        className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                          form.espacio_id === espacio.id
+                            ? 'border-indigo-500 bg-indigo-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div
+                          className="w-4 h-4 rounded-full shrink-0"
+                          style={{ backgroundColor: espacio.color || '#6366F1' }}
+                        />
+                        <span className={`text-sm font-medium truncate ${
+                          form.espacio_id === espacio.id ? 'text-indigo-700' : 'text-gray-600'
+                        }`}>
+                          {espacio.nombre}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Modalidad de atención (solo si hay múltiples modalidades configuradas) */}
               {requiereSeleccionModalidad && modalidades && modalidades.length > 1 && (

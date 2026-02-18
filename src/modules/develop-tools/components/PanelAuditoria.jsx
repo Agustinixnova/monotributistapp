@@ -23,6 +23,7 @@ import {
   Download
 } from 'lucide-react'
 import { supabaseRaw as supabase } from '../../../lib/supabase'
+import { formatearFechaArg } from '../utils/dateUtils'
 
 // Colores por acción
 const ACCION_CONFIG = {
@@ -126,7 +127,7 @@ export default function PanelAuditoria() {
   const exportarCSV = () => {
     const headers = ['Fecha', 'Usuario', 'Acción', 'Tabla', 'Registro ID', 'Descripción']
     const rows = logs.map(log => [
-      new Date(log.created_at).toLocaleString('es-AR'),
+      formatearFechaArg(log.created_at),
       log.usuario_email || 'Sistema',
       log.accion,
       log.tabla,
@@ -294,7 +295,7 @@ export default function PanelAuditoria() {
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
                         <span className="flex items-center gap-1">
                           <Clock size={12} />
-                          {new Date(log.created_at).toLocaleString('es-AR')}
+                          {formatearFechaArg(log.created_at)}
                         </span>
                         {log.usuario_email && (
                           <span className="flex items-center gap-1">
@@ -372,7 +373,7 @@ function DetalleAuditoria({ log, onClose }) {
 **Acción:** ${log.accion}
 **Tabla:** ${log.tabla}
 **Registro ID:** ${log.registro_id}
-**Fecha:** ${new Date(log.created_at).toLocaleString('es-AR')}
+**Fecha:** ${formatearFechaArg(log.created_at)}
 **Usuario:** ${log.usuario_email || 'Sistema'}
 **Descripción:** ${log.descripcion || 'N/A'}
 
@@ -413,7 +414,7 @@ ${JSON.stringify(log.datos_despues, null, 2) || 'null'}
                 {config.label} en {TABLA_NOMBRES[log.tabla] || log.tabla}
               </h3>
               <p className="text-sm text-gray-400 mt-1">
-                {new Date(log.created_at).toLocaleString('es-AR')}
+                {formatearFechaArg(log.created_at)}
                 {log.usuario_email && ` • ${log.usuario_email}`}
               </p>
             </div>
