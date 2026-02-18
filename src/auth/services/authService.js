@@ -12,6 +12,10 @@ export const authService = {
    * @returns {Promise<{data: object, error: object}>}
    */
   async signIn(email, password) {
+    // Limpiar datos de impersonación stale antes de iniciar sesión
+    localStorage.removeItem(IMPERSONATION_KEY)
+    localStorage.removeItem(ORIGINAL_SESSION_KEY)
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -34,6 +38,10 @@ export const authService = {
    */
   async signUpFree({ email, password, nombre, apellido, whatsapp, origen, origenDetalle }) {
     try {
+      // Limpiar datos de impersonación stale
+      localStorage.removeItem(IMPERSONATION_KEY)
+      localStorage.removeItem(ORIGINAL_SESSION_KEY)
+
       // Llamar a Edge Function que usa Admin API (seguro)
       const { data, error } = await supabase.functions.invoke('register-free-user', {
         body: {
@@ -103,6 +111,10 @@ export const authService = {
    * @returns {Promise<{error: object}>}
    */
   async signOut() {
+    // Limpiar datos de impersonación al cerrar sesión
+    localStorage.removeItem(IMPERSONATION_KEY)
+    localStorage.removeItem(ORIGINAL_SESSION_KEY)
+
     const { error } = await supabase.auth.signOut()
     return { error }
   },
@@ -206,8 +218,14 @@ export const authService = {
     try {
       const originalSessionStr = localStorage.getItem(ORIGINAL_SESSION_KEY)
 
+      // Limpiar localStorage siempre, sin importar el resultado
+      localStorage.removeItem(ORIGINAL_SESSION_KEY)
+      localStorage.removeItem(IMPERSONATION_KEY)
+
       if (!originalSessionStr) {
-        return { success: false, error: 'No hay sesión original guardada' }
+        // No hay sesión original - hacer signOut limpio
+        await supabase.auth.signOut()
+        return { success: true }
       }
 
       const originalSession = JSON.parse(originalSessionStr)
@@ -220,18 +238,20 @@ export const authService = {
 
       if (error) {
         console.error('Error restaurando sesión:', error)
-        return { success: false, error: 'Error al restaurar sesión original' }
+        // Sesión original expirada/inválida - hacer signOut limpio
+        await supabase.auth.signOut()
+        return { success: true }
       }
-
-      // Limpiar localStorage
-      localStorage.removeItem(ORIGINAL_SESSION_KEY)
-      localStorage.removeItem(IMPERSONATION_KEY)
 
       return { success: true }
 
     } catch (error) {
       console.error('Error en exitImpersonation:', error)
-      return { success: false, error: error.message || 'Error al salir de impersonación' }
+      // Asegurar limpieza en caso de error
+      localStorage.removeItem(ORIGINAL_SESSION_KEY)
+      localStorage.removeItem(IMPERSONATION_KEY)
+      await supabase.auth.signOut()
+      return { success: true }
     }
   },
 
