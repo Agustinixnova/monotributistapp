@@ -32,6 +32,11 @@ CREATE INDEX IF NOT EXISTS idx_caja_secundaria_user_fecha
 CREATE INDEX IF NOT EXISTS idx_caja_secundaria_user_tipo
   ON public.caja_secundaria_movimientos(user_id, tipo);
 
+-- UNIQUE parcial: un movimiento principal solo puede tener UN movimiento secundario
+CREATE UNIQUE INDEX IF NOT EXISTS idx_caja_secundaria_mov_principal_unique
+  ON public.caja_secundaria_movimientos (movimiento_principal_id)
+  WHERE movimiento_principal_id IS NOT NULL;
+
 -- Trigger para updated_at
 DROP TRIGGER IF EXISTS tr_caja_secundaria_updated ON public.caja_secundaria_movimientos;
 CREATE TRIGGER tr_caja_secundaria_updated
@@ -43,25 +48,41 @@ CREATE TRIGGER tr_caja_secundaria_updated
 -- ============================================
 ALTER TABLE public.caja_secundaria_movimientos ENABLE ROW LEVEL SECURITY;
 
--- Select: usuarios ven sus propios movimientos
-DROP POLICY IF EXISTS "caja_secundaria_select" ON public.caja_secundaria_movimientos;
-CREATE POLICY "caja_secundaria_select" ON public.caja_secundaria_movimientos
-  FOR SELECT USING (auth.uid() = user_id);
+-- Select: usuarios ven sus propios movimientos o los del empleador
+DROP POLICY IF EXISTS "select_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos;
+CREATE POLICY "select_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos
+  FOR SELECT USING (
+    user_id = public.get_caja_owner_id()
+    OR user_id = auth.uid()
+    OR public.is_full_access()
+  );
 
--- Insert: usuarios insertan sus propios movimientos
-DROP POLICY IF EXISTS "caja_secundaria_insert" ON public.caja_secundaria_movimientos;
-CREATE POLICY "caja_secundaria_insert" ON public.caja_secundaria_movimientos
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- Insert: usuarios insertan sus propios movimientos o los del empleador
+DROP POLICY IF EXISTS "insert_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos;
+CREATE POLICY "insert_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos
+  FOR INSERT WITH CHECK (
+    user_id = public.get_caja_owner_id()
+    OR user_id = auth.uid()
+    OR public.is_full_access()
+  );
 
--- Update: usuarios actualizan sus propios movimientos
-DROP POLICY IF EXISTS "caja_secundaria_update" ON public.caja_secundaria_movimientos;
-CREATE POLICY "caja_secundaria_update" ON public.caja_secundaria_movimientos
-  FOR UPDATE USING (auth.uid() = user_id);
+-- Update: usuarios actualizan sus propios movimientos o los del empleador
+DROP POLICY IF EXISTS "update_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos;
+CREATE POLICY "update_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos
+  FOR UPDATE USING (
+    user_id = public.get_caja_owner_id()
+    OR user_id = auth.uid()
+    OR public.is_full_access()
+  );
 
--- Delete: usuarios eliminan sus propios movimientos
-DROP POLICY IF EXISTS "caja_secundaria_delete" ON public.caja_secundaria_movimientos;
-CREATE POLICY "caja_secundaria_delete" ON public.caja_secundaria_movimientos
-  FOR DELETE USING (auth.uid() = user_id);
+-- Delete: usuarios eliminan sus propios movimientos o los del empleador
+DROP POLICY IF EXISTS "delete_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos;
+CREATE POLICY "delete_caja_secundaria_movimientos" ON public.caja_secundaria_movimientos
+  FOR DELETE USING (
+    user_id = public.get_caja_owner_id()
+    OR user_id = auth.uid()
+    OR public.is_full_access()
+  );
 
 -- ============================================
 -- FUNCIÓN: Obtener saldo de caja secundaria

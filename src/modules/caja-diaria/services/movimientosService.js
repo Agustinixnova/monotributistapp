@@ -79,7 +79,7 @@ export async function getMovimientoDetalle(movimientoId) {
             .from('profiles')
             .select('nombre, apellido, email')
             .eq('id', currentUser.id)
-            .single()
+            .maybeSingle()
 
           if (miPerfil) {
             const nombreCompleto = [miPerfil.nombre, miPerfil.apellido].filter(Boolean).join(' ').trim()
@@ -117,7 +117,7 @@ export async function getMovimientoDetalle(movimientoId) {
               .from('profiles')
               .select('nombre, apellido, email')
               .eq('id', data.created_by_id)
-              .single()
+              .maybeSingle()
 
             if (perfil) {
               const nombreCompleto = [perfil.nombre, perfil.apellido].filter(Boolean).join(' ').trim()

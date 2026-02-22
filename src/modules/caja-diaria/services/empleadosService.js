@@ -343,6 +343,7 @@ export async function getEffectiveUserId() {
       if (contextoSeleccionado === 'propio') {
         return {
           userId: user.id,
+          createdById: user.id,
           esDuenio: true, // Es dueño de su propia caja
           permisos: {
             anular_movimientos: true,
@@ -363,8 +364,10 @@ export async function getEffectiveUserId() {
       }
 
       // Por defecto o si eligió 'empleador', usar el ID del dueño
+      // createdById = ID real del empleado (quien hizo la acción)
       return {
         userId: data.duenio_id,
+        createdById: user.id,
         esDuenio: false,
         permisos: data.permisos,
         error: null,
@@ -375,6 +378,7 @@ export async function getEffectiveUserId() {
     // Si no es empleado, es dueño - usar su propio ID
     return {
       userId: user.id,
+      createdById: user.id,
       esDuenio: true,
       permisos: {
         anular_movimientos: true,
